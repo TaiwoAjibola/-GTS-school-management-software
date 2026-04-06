@@ -337,6 +337,33 @@ export const addStudentStatus = async (req, res, next) => {
   }
 }
 
+export const deleteStudent = async (req, res, next) => {
+  const client = await pool.connect()
+  try {
+    const studentId = Number(req.params.studentId)
+    if (!studentId) throw httpError(400, 'Invalid studentId')
+
+    const result = await client.query(
+      `SELECT s.user_id FROM students s WHERE s.id = $1`,
+      [studentId]
+    )
+    if (!result.rows.length) throw httpError(404, 'Student not found')
+    const { user_id } = result.rows[0]
+
+    await client.query('BEGIN')
+    // Deleting the user cascades to students and all child records via FK constraints
+    await client.query('DELETE FROM users WHERE id = $1', [user_id])
+    await client.query('COMMIT')
+
+    res.json({ message: 'Student deleted successfully' })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    next(error)
+  } finally {
+    client.release()
+  }
+}
+
 export const removeStudentStatus = async (req, res, next) => {
   try {
     const { studentId, statusId } = req.params

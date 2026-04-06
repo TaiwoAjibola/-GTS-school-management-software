@@ -1599,6 +1599,21 @@ const LecturerDashboard = () => {
                   <button type="button" className="bg-slate-200 rounded-lg py-2" onClick={closeStudentPanel}>Cancel</button>
                 </div>
 
+                <div className="pt-3 border-t border-red-100">
+                  <button
+                    type="button"
+                    className="w-full bg-red-50 text-red-600 border border-red-200 rounded-lg py-2 text-sm font-medium hover:bg-red-100"
+                    onClick={async () => {
+                      if (!window.confirm(`Delete ${selectedStudent.full_name}? This cannot be undone.`)) return
+                      await apiClient.delete(`/students/${selectedStudent.id}`)
+                      setStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id))
+                      closeStudentPanel()
+                    }}
+                  >
+                    Delete Student
+                  </button>
+                </div>
+
                 <div className="pt-4 border-t border-slate-200 space-y-3">
                   <h4 className="font-semibold text-slate-900">Course History & Notes</h4>
                   {studentGraduationProgress ? (

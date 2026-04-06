@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
 	createStudent,
+	deleteStudent,
 	downloadStudentTemplate,
 	enrollStudent,
 	exportStudents,
@@ -33,5 +34,6 @@ router.patch('/:studentId/lifecycle-status', authorize('admin'), updateStudentLi
 router.post('/:studentId/photo', authorize('admin', 'lecturer'), upload.single('file'), uploadStudentPhoto)
 router.post('/:studentId/status', authorize('admin', 'lecturer'), addStudentStatus)
 router.delete('/:studentId/status/:statusId', authorize('admin', 'lecturer'), removeStudentStatus)
+router.delete('/:studentId', authorize('admin'), deleteStudent)
 
 export default router
