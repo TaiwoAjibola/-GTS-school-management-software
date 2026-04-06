@@ -18,7 +18,6 @@ export const createCourse = async (req, res, next) => {
       endDate,
       classDay,
       classTime,
-      recurrenceYears,
     } = req.body
 
     if (!title || !durationWeeks || minAttendanceRequired === undefined) {
@@ -59,10 +58,9 @@ export const createCourse = async (req, res, next) => {
          class_time,
          lecturer_id,
          lecturer_name,
-         created_by,
-         recurrence_years
+         created_by
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         title,
@@ -80,7 +78,6 @@ export const createCourse = async (req, res, next) => {
         lecturerId || null,
         lecturerName || null,
         req.user.userId,
-        recurrenceYears ? Number(recurrenceYears) : null,
       ]
     )
 
