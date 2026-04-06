@@ -13,6 +13,9 @@ build/
 # Uploads (user-generated files)
 server/uploads/
 
+# Backup files
+*.backup
+
 # macOS
 .DS_Store
 
