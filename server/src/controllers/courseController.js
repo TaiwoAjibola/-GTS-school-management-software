@@ -201,7 +201,6 @@ export const updateCourse = async (req, res, next) => {
       endDate = c.end_date,
       classDay = c.class_day,
       classTime = c.class_time,
-      recurrenceYears = c.recurrence_years,
     } = req.body
 
     if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
@@ -222,9 +221,8 @@ export const updateCourse = async (req, res, next) => {
          start_date = $10,
          end_date = $11,
          class_day = $12,
-         class_time = $13,
-         recurrence_years = $14
-       WHERE id = $15`,
+         class_time = $13
+       WHERE id = $14`,
       [
         title,
         description || null,
@@ -239,7 +237,6 @@ export const updateCourse = async (req, res, next) => {
         endDate || null,
         classDay || null,
         classTime || null,
-        recurrenceYears ? Number(recurrenceYears) : null,
         courseId,
       ]
     )

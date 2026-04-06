@@ -61,6 +61,8 @@ const LecturerDashboard = () => {
     lecturerName: '',
     durationWeeks: 6,
     minAttendanceRequired: 4,
+    hasAssignment: false,
+    hasExam: false,
   })
   const [studentForm, setStudentForm] = useState({
     fullName: '',
@@ -432,7 +434,7 @@ const LecturerDashboard = () => {
         ...courseForm,
         lecturerId: user.id,
       })
-      setCourseForm({ title: '', courseCode: '', lecturerName: '', durationWeeks: 6, minAttendanceRequired: 4 })
+      setCourseForm({ title: '', courseCode: '', lecturerName: '', durationWeeks: 6, minAttendanceRequired: 4, hasAssignment: false, hasExam: false })
       await loadCourses()
       notify('Course created successfully')
     } catch (error) {
@@ -975,6 +977,28 @@ const LecturerDashboard = () => {
               Minimum Attendance Required
               <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="0" value={courseForm.minAttendanceRequired} onChange={(event) => setCourseForm((prev) => ({ ...prev, minAttendanceRequired: Number(event.target.value) }))} required />
             </label>
+
+            <div className="border rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-slate-700">Course Features</p>
+              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded"
+                  checked={courseForm.hasAssignment}
+                  onChange={(e) => setCourseForm((prev) => ({ ...prev, hasAssignment: e.target.checked }))}
+                />
+                Has Assignments
+              </label>
+              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded"
+                  checked={courseForm.hasExam}
+                  onChange={(e) => setCourseForm((prev) => ({ ...prev, hasExam: e.target.checked }))}
+                />
+                Has Exam
+              </label>
+            </div>
 
             <button className="w-full bg-slate-900 text-white rounded-lg py-2">Save Course</button>
           </form>
