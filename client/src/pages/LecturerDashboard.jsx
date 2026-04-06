@@ -700,6 +700,12 @@ const LecturerDashboard = () => {
       comments: studentEditForm.comments,
       cohortId: studentEditForm.cohort_id ? Number(studentEditForm.cohort_id) : null,
     })
+    // If status changed, also call the lifecycle endpoint so email notifications fire
+    if (studentEditForm.status !== selectedStudent?.status) {
+      await apiClient.patch(`/students/${studentEditForm.id}/lifecycle-status`, {
+        status: studentEditForm.status,
+      })
+    }
     await Promise.all([loadAllStudents(), loadCourseScopedData(selectedCourseId)])
     closeStudentPanel()
     notify('Student updated')
