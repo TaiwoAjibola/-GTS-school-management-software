@@ -9,6 +9,7 @@ import dashboardRoutes from './dashboardRoutes.js'
 import batchRoutes from './batchRoutes.js'
 import enrollmentRoutes from './enrollmentRoutes.js'
 import cohortRoutes from './cohortRoutes.js'
+import coursePlanRoutes from './coursePlanRoutes.js'
 
 const router = Router()
 
@@ -26,5 +27,6 @@ router.use('/dashboard', dashboardRoutes)
 router.use('/batches', batchRoutes)
 router.use('/enrollments', enrollmentRoutes)
 router.use('/cohorts', cohortRoutes)
+router.use('/course-plans', coursePlanRoutes)
 
 export default router

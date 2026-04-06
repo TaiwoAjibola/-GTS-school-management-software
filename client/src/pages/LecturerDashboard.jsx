@@ -57,18 +57,10 @@ const LecturerDashboard = () => {
 
   const [courseForm, setCourseForm] = useState({
     title: '',
-    description: '',
     courseCode: '',
+    lecturerName: '',
     durationWeeks: 6,
     minAttendanceRequired: 4,
-    hasAssignment: false,
-    hasExam: false,
-    lecturerName: '',
-    startDate: '',
-    endDate: '',
-    classDay: 'Tuesday',
-    classTime: '09:00',
-    recurrenceYears: '',
   })
   const [studentForm, setStudentForm] = useState({
     fullName: '',
@@ -112,6 +104,12 @@ const LecturerDashboard = () => {
   const [courseStudents, setCourseStudents] = useState([])
   const [coursesView, setCoursesView] = useState('list') // 'list' | 'calendar'
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
+  const [coursesTab, setCoursesTab] = useState('courses') // 'courses' | 'plans'
+  const [plans, setPlans] = useState([])
+  const [selectedPlan, setSelectedPlan] = useState(null)
+  const [planForm, setPlanForm] = useState({ name: '', year: new Date().getFullYear() })
+  const [planItemForm, setPlanItemForm] = useState({ courseId: '', startDate: '', endDate: '' })
+  const [planLoading, setPlanLoading] = useState(false)
   const [cohorts, setCohorts] = useState([])
   const [cohortForm, setCohortForm] = useState({ name: '', startDate: '', endDate: '' })
   const [editingCohortId, setEditingCohortId] = useState(null)
@@ -434,21 +432,7 @@ const LecturerDashboard = () => {
         ...courseForm,
         lecturerId: user.id,
       })
-      setCourseForm({
-        title: '',
-        description: '',
-        courseCode: '',
-        durationWeeks: 6,
-        minAttendanceRequired: 4,
-        hasAssignment: false,
-        hasExam: false,
-        lecturerName: '',
-        startDate: '',
-        endDate: '',
-        classDay: 'Tuesday',
-        classTime: '09:00',
-        recurrenceYears: '',
-      })
+      setCourseForm({ title: '', courseCode: '', lecturerName: '', durationWeeks: 6, minAttendanceRequired: 4 })
       await loadCourses()
       notify('Course created successfully')
     } catch (error) {
@@ -945,6 +929,23 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'courses' ? (
+        <div className="space-y-6">
+          {/* Tab switcher */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+            {['courses', 'plans'].map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setCoursesTab(tab)}
+                className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${coursesTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                {tab === 'courses' ? 'Courses' : 'Plans'}
+              </button>
+            ))}
+          </div>
+
+          {/* ── COURSES TAB ── */}
+          {coursesTab === 'courses' ? (
         <div className="grid lg:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-6">
           <form onSubmit={createCourse} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
@@ -953,11 +954,6 @@ const LecturerDashboard = () => {
             <label className="text-sm text-slate-600 block">
               Course Title
               <input className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Course title" value={courseForm.title} onChange={(event) => setCourseForm((prev) => ({ ...prev, title: event.target.value }))} required />
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Description
-              <textarea className="mt-1 w-full border rounded-lg px-3 py-2" rows={3} placeholder="Course description" value={courseForm.description} onChange={(event) => setCourseForm((prev) => ({ ...prev, description: event.target.value }))} />
             </label>
 
             <label className="text-sm text-slate-600 block">
@@ -979,75 +975,6 @@ const LecturerDashboard = () => {
               Minimum Attendance Required
               <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="0" value={courseForm.minAttendanceRequired} onChange={(event) => setCourseForm((prev) => ({ ...prev, minAttendanceRequired: Number(event.target.value) }))} required />
             </label>
-
-            <label className="text-sm text-slate-600 block">
-              Course Start Date
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" type="date" value={courseForm.startDate} onChange={(event) => setCourseForm((prev) => ({ ...prev, startDate: event.target.value }))} />
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Course End Date
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" type="date" value={courseForm.endDate} onChange={(event) => setCourseForm((prev) => ({ ...prev, endDate: event.target.value }))} />
-              {suggestedCourseEndDate ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  Suggested from start + duration/class day: {suggestedCourseEndDate}
-                  <button
-                    type="button"
-                    className="ml-2 text-slate-900 underline"
-                    onClick={() => setCourseForm((prev) => ({ ...prev, endDate: suggestedCourseEndDate }))}
-                  >
-                    Use suggested
-                  </button>
-                </p>
-              ) : null}
-            </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm text-slate-600 block">
-                Class Day
-                <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.classDay} onChange={(event) => setCourseForm((prev) => ({ ...prev, classDay: event.target.value }))}>
-                  <option>Monday</option>
-                  <option>Tuesday</option>
-                  <option>Wednesday</option>
-                  <option>Thursday</option>
-                  <option>Friday</option>
-                  <option>Saturday</option>
-                  <option>Sunday</option>
-                </select>
-              </label>
-
-              <label className="text-sm text-slate-600 block">
-                Class Time
-                <input className="mt-1 w-full border rounded-lg px-3 py-2" type="time" value={courseForm.classTime} onChange={(event) => setCourseForm((prev) => ({ ...prev, classTime: event.target.value }))} />
-              </label>
-            </div>
-
-            <label className="text-sm text-slate-600 block">
-              Recurrence (years)
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="1" placeholder="e.g. 2 (optional)" value={courseForm.recurrenceYears} onChange={(event) => setCourseForm((prev) => ({ ...prev, recurrenceYears: event.target.value }))} />
-              <p className="mt-1 text-xs text-slate-400">How many years before this course repeats (leave blank if one-off)</p>
-            </label>
-
-            <div className="border rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-slate-700">Course Features</p>              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded"
-                  checked={Boolean(courseForm.hasAssignment)}
-                  onChange={(event) => setCourseForm((prev) => ({ ...prev, hasAssignment: event.target.checked }))}
-                />
-                Has Assignments
-              </label>
-              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded"
-                  checked={Boolean(courseForm.hasExam)}
-                  onChange={(event) => setCourseForm((prev) => ({ ...prev, hasExam: event.target.checked }))}
-                />
-                Has Exam
-              </label>
-            </div>
 
             <button className="w-full bg-slate-900 text-white rounded-lg py-2">Save Course</button>
           </form>
@@ -1279,6 +1206,194 @@ const LecturerDashboard = () => {
           </div>
         </div>
       ) : null}
+
+      {/* ── PLANS TAB ── */}
+      {coursesTab === 'plans' ? (() => {
+        const loadPlans = async () => {
+          const res = await apiClient.get('/course-plans')
+          setPlans(res.data)
+        }
+        const openPlan = async (plan) => {
+          setPlanLoading(true)
+          const res = await apiClient.get(`/course-plans/${plan.id}`)
+          setSelectedPlan(res.data)
+          setPlanItemForm({ courseId: '', startDate: '', endDate: '' })
+          setPlanLoading(false)
+        }
+        const createPlan = async (ev) => {
+          ev.preventDefault()
+          if (!planForm.name || !planForm.year) return
+          const res = await apiClient.post('/course-plans', { name: planForm.name, year: Number(planForm.year) })
+          setPlanForm({ name: '', year: new Date().getFullYear() })
+          const updated = await apiClient.get('/course-plans')
+          setPlans(updated.data)
+          openPlan(res.data)
+        }
+        const deletePlan = async (planId) => {
+          if (!window.confirm('Delete this plan?')) return
+          await apiClient.delete(`/course-plans/${planId}`)
+          if (selectedPlan?.id === planId) setSelectedPlan(null)
+          const updated = await apiClient.get('/course-plans')
+          setPlans(updated.data)
+        }
+        const addItem = async (ev) => {
+          ev.preventDefault()
+          if (!selectedPlan || !planItemForm.courseId) return
+          await apiClient.post(`/course-plans/${selectedPlan.id}/items`, {
+            courseId: Number(planItemForm.courseId),
+            startDate: planItemForm.startDate || null,
+            endDate: planItemForm.endDate || null,
+          })
+          setPlanItemForm({ courseId: '', startDate: '', endDate: '' })
+          const res = await apiClient.get(`/course-plans/${selectedPlan.id}`)
+          setSelectedPlan(res.data)
+        }
+        const removeItem = async (itemId) => {
+          await apiClient.delete(`/course-plans/${selectedPlan.id}/items/${itemId}`)
+          const res = await apiClient.get(`/course-plans/${selectedPlan.id}`)
+          setSelectedPlan(res.data)
+        }
+        // Load plans on first render of this tab (only once)
+        if (plans.length === 0 && !planLoading) {
+          setPlanLoading(true)
+          apiClient.get('/course-plans').then((r) => { setPlans(r.data); setPlanLoading(false) })
+        }
+        return (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-6">
+            {/* Left: create + list */}
+            <div className="space-y-4">
+              <form onSubmit={createPlan} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+                <h3 className="font-semibold text-slate-900">New Plan</h3>
+                <input
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Plan name (e.g. 2026 Academic Year)"
+                  value={planForm.name}
+                  onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))}
+                  required
+                />
+                <input
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  type="number"
+                  placeholder="Year"
+                  value={planForm.year}
+                  onChange={(e) => setPlanForm((p) => ({ ...p, year: e.target.value }))}
+                  required
+                />
+                <button className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm">Create Plan</button>
+              </form>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                <h3 className="font-semibold text-slate-900 mb-3">All Plans</h3>
+                {plans.length === 0 && !planLoading ? (
+                  <p className="text-sm text-slate-400">No plans yet. Create one above.</p>
+                ) : null}
+                {plans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`flex items-center justify-between rounded-xl px-3 py-3 cursor-pointer border transition-colors ${selectedPlan?.id === plan.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                    onClick={() => openPlan(plan)}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{plan.name}</p>
+                      <p className="text-xs text-slate-500">{plan.year} · {plan.item_count} course{plan.item_count !== 1 ? 's' : ''}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); deletePlan(plan.id) }}
+                      className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: plan detail */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              {!selectedPlan ? (
+                <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
+                  Select or create a plan to view its courses
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <h3 className="font-semibold text-slate-900 text-lg">{selectedPlan.name}</h3>
+                    <p className="text-sm text-slate-500">{selectedPlan.year} · {selectedPlan.items?.length || 0} courses planned</p>
+                  </div>
+
+                  {/* Add course to plan */}
+                  <form onSubmit={addItem} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-medium text-slate-700">Add Course to Plan</p>
+                    <select
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      value={planItemForm.courseId}
+                      onChange={(e) => setPlanItemForm((p) => ({ ...p, courseId: e.target.value }))}
+                      required
+                    >
+                      <option value="">Select a course</option>
+                      {courses.map((c) => (
+                        <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} — ` : ''}{c.title}</option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-xs text-slate-500 block">
+                        Start Date
+                        <input type="date" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={planItemForm.startDate} onChange={(e) => setPlanItemForm((p) => ({ ...p, startDate: e.target.value }))} />
+                      </label>
+                      <label className="text-xs text-slate-500 block">
+                        End Date
+                        <input type="date" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={planItemForm.endDate} onChange={(e) => setPlanItemForm((p) => ({ ...p, endDate: e.target.value }))} />
+                      </label>
+                    </div>
+                    <button className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm">Add to Plan</button>
+                  </form>
+
+                  {/* Plan items */}
+                  {selectedPlan.items?.length === 0 ? (
+                    <p className="text-sm text-slate-400">No courses in this plan yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">Planned Courses</p>
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-slate-500 border-b border-slate-200">
+                          <tr>
+                            <th className="pb-2">Code</th>
+                            <th className="pb-2">Course</th>
+                            <th className="pb-2">Lecturer</th>
+                            <th className="pb-2">Start</th>
+                            <th className="pb-2">End</th>
+                            <th className="pb-2">Weeks</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedPlan.items.map((item) => (
+                            <tr key={item.id} className="border-t border-slate-100">
+                              <td className="py-2 text-slate-500">{item.course_code || '-'}</td>
+                              <td className="py-2 font-medium text-slate-900">{item.course_title}</td>
+                              <td className="py-2 text-slate-600">{item.lecturer_name || '-'}</td>
+                              <td className="py-2 text-slate-600">{item.start_date ? new Date(item.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                              <td className="py-2 text-slate-600">{item.end_date ? new Date(item.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                              <td className="py-2 text-slate-600">{item.duration_weeks}w</td>
+                              <td className="py-2">
+                                <button type="button" onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })() : null}
+
+    </div>
+) : null}
 
       {section === 'courses' ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mt-6 overflow-auto">
