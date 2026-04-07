@@ -4,7 +4,7 @@ import { httpError } from '../utils/httpError.js'
 export const listPlans = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT cp.id, cp.name, cp.year, cp.created_at,
+      `SELECT cp.id, cp.name, cp.year, cp.is_active, cp.created_at,
               COUNT(cpi.id)::int AS item_count
        FROM course_plans cp
        LEFT JOIN course_plan_items cpi ON cpi.plan_id = cp.id
@@ -115,6 +115,95 @@ export const removePlanItem = async (req, res, next) => {
     const { planId, itemId } = req.params
     await query(`DELETE FROM course_plan_items WHERE id = $1 AND plan_id = $2`, [itemId, planId])
     res.json({ message: 'Item removed' })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const setActivePlan = async (req, res, next) => {
+  try {
+    const planId = Number(req.params.planId)
+    if (!planId) throw httpError(400, 'Invalid planId')
+
+    const existing = await query(`SELECT id FROM course_plans WHERE id = $1`, [planId])
+    if (!existing.rows.length) throw httpError(404, 'Plan not found')
+
+    // Clear all active flags then set this one
+    await query(`UPDATE course_plans SET is_active = FALSE`)
+    await query(`UPDATE course_plans SET is_active = TRUE WHERE id = $1`, [planId])
+
+    res.json({ message: 'Active plan updated', planId })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const updatePlan = async (req, res, next) => {
+  try {
+    const planId = Number(req.params.planId)
+    if (!planId) throw httpError(400, 'Invalid planId')
+
+    const { name, year } = req.body
+    if (!name || !year) throw httpError(400, 'name and year are required')
+
+    const result = await query(
+      `UPDATE course_plans SET name = $1, year = $2 WHERE id = $3 RETURNING *`,
+      [name.trim(), Number(year), planId]
+    )
+    if (!result.rows.length) throw httpError(404, 'Plan not found')
+    res.json(result.rows[0])
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Returns students eligible to enroll in courses under a given plan.
+// Rule: cohorts whose start year is plan_year or plan_year-1, PLUS students
+// who have at least one failed enrolment (re-enrollees from any previous year).
+export const getEligibleStudents = async (req, res, next) => {
+  try {
+    const planId = Number(req.params.planId)
+    if (!planId) throw httpError(400, 'Invalid planId')
+
+    const planResult = await query(`SELECT year FROM course_plans WHERE id = $1`, [planId])
+    if (!planResult.rows.length) throw httpError(404, 'Plan not found')
+    const planYear = Number(planResult.rows[0].year)
+
+    // Students from cohorts matching plan year and plan year - 1
+    const cohortStudents = await query(
+      `SELECT DISTINCT s.id, s.full_name, s.matric_no, c.name AS cohort_name,
+              EXTRACT(YEAR FROM c.start_date)::int AS cohort_year,
+              'cohort' AS reason
+       FROM students s
+       JOIN cohorts c ON c.id = s.cohort_id
+       WHERE EXTRACT(YEAR FROM c.start_date) IN ($1, $2)
+         AND s.status = 'Active'`,
+      [planYear, planYear - 1]
+    )
+
+    // Students with at least one failed enrolment not in the above cohort range
+    const failedStudents = await query(
+      `SELECT DISTINCT s.id, s.full_name, s.matric_no,
+              COALESCE(c.name, 'No cohort') AS cohort_name,
+              EXTRACT(YEAR FROM COALESCE(c.start_date, NOW()))::int AS cohort_year,
+              'failed_reenroll' AS reason
+       FROM students s
+       LEFT JOIN cohorts c ON c.id = s.cohort_id
+       WHERE s.status = 'Active'
+         AND EXISTS (
+           SELECT 1 FROM enrollments e WHERE e.student_id = s.id AND e.result_status = 'Fail'
+         )
+         AND (c.id IS NULL OR EXTRACT(YEAR FROM c.start_date) NOT IN ($1, $2))`,
+      [planYear, planYear - 1]
+    )
+
+    const seen = new Set(cohortStudents.rows.map((r) => r.id))
+    const combined = [
+      ...cohortStudents.rows,
+      ...failedStudents.rows.filter((r) => !seen.has(r.id)),
+    ]
+
+    res.json({ planYear, students: combined })
   } catch (error) {
     next(error)
   }

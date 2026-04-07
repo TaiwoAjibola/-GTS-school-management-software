@@ -360,3 +360,50 @@ export const enrollStudentToCourse = async (req, res, next) => {
     client.release()
   }
 }
+
+// Bulk-enroll multiple students into a course in one request.
+// Skips students already actively enrolled (no error thrown for them).
+export const bulkEnrollStudents = async (req, res, next) => {
+  const client = await pool.connect()
+  try {
+    const { courseId, studentIds } = req.body
+    if (!courseId || !Array.isArray(studentIds) || studentIds.length === 0) {
+      throw httpError(400, 'courseId and a non-empty studentIds array are required')
+    }
+
+    const courseResult = await client.query(`SELECT id FROM courses WHERE id = $1`, [courseId])
+    if (!courseResult.rows.length) throw httpError(404, 'Course not found')
+
+    await client.query('BEGIN')
+
+    let enrolled = 0
+    let skipped = 0
+
+    for (const studentId of studentIds) {
+      const existing = await client.query(
+        `SELECT id FROM enrollments WHERE student_id = $1 AND course_id = $2 AND status = 'active' LIMIT 1`,
+        [studentId, courseId]
+      )
+      if (existing.rows.length) { skipped++; continue }
+
+      await client.query(
+        `INSERT INTO enrollments (course_id, batch_id, student_id, status) VALUES ($1, NULL, $2, 'active')`,
+        [courseId, studentId]
+      )
+      await client.query(
+        `INSERT INTO student_activity_logs (student_id, action, details, actor_user_id)
+         VALUES ($1, 'enrolled_to_course', $2::jsonb, $3)`,
+        [studentId, JSON.stringify({ courseId }), req.user.userId]
+      )
+      enrolled++
+    }
+
+    await client.query('COMMIT')
+    res.status(201).json({ enrolled, skipped })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    next(error)
+  } finally {
+    client.release()
+  }
+}

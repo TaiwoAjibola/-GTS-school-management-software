@@ -112,6 +112,8 @@ const LecturerDashboard = () => {
   const [planForm, setPlanForm] = useState({ name: '', year: new Date().getFullYear() })
   const [planItemForm, setPlanItemForm] = useState({ courseId: '', startDate: '', endDate: '' })
   const [planLoading, setPlanLoading] = useState(false)
+  const [editingPlan, setEditingPlan] = useState(null) // { id, name, year }
+  const [eligibleStudents, setEligibleStudents] = useState([])
   const [cohorts, setCohorts] = useState([])
   const [cohortForm, setCohortForm] = useState({ name: '', startDate: '', endDate: '' })
   const [editingCohortId, setEditingCohortId] = useState(null)
@@ -1239,8 +1241,12 @@ const LecturerDashboard = () => {
         }
         const openPlan = async (plan) => {
           setPlanLoading(true)
-          const res = await apiClient.get(`/course-plans/${plan.id}`)
-          setSelectedPlan(res.data)
+          const [planRes, eligRes] = await Promise.all([
+            apiClient.get(`/course-plans/${plan.id}`),
+            apiClient.get(`/course-plans/${plan.id}/eligible-students`),
+          ])
+          setSelectedPlan(planRes.data)
+          setEligibleStudents(eligRes.data.students || [])
           setPlanItemForm({ courseId: '', startDate: '', endDate: '' })
           setPlanLoading(false)
         }
@@ -1253,10 +1259,30 @@ const LecturerDashboard = () => {
           setPlans(updated.data)
           openPlan(res.data)
         }
+        const savePlanEdit = async (ev) => {
+          ev.preventDefault()
+          await apiClient.put(`/course-plans/${editingPlan.id}`, { name: editingPlan.name, year: Number(editingPlan.year) })
+          setEditingPlan(null)
+          const updated = await apiClient.get('/course-plans')
+          setPlans(updated.data)
+          if (selectedPlan?.id === editingPlan.id) {
+            const res = await apiClient.get(`/course-plans/${editingPlan.id}`)
+            setSelectedPlan(res.data)
+          }
+        }
+        const setActive = async (planId) => {
+          await apiClient.patch(`/course-plans/${planId}/set-active`)
+          const updated = await apiClient.get('/course-plans')
+          setPlans(updated.data)
+          if (selectedPlan?.id === planId) {
+            setSelectedPlan((p) => p ? { ...p, is_active: true } : p)
+          }
+          notify('Active plan updated')
+        }
         const deletePlan = async (planId) => {
           if (!window.confirm('Delete this plan?')) return
           await apiClient.delete(`/course-plans/${planId}`)
-          if (selectedPlan?.id === planId) setSelectedPlan(null)
+          if (selectedPlan?.id === planId) { setSelectedPlan(null); setEligibleStudents([]) }
           const updated = await apiClient.get('/course-plans')
           setPlans(updated.data)
         }
@@ -1286,6 +1312,7 @@ const LecturerDashboard = () => {
           <div className="grid lg:grid-cols-[320px_1fr] gap-6">
             {/* Left: create + list */}
             <div className="space-y-4">
+              {/* Create plan form */}
               <form onSubmit={createPlan} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <h3 className="font-semibold text-slate-900">New Plan</h3>
                 <input
@@ -1306,28 +1333,75 @@ const LecturerDashboard = () => {
                 <button className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm">Create Plan</button>
               </form>
 
+              {/* Plan list */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
                 <h3 className="font-semibold text-slate-900 mb-3">All Plans</h3>
                 {plans.length === 0 && !planLoading ? (
                   <p className="text-sm text-slate-400">No plans yet. Create one above.</p>
                 ) : null}
                 {plans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className={`flex items-center justify-between rounded-xl px-3 py-3 cursor-pointer border transition-colors ${selectedPlan?.id === plan.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`}
-                    onClick={() => openPlan(plan)}
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{plan.name}</p>
-                      <p className="text-xs text-slate-500">{plan.year} · {plan.item_count} course{plan.item_count !== 1 ? 's' : ''}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); deletePlan(plan.id) }}
-                      className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
+                  <div key={plan.id}>
+                    {editingPlan?.id === plan.id ? (
+                      <form onSubmit={savePlanEdit} className="border border-slate-300 rounded-xl p-3 space-y-2 bg-slate-50">
+                        <input
+                          className="w-full border rounded-lg px-3 py-1.5 text-sm"
+                          value={editingPlan.name}
+                          onChange={(e) => setEditingPlan((p) => ({ ...p, name: e.target.value }))}
+                          required
+                        />
+                        <input
+                          type="number"
+                          className="w-full border rounded-lg px-3 py-1.5 text-sm"
+                          value={editingPlan.year}
+                          onChange={(e) => setEditingPlan((p) => ({ ...p, year: e.target.value }))}
+                          required
+                        />
+                        <div className="flex gap-2">
+                          <button type="submit" className="flex-1 bg-slate-900 text-white rounded-lg py-1.5 text-xs">Save</button>
+                          <button type="button" onClick={() => setEditingPlan(null)} className="flex-1 bg-slate-100 text-slate-700 rounded-lg py-1.5 text-xs">Cancel</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div
+                        className={`flex items-start justify-between rounded-xl px-3 py-3 cursor-pointer border transition-colors ${selectedPlan?.id === plan.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                        onClick={() => openPlan(plan)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-slate-900 truncate">{plan.name}</p>
+                            {plan.is_active ? (
+                              <span className="shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 font-medium">Active</span>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-slate-500">{plan.year} · {plan.item_count} course{plan.item_count !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2 shrink-0">
+                          {!plan.is_active ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setActive(plan.id) }}
+                              className="text-emerald-600 hover:text-emerald-800 text-xs px-2 py-1 rounded-lg hover:bg-emerald-50"
+                            >
+                              Set Active
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setEditingPlan({ id: plan.id, name: plan.name, year: plan.year }) }}
+                            className="text-slate-500 hover:text-slate-800 text-xs px-2 py-1 rounded-lg hover:bg-slate-100"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deletePlan(plan.id) }}
+                            className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1341,10 +1415,44 @@ const LecturerDashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 text-lg">{selectedPlan.name}</h3>
-                    <p className="text-sm text-slate-500">{selectedPlan.year} · {selectedPlan.items?.length || 0} courses planned</p>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-slate-900 text-lg">{selectedPlan.name}</h3>
+                        {selectedPlan.is_active ? (
+                          <span className="rounded-full bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 font-medium">Active Plan</span>
+                        ) : null}
+                      </div>
+                      <p className="text-sm text-slate-500">{selectedPlan.year} · {selectedPlan.items?.length || 0} courses planned</p>
+                    </div>
                   </div>
+
+                  {/* Eligible students summary */}
+                  {eligibleStudents.length > 0 ? (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                      <p className="text-sm font-medium text-blue-800 mb-1">
+                        {eligibleStudents.length} Eligible Student{eligibleStudents.length !== 1 ? 's' : ''} for {selectedPlan.year}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Includes cohorts {selectedPlan.year - 1}–{selectedPlan.year} plus any student with a prior failed result.
+                      </p>
+                      <details className="mt-2">
+                        <summary className="text-xs text-blue-700 cursor-pointer select-none">View list</summary>
+                        <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                          {eligibleStudents.map((s) => (
+                            <div key={s.id} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-800">{s.full_name} {s.matric_no ? `(${s.matric_no})` : ''}</span>
+                              <span className={`rounded-full px-2 py-0.5 ${s.reason === 'failed_reenroll' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                {s.reason === 'failed_reenroll' ? 'Re-enroll' : s.cohort_name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">No eligible students found for cohort years {selectedPlan.year - 1}–{selectedPlan.year}.</p>
+                  )}
 
                   {/* Add course to plan */}
                   <form onSubmit={addItem} className="border border-slate-200 rounded-xl p-4 space-y-3">
@@ -1373,7 +1481,7 @@ const LecturerDashboard = () => {
                     <button className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm">Add to Plan</button>
                   </form>
 
-                  {/* Plan items */}
+                  {/* Plan items table */}
                   {selectedPlan.items?.length === 0 ? (
                     <p className="text-sm text-slate-400">No courses in this plan yet.</p>
                   ) : (

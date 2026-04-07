@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   enrollStudentToBatch,
   enrollStudentToCourse,
+  bulkEnrollStudents,
   getStudentHistory,
   listEnrollmentCandidates,
   listEnrollmentsByBatch,
@@ -15,6 +16,7 @@ const router = Router()
 router.use(authenticate)
 router.post('/', authorize('admin', 'lecturer'), enrollStudentToBatch)
 router.post('/enroll', authorize('admin', 'lecturer'), enrollStudentToCourse)
+router.post('/enroll-bulk', authorize('admin', 'lecturer'), bulkEnrollStudents)
 router.get('/candidates', authorize('admin', 'lecturer'), listEnrollmentCandidates)
 router.get('/course/:courseId', authorize('admin', 'lecturer'), listEnrollmentsByCourse)
 router.get('/batch/:batchId', authorize('admin', 'lecturer'), listEnrollmentsByBatch)

@@ -73,6 +73,8 @@ export default function CoursePage() {
   const [activeTab, setActiveTab] = useState('current')
   const [allStudents, setAllStudents] = useState([])
   const [enrollSearch, setEnrollSearch] = useState('')
+  const [enrollCohortFilter, setEnrollCohortFilter] = useState('')
+  const [selectedEnrollIds, setSelectedEnrollIds] = useState(new Set())
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState(null)
@@ -271,10 +273,22 @@ export default function CoursePage() {
     return allStudents.filter(
       (s) =>
         !enrolledStudentIds.has(s.id) &&
-        (s.full_name.toLowerCase().includes(search) ||
+        (enrollCohortFilter === '' || String(s.cohort_id) === enrollCohortFilter) &&
+        (search === '' ||
+          s.full_name.toLowerCase().includes(search) ||
           (s.matric_no || '').toLowerCase().includes(search))
     )
-  }, [allStudents, enrolledStudentIds, enrollSearch])
+  }, [allStudents, enrolledStudentIds, enrollSearch, enrollCohortFilter])
+
+  const enrollCohorts = useMemo(() => {
+    const map = new Map()
+    allStudents.forEach((s) => {
+      if (s.cohort_id && !map.has(s.cohort_id)) {
+        map.set(s.cohort_id, s.cohort_name || `Cohort #${s.cohort_id}`)
+      }
+    })
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [allStudents])
 
   if (loading) {
     return (
@@ -487,45 +501,133 @@ export default function CoursePage() {
             </tbody>
           </table>
 
-          {/* Enroll a student */}
+          {/* Enroll students */}
           <div className="border-t border-slate-100 mt-5 pt-5">
-            <h4 className="font-semibold text-slate-900 text-sm mb-3">Enroll a Student</h4>
-            <input
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-3"
-              placeholder="Search by name or matric…"
-              value={enrollSearch}
-              onChange={(e) => setEnrollSearch(e.target.value)}
-            />
-            {enrollSearch.length > 0 ? (
-              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
-                {unenrolledStudents.slice(0, 15).map((s) => (
-                  <div key={s.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                    <div>
-                      <span className="text-sm font-medium text-slate-900">{s.full_name}</span>
-                      {s.matric_no ? <span className="text-xs text-slate-500 ml-2">{s.matric_no}</span> : null}
-                    </div>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await apiClient.post('/enrollments/enroll', { studentId: s.id, courseId: Number(courseId) })
-                          await loadAll()
-                          setEnrollSearch('')
-                          notify('Student enrolled successfully')
-                        } catch (err) {
-                          notify(err?.response?.data?.message || 'Enrollment failed')
-                        }
-                      }}
-                      className="text-xs bg-slate-900 text-white rounded-lg px-3 py-1"
-                    >
-                      Enroll
-                    </button>
-                  </div>
+            <h4 className="font-semibold text-slate-900 text-sm mb-3">Enroll Students</h4>
+
+            {/* Filters */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              <select
+                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px]"
+                value={enrollCohortFilter}
+                onChange={(e) => { setEnrollCohortFilter(e.target.value); setSelectedEnrollIds(new Set()) }}
+              >
+                <option value="">All Cohorts</option>
+                {enrollCohorts.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
                 ))}
-                {unenrolledStudents.length === 0 ? (
-                  <p className="text-sm text-slate-400 p-3">No matching students to enroll.</p>
-                ) : null}
+              </select>
+              <input
+                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px]"
+                placeholder="Search by name or matric…"
+                value={enrollSearch}
+                onChange={(e) => { setEnrollSearch(e.target.value); setSelectedEnrollIds(new Set()) }}
+              />
+            </div>
+
+            {/* Bulk action bar */}
+            {selectedEnrollIds.size > 0 ? (
+              <div className="flex items-center justify-between bg-slate-900 text-white rounded-xl px-4 py-2 mb-3 text-sm">
+                <span>{selectedEnrollIds.size} student{selectedEnrollIds.size !== 1 ? 's' : ''} selected</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await apiClient.post('/enrollments/enroll-bulk', {
+                          courseId: Number(courseId),
+                          studentIds: Array.from(selectedEnrollIds),
+                        })
+                        await loadAll()
+                        setSelectedEnrollIds(new Set())
+                        notify(`Enrolled ${res.data.enrolled} student${res.data.enrolled !== 1 ? 's' : ''}${res.data.skipped ? ` (${res.data.skipped} already enrolled)` : ''}`)
+                      } catch (err) {
+                        notify(err?.response?.data?.message || 'Bulk enroll failed')
+                      }
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-600 rounded-lg px-3 py-1 text-xs font-medium"
+                  >
+                    Enroll Selected ({selectedEnrollIds.size})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEnrollIds(new Set())}
+                    className="bg-white/20 hover:bg-white/30 rounded-lg px-3 py-1 text-xs"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             ) : null}
+
+            {/* Student list with checkboxes */}
+            {(enrollSearch.length > 0 || enrollCohortFilter !== '') ? (
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                {/* Select all header */}
+                {unenrolledStudents.length > 0 ? (
+                  <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded"
+                      checked={unenrolledStudents.every((s) => selectedEnrollIds.has(s.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedEnrollIds(new Set(unenrolledStudents.map((s) => s.id)))
+                        } else {
+                          setSelectedEnrollIds(new Set())
+                        }
+                      }}
+                    />
+                    Select all {unenrolledStudents.length > 50 ? `(showing ${Math.min(unenrolledStudents.length, 100)})` : `(${unenrolledStudents.length})`}
+                  </div>
+                ) : null}
+                <div className="max-h-72 overflow-y-auto">
+                  {unenrolledStudents.slice(0, 100).map((s) => (
+                    <div key={s.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                      <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded shrink-0"
+                          checked={selectedEnrollIds.has(s.id)}
+                          onChange={(e) => {
+                            setSelectedEnrollIds((prev) => {
+                              const next = new Set(prev)
+                              if (e.target.checked) next.add(s.id); else next.delete(s.id)
+                              return next
+                            })
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-slate-900">{s.full_name}</span>
+                          {s.matric_no ? <span className="text-xs text-slate-500 ml-2">{s.matric_no}</span> : null}
+                          {s.cohort_name ? <span className="text-xs text-slate-400 ml-2">· {s.cohort_name}</span> : null}
+                        </div>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await apiClient.post('/enrollments/enroll', { studentId: s.id, courseId: Number(courseId) })
+                            await loadAll()
+                            notify('Student enrolled successfully')
+                          } catch (err) {
+                            notify(err?.response?.data?.message || 'Enrollment failed')
+                          }
+                        }}
+                        className="text-xs bg-slate-900 text-white rounded-lg px-3 py-1 shrink-0 ml-2"
+                      >
+                        Enroll
+                      </button>
+                    </div>
+                  ))}
+                  {unenrolledStudents.length === 0 ? (
+                    <p className="text-sm text-slate-400 p-3">No matching students to enroll.</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Select a cohort or search to find students to enroll.</p>
+            )}
           </div>
         </div>
       ) : null}
