@@ -194,7 +194,7 @@ export const getEligibleStudents = async (req, res, next) => {
        LEFT JOIN cohorts c ON c.id = s.cohort_id
        WHERE s.status = 'Active'
          AND EXISTS (
-           SELECT 1 FROM enrollments e WHERE e.student_id = s.id AND e.result_status = 'Fail'
+           SELECT 1 FROM results r WHERE r.student_id = s.id AND r.status = 'Fail'
          )
          AND (
            c.id IS NULL
