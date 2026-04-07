@@ -84,7 +84,6 @@ const LecturerDashboard = () => {
   const [newStatusInput, setNewStatusInput] = useState('')
 
   const [assignmentForm, setAssignmentForm] = useState({ title: '', description: '', dueDate: '', file: null })
-  const [eligibleStudents, setEligibleStudents] = useState([])
 
   const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '' })
 
