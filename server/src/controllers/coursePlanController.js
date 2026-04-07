@@ -176,7 +176,8 @@ export const getEligibleStudents = async (req, res, next) => {
               'cohort' AS reason
        FROM students s
        JOIN cohorts c ON c.id = s.cohort_id
-       WHERE EXTRACT(YEAR FROM c.start_date) IN ($1, $2)
+       WHERE c.start_date IS NOT NULL
+         AND EXTRACT(YEAR FROM c.start_date) IN ($1, $2)
          AND s.status = 'Active'`,
       [planYear, planYear - 1]
     )
@@ -193,7 +194,11 @@ export const getEligibleStudents = async (req, res, next) => {
          AND EXISTS (
            SELECT 1 FROM enrollments e WHERE e.student_id = s.id AND e.result_status = 'Fail'
          )
-         AND (c.id IS NULL OR EXTRACT(YEAR FROM c.start_date) NOT IN ($1, $2))`,
+         AND (
+           c.id IS NULL
+           OR c.start_date IS NULL
+           OR EXTRACT(YEAR FROM c.start_date) NOT IN ($1, $2)
+         )`,
       [planYear, planYear - 1]
     )
 
