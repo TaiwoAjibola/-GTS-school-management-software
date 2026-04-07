@@ -171,10 +171,11 @@ export const getEligibleStudents = async (req, res, next) => {
 
     // Students from cohorts matching plan year and plan year - 1
     const cohortStudents = await query(
-      `SELECT DISTINCT s.id, s.full_name, s.matric_no, c.name AS cohort_name,
+      `SELECT DISTINCT s.id, u.full_name, s.matric_no, c.name AS cohort_name,
               EXTRACT(YEAR FROM c.start_date)::int AS cohort_year,
               'cohort' AS reason
        FROM students s
+       JOIN users u ON u.id = s.user_id
        JOIN cohorts c ON c.id = s.cohort_id
        WHERE c.start_date IS NOT NULL
          AND EXTRACT(YEAR FROM c.start_date) IN ($1, $2)
@@ -184,11 +185,12 @@ export const getEligibleStudents = async (req, res, next) => {
 
     // Students with at least one failed enrolment not in the above cohort range
     const failedStudents = await query(
-      `SELECT DISTINCT s.id, s.full_name, s.matric_no,
+      `SELECT DISTINCT s.id, u.full_name, s.matric_no,
               COALESCE(c.name, 'No cohort') AS cohort_name,
               EXTRACT(YEAR FROM COALESCE(c.start_date, NOW()))::int AS cohort_year,
               'failed_reenroll' AS reason
        FROM students s
+       JOIN users u ON u.id = s.user_id
        LEFT JOIN cohorts c ON c.id = s.cohort_id
        WHERE s.status = 'Active'
          AND EXISTS (
