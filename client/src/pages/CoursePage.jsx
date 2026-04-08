@@ -474,7 +474,7 @@ export default function CoursePage() {
             {/* Filters */}
             <div className="flex flex-wrap gap-2 mb-3">
               <select
-                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px]"
+                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
                 value={enrollCohortFilter}
                 onChange={(e) => { setEnrollCohortFilter(e.target.value); setSelectedEnrollIds(new Set()) }}
               >
@@ -484,7 +484,7 @@ export default function CoursePage() {
                 ))}
               </select>
               <input
-                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px]"
+                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
                 placeholder="Search by name or matric…"
                 value={enrollSearch}
                 onChange={(e) => { setEnrollSearch(e.target.value); setSelectedEnrollIds(new Set()) }}

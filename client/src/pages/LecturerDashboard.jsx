@@ -103,9 +103,8 @@ const LecturerDashboard = () => {
   const [openGraduationActionFor, setOpenGraduationActionFor] = useState(null)
 
   const [courseStudents, setCourseStudents] = useState([])
-  const [coursesView, setCoursesView] = useState('list') // 'list' | 'calendar'
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
-  const [coursesTab, setCoursesTab] = useState('courses') // 'courses' | 'plans'
+  const [coursesTab, setCoursesTab] = useState('courses') // 'courses' | 'plans' | 'timeline'
   const [plans, setPlans] = useState([])
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [planForm, setPlanForm] = useState({ name: '', year: new Date().getFullYear() })
@@ -130,7 +129,8 @@ const LecturerDashboard = () => {
   const [lecturerForm, setLecturerForm] = useState({ name: '', email: '', phone: '' })
   const [editingLecturerId, setEditingLecturerId] = useState(null)
   const [lecturerEditForm, setLecturerEditForm] = useState({ name: '', email: '', phone: '' })
-  const [activePlanItems, setActivePlanItems] = useState([]) // [{course_id, start_date, end_date}]
+  const [timelinePlanItems, setTimelinePlanItems] = useState([])
+  const [timelinePlanLoading, setTimelinePlanLoading] = useState(false)
   const [notice, setNotice] = useState('')
 
   const notify = (message) => {
@@ -145,12 +145,7 @@ const LecturerDashboard = () => {
     } catch { /* silently ignore */ }
   }
 
-  const loadActivePlan = async () => {
-    try {
-      const res = await apiClient.get('/course-plans/active')
-      setActivePlanItems(res.data?.items || [])
-    } catch { /* silently ignore */ }
-  }
+
 
   const loadCourses = async () => {
     const response = await apiClient.get('/courses')
@@ -268,7 +263,6 @@ const LecturerDashboard = () => {
     loadGraduationMatrix()
     loadCohorts()
     loadLecturers()
-    loadActivePlan()
   }, [user?.id])
 
   useEffect(() => {
@@ -311,6 +305,35 @@ const LecturerDashboard = () => {
       setSelectedResultType('Final')
     }
   }, [selectedCourse, selectedResultType])
+
+  // Load plan items for the timeline tab based on calendarYear
+  useEffect(() => {
+    if (coursesTab !== 'timeline') return
+    let cancelled = false
+    const doLoad = async () => {
+      setTimelinePlanLoading(true)
+      try {
+        let allPlans = plans
+        if (!allPlans.length) {
+          const res = await apiClient.get('/course-plans')
+          if (cancelled) return
+          setPlans(res.data)
+          allPlans = res.data
+        }
+        const match = allPlans.find((p) => Number(p.year) === calendarYear)
+        if (!match) {
+          if (!cancelled) setTimelinePlanItems([])
+          return
+        }
+        const res = await apiClient.get(`/course-plans/${match.id}`)
+        if (!cancelled) setTimelinePlanItems(res.data.items || [])
+      } catch { /* silently ignore */ }
+      finally { if (!cancelled) setTimelinePlanLoading(false) }
+    }
+    doLoad()
+    return () => { cancelled = true }
+  }, [coursesTab, calendarYear])
+
   const classOptions = useMemo(() => {
     const totalClasses = Math.max(1, Number(selectedCourse?.duration_weeks || 1))
     return Array.from({ length: totalClasses }, (_, index) => index + 1)
@@ -957,14 +980,14 @@ const LecturerDashboard = () => {
         <div className="space-y-6">
           {/* Tab switcher */}
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-            {['courses', 'plans'].map((tab) => (
+            {['courses', 'plans', 'timeline'].map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setCoursesTab(tab)}
                 className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${coursesTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                {tab === 'courses' ? 'Courses' : 'Plans'}
+                {tab === 'courses' ? 'Courses' : tab === 'plans' ? 'Plans' : 'Timeline'}
               </button>
             ))}
           </div>
@@ -1054,25 +1077,10 @@ const LecturerDashboard = () => {
             {/* View toggle */}
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
               <h3 className="font-semibold text-slate-900">Course List</h3>
-              <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-                {['list', 'calendar'].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setCoursesView(v)}
-                    className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors capitalize ${
-                      coursesView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {v === 'list' ? 'List' : 'Timeline'}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* LIST VIEW */}
-            {coursesView === 'list' ? (
-              <table className="w-full text-sm">
+            <table className="w-full text-sm">
                 <thead className="text-left text-slate-500">
                   <tr>
                     <th className="pb-2">Code</th>
@@ -1122,153 +1130,6 @@ const LecturerDashboard = () => {
                   ) : null}
                 </tbody>
               </table>
-            ) : null}
-
-            {/* CALENDAR / TIMELINE VIEW */}
-            {coursesView === 'calendar' ? (() => {
-              const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-              const COURSE_COLORS = [
-                'bg-sky-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500',
-                'bg-amber-500', 'bg-cyan-500', 'bg-fuchsia-500', 'bg-teal-500',
-              ]
-
-              // Map each course to its bar position (left%, width%) within the year grid
-              const yearStart = new Date(calendarYear, 0, 1)
-              const yearEnd = new Date(calendarYear, 11, 31)
-              const yearMs = yearEnd - yearStart + 86400000
-
-              // Build a lookup: course_id → plan dates (prefer active plan dates, fall back to course dates)
-              const planDateByCourse = {}
-              for (const item of activePlanItems) {
-                planDateByCourse[item.course_id] = { start_date: item.start_date, end_date: item.end_date }
-              }
-
-              const bars = courses
-                .map((c) => ({
-                  ...c,
-                  start_date: planDateByCourse[c.id]?.start_date ?? c.start_date,
-                  end_date: planDateByCourse[c.id]?.end_date ?? c.end_date,
-                }))
-                .filter((c) => {
-                  if (!c.start_date && !c.end_date) return true // show undated at top
-                  const s = c.start_date ? new Date(c.start_date) : null
-                  const e = c.end_date ? new Date(c.end_date) : null
-                  // show if overlaps this year
-                  return (!e || e >= yearStart) && (!s || s <= yearEnd)
-                })
-                .map((c, idx) => {
-                  const s = c.start_date ? new Date(c.start_date) : null
-                  const e = c.end_date ? new Date(c.end_date) : null
-                  const clampedStart = s ? Math.max(s - yearStart, 0) : 0
-                  const clampedEnd = e ? Math.min(e - yearStart + 86400000, yearMs) : yearMs
-                  const left = Math.round((clampedStart / yearMs) * 100)
-                  const width = Math.max(Math.round(((clampedEnd - clampedStart) / yearMs) * 100), 3)
-                  return { ...c, left, width, color: COURSE_COLORS[idx % COURSE_COLORS.length] }
-                })
-
-              return (
-                <div>
-                  {/* Year nav */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <button type="button" onClick={() => setCalendarYear((y) => y - 1)} className="rounded-lg px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">◀</button>
-                    <span className="font-semibold text-slate-900 text-sm">{calendarYear}</span>
-                    <button type="button" onClick={() => setCalendarYear((y) => y + 1)} className="rounded-lg px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">▶</button>
-                    <span className="text-xs text-slate-400 ml-2">Click a course bar to open it · Click a month header to schedule a new course starting that month</span>
-                    {activePlanItems.length > 0 && (
-                      <span className="text-xs text-sky-600 ml-2">• Using active plan dates</span>
-                    )}
-                  </div>
-
-                  {/* Month header */}
-                  <div className="grid grid-cols-12 mb-1">
-                    {MONTHS.map((m, i) => (
-                      <button
-                        key={m}
-                        type="button"
-                        title={`Start a new course in ${m} ${calendarYear}`}
-                        className="text-center text-xs text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded py-1 transition-colors"
-                        onClick={() => {
-                          const d = `${calendarYear}-${String(i + 1).padStart(2, '0')}-01`
-                          setCourseForm((prev) => ({ ...prev, startDate: d }))
-                          setCoursesView('list')
-                          window.scrollTo({ top: 0, behavior: 'smooth' })
-                        }}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Month dividers background */}
-                  <div className="relative border border-slate-200 rounded-xl overflow-hidden" style={{ minHeight: Math.max(bars.length * 44 + 16, 80) }}>
-                    {/* vertical month lines */}
-                    <div className="absolute inset-0 grid grid-cols-12 pointer-events-none">
-                      {MONTHS.map((m) => (
-                        <div key={m} className="border-r border-slate-100 last:border-0" />
-                      ))}
-                    </div>
-
-                    {/* Today marker */}
-                    {(() => {
-                      const today = new Date()
-                      if (today.getFullYear() === calendarYear) {
-                        const pct = ((today - yearStart) / yearMs) * 100
-                        return (
-                          <div
-                            className="absolute top-0 bottom-0 w-px bg-red-400 opacity-60 pointer-events-none"
-                            style={{ left: `${pct}%` }}
-                          />
-                        )
-                      }
-                      return null
-                    })()}
-
-                    {/* Course bars */}
-                    {bars.length === 0 ? (
-                      <p className="text-sm text-slate-400 text-center py-8">No courses scheduled in {calendarYear}. Click a month header above to add one.</p>
-                    ) : null}
-                    {bars.map((c, idx) => (
-                      <div
-                        key={c.id}
-                        className="absolute flex items-center"
-                        style={{ top: idx * 44 + 8, left: `${c.left}%`, width: `${c.width}%`, height: 36 }}
-                      >
-                        <Link
-                          to={`/lecturer/courses/${c.id}`}
-                          title={`${c.title}${c.start_date ? ` · ${fmtDateRange(c.start_date, c.end_date)}` : ''}`}
-                          className={`w-full h-full rounded-lg flex items-center px-2 gap-2 text-white text-xs font-medium truncate shadow-sm hover:opacity-90 transition-opacity ${c.color} ${c.is_current ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
-                        >
-                          {c.is_current ? <span className="shrink-0 text-amber-200">●</span> : null}
-                          <span className="truncate">{c.course_code ? `${c.course_code} · ` : ''}{c.title}</span>
-                          <button
-                            type="button"
-                            className="ml-auto shrink-0 opacity-70 hover:opacity-100"
-                            title="Set as active course"
-                            onClick={(ev) => {
-                              ev.preventDefault()
-                              ev.stopPropagation()
-                              setCourseAsCurrent(c.id)
-                            }}
-                          >
-                            {c.is_current ? '★' : '☆'}
-                          </button>
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Legend */}
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {bars.map((c) => (
-                      <div key={c.id} className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <span className={`inline-block w-2.5 h-2.5 rounded-sm ${c.color}`} />
-                        {c.title}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })() : null}
           </div>
         </div>
       ) : null}
@@ -1317,7 +1178,6 @@ const LecturerDashboard = () => {
           if (selectedPlan?.id === planId) {
             setSelectedPlan((p) => p ? { ...p, is_active: true } : p)
           }
-          await loadActivePlan()
           notify('Active plan updated')
         }
         const deletePlan = async (planId) => {
@@ -1561,6 +1421,153 @@ const LecturerDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        )
+      })() : null}
+
+      {/* ── TIMELINE TAB ── */}
+      {coursesTab === 'timeline' ? (() => {
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        const COURSE_COLORS = [
+          'bg-sky-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500',
+          'bg-amber-500', 'bg-cyan-500', 'bg-fuchsia-500', 'bg-teal-500',
+        ]
+
+        const yearStart = new Date(calendarYear, 0, 1)
+        const yearEnd = new Date(calendarYear, 11, 31)
+        const yearMs = yearEnd - yearStart + 86400000
+
+        // Build a lookup: course_id → plan dates for this year's plan
+        const planDateByCourse = {}
+        for (const item of timelinePlanItems) {
+          planDateByCourse[item.course_id] = { start_date: item.start_date, end_date: item.end_date }
+        }
+
+        const hasPlan = timelinePlanItems.length > 0 || plans.some((p) => Number(p.year) === calendarYear)
+        const matchedPlan = plans.find((p) => Number(p.year) === calendarYear)
+
+        const bars = courses
+          .map((c) => ({
+            ...c,
+            start_date: planDateByCourse[c.id]?.start_date ?? c.start_date,
+            end_date: planDateByCourse[c.id]?.end_date ?? c.end_date,
+            fromPlan: !!planDateByCourse[c.id],
+          }))
+          .filter((c) => {
+            if (!c.start_date && !c.end_date) return false // hide completely undated in plan view
+            const s = c.start_date ? new Date(c.start_date) : null
+            const e = c.end_date ? new Date(c.end_date) : null
+            return (!e || e >= yearStart) && (!s || s <= yearEnd)
+          })
+          .map((c, idx) => {
+            const s = c.start_date ? new Date(c.start_date) : null
+            const e = c.end_date ? new Date(c.end_date) : null
+            const clampedStart = s ? Math.max(s - yearStart, 0) : 0
+            const clampedEnd = e ? Math.min(e - yearStart + 86400000, yearMs) : yearMs
+            const left = Math.round((clampedStart / yearMs) * 100)
+            const width = Math.max(Math.round(((clampedEnd - clampedStart) / yearMs) * 100), 3)
+            return { ...c, left, width, color: COURSE_COLORS[idx % COURSE_COLORS.length] }
+          })
+
+        return (
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            {/* Header row: year nav + plan badge */}
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+              <button type="button" onClick={() => setCalendarYear((y) => y - 1)} className="rounded-lg px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">◀</button>
+              <span className="font-semibold text-slate-900">{calendarYear} Timeline</span>
+              <button type="button" onClick={() => setCalendarYear((y) => y + 1)} className="rounded-lg px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">▶</button>
+              {timelinePlanLoading ? (
+                <span className="text-xs text-slate-400 animate-pulse">Loading plan…</span>
+              ) : matchedPlan ? (
+                <span className="text-xs rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 font-medium">
+                  {matchedPlan.name}{matchedPlan.is_active ? ' · Active' : ''}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">No plan for {calendarYear}</span>
+              )}
+            </div>
+
+            {/* Month header */}
+            <div className="grid grid-cols-12 mb-1">
+              {MONTHS.map((m) => (
+                <div key={m} className="text-center text-xs text-slate-400 py-1">{m}</div>
+              ))}
+            </div>
+
+            {/* Timeline bar chart */}
+            <div className="relative border border-slate-200 rounded-xl overflow-hidden" style={{ minHeight: Math.max(bars.length * 44 + 16, 80) }}>
+              {/* vertical month dividers */}
+              <div className="absolute inset-0 grid grid-cols-12 pointer-events-none">
+                {MONTHS.map((m) => (
+                  <div key={m} className="border-r border-slate-100 last:border-0" />
+                ))}
+              </div>
+
+              {/* Today marker */}
+              {(() => {
+                const today = new Date()
+                if (today.getFullYear() === calendarYear) {
+                  const pct = ((today - yearStart) / yearMs) * 100
+                  return (
+                    <div
+                      className="absolute top-0 bottom-0 w-px bg-red-400 opacity-60 pointer-events-none"
+                      style={{ left: `${pct}%` }}
+                    />
+                  )
+                }
+                return null
+              })()}
+
+              {bars.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-10">
+                  {matchedPlan
+                    ? `${matchedPlan.name} has no course items yet. Add courses in the Plans tab.`
+                    : `No plan found for ${calendarYear}. Create one in the Plans tab.`}
+                </p>
+              ) : null}
+
+              {bars.map((c, idx) => (
+                <div
+                  key={c.id}
+                  className="absolute flex items-center"
+                  style={{ top: idx * 44 + 8, left: `${c.left}%`, width: `${c.width}%`, height: 36 }}
+                >
+                  <Link
+                    to={`/lecturer/courses/${c.id}`}
+                    title={`${c.title}${c.start_date ? ` · ${fmtDateRange(c.start_date, c.end_date)}` : ''}`}
+                    className={`w-full h-full rounded-lg flex items-center px-2 gap-2 text-white text-xs font-medium truncate shadow-sm hover:opacity-90 transition-opacity ${c.color} ${c.is_current ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+                  >
+                    {c.is_current ? <span className="shrink-0 text-amber-200">●</span> : null}
+                    <span className="truncate">{c.course_code ? `${c.course_code} · ` : ''}{c.title}</span>
+                    <button
+                      type="button"
+                      className="ml-auto shrink-0 opacity-70 hover:opacity-100"
+                      title="Set as active course"
+                      onClick={(ev) => {
+                        ev.preventDefault()
+                        ev.stopPropagation()
+                        setCourseAsCurrent(c.id)
+                      }}
+                    >
+                      {c.is_current ? '★' : '☆'}
+                    </button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            {/* Legend */}
+            {bars.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-3">
+                {bars.map((c) => (
+                  <div key={c.id} className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <span className={`inline-block w-2.5 h-2.5 rounded-sm ${c.color}`} />
+                    {c.title}
+                    {c.fromPlan ? <span className="text-sky-500 ml-0.5" title="Dates from plan">●</span> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         )
       })() : null}
