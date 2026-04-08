@@ -30,7 +30,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       localStorage.setItem('sams_token', token)
-      fetchMe()
+      // Only need to verify/load user when restoring a stored session.
+      // If user is already set (just logged in), skip the extra round-trip.
+      if (!user) {
+        fetchMe()
+      }
     } else {
       setLoading(false)
     }

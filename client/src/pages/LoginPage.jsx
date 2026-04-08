@@ -1,13 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const LoginPage = () => {
-  const { login } = useAuth()
+  const { login, user, loading } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Navigate once the user state is actually committed — avoids the race
+  // condition where navigate() runs before React commits setUser().
+  useEffect(() => {
+    if (!loading && user) {
+      if (user.role === 'student') navigate('/student/courses', { replace: true })
+      else navigate('/lecturer/courses', { replace: true })
+    }
+  }, [user, loading, navigate])
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -15,10 +24,8 @@ const LoginPage = () => {
     setSubmitting(true)
 
     try {
-      const response = await login(form.email, form.password)
-      const role = response.user.role
-      if (role === 'student') navigate('/student/courses')
-      else navigate('/lecturer/courses')
+      await login(form.email, form.password)
+      // navigation is handled by the useEffect above once user state is set
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Login failed')
     } finally {
@@ -59,12 +66,6 @@ const LoginPage = () => {
           >
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
-        </div>
-
-        <div className="mt-5 text-xs text-slate-500 space-y-1">
-          <p>Demo users after db init:</p>
-          <p>lecturer@sams.local / Password123!</p>
-          <p>student@sams.local / Password123!</p>
         </div>
       </form>
     </div>
