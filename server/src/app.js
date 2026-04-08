@@ -32,6 +32,24 @@ const corsOptions = {
   credentials: true,
 }
 
+// Raw CORS guard — runs before everything else, including error handlers.
+// This ensures preflight OPTIONS replies always carry the right headers even
+// during Render cold-starts when the process is still initialising.
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  }
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end()
+  }
+  next()
+})
+
 app.use(cors(corsOptions))
 app.use(helmet())
 app.use(morgan('dev'))
