@@ -254,6 +254,28 @@ export const updateCourse = async (req, res, next) => {
   }
 }
 
+export const deleteCourse = async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId)
+    if (!courseId) throw httpError(400, 'Invalid courseId')
+
+    const existing = await query('SELECT id FROM courses WHERE id = $1', [courseId])
+    if (!existing.rows.length) throw httpError(404, 'Course not found')
+
+    // Delete dependent records first to avoid FK constraint violations
+    await query('DELETE FROM results WHERE course_id = $1', [courseId])
+    await query('DELETE FROM attendance_records ar USING attendance_sessions s WHERE ar.session_id = s.id AND s.course_id = $1', [courseId])
+    await query('DELETE FROM attendance_sessions WHERE course_id = $1', [courseId])
+    await query('DELETE FROM enrollments WHERE course_id = $1', [courseId])
+    await query('DELETE FROM course_plan_items WHERE course_id = $1', [courseId])
+    await query('DELETE FROM courses WHERE id = $1', [courseId])
+
+    res.json({ message: 'Course deleted' })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const setCurrentCourse = async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId)

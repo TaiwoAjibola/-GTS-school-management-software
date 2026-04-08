@@ -36,10 +36,6 @@ export const login = async (req, res, next) => {
       throw httpError(401, 'Invalid credentials')
     }
 
-    if (user.role !== 'admin') {
-      throw httpError(403, 'Access restricted to administrators only')
-    }
-
     const token = createToken(user)
 
     res.json({

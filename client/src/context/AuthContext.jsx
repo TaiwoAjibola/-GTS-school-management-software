@@ -44,6 +44,7 @@ export const AuthProvider = ({ children }) => {
     const response = await apiClient.post('/auth/login', { email, password })
     setToken(response.data.token)
     setUser(response.data.user)
+    setLoading(false)
     localStorage.setItem('sams_token', response.data.token)
     return response.data
   }

@@ -621,6 +621,18 @@ const LecturerDashboard = () => {
     notify('Current course updated')
   }
 
+  const deleteCourse = async (courseId, courseTitle) => {
+    if (!window.confirm(`Delete "${courseTitle}"? This will also remove all enrollments, attendance and results for this course.`)) return
+    try {
+      await apiClient.delete(`/courses/${courseId}`)
+      await loadCourses()
+      if (String(selectedCourseId) === String(courseId)) setSelectedCourseId('')
+      notify('Course deleted')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to delete course')
+    }
+  }
+
   const exportStudentList = async () => {
     const response = await apiClient.get('/students/export', { responseType: 'blob' })
     const href = URL.createObjectURL(response.data)
@@ -1091,6 +1103,7 @@ const LecturerDashboard = () => {
                     <th>Weeks</th>
                     <th>Required Attendance</th>
                     <th>Active</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -1123,10 +1136,19 @@ const LecturerDashboard = () => {
                           </button>
                         )}
                       </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => deleteCourse(course.id, course.title)}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {!courses.length ? (
-                    <tr><td colSpan={8} className="py-8 text-center text-slate-400">No courses yet. Create one using the form.</td></tr>
+                    <tr><td colSpan={9} className="py-8 text-center text-slate-400">No courses yet. Create one using the form.</td></tr>
                   ) : null}
                 </tbody>
               </table>

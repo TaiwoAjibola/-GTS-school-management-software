@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
 	bulkUploadCourses,
 	createCourse,
+	deleteCourse,
 	downloadCourseTemplate,
 	getCourse,
 	getCourseAllEnrollments,
@@ -35,5 +36,6 @@ router.get('/:courseId', authorize('admin', 'lecturer'), getCourse)
 router.post('/', authorize('admin', 'lecturer'), createCourse)
 router.patch('/:courseId/set-current', authorize('admin', 'lecturer'), setCurrentCourse)
 router.patch('/:courseId', authorize('admin', 'lecturer'), updateCourse)
+router.delete('/:courseId', authorize('admin', 'lecturer'), deleteCourse)
 
 export default router
