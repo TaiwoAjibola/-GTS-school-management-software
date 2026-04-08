@@ -21,19 +21,19 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5189',
 ])
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true)
-        return
-      }
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true)
+    } else {
+      callback(null, false)
+    }
+  },
+  credentials: true,
+}
 
-      callback(new Error(`Origin ${origin} is not allowed by CORS`))
-    },
-    credentials: true,
-  })
-)
+app.options('*', cors(corsOptions))
+app.use(cors(corsOptions))
 app.use(helmet())
 app.use(morgan('dev'))
 app.use(express.json())

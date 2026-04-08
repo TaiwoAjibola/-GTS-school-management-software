@@ -377,6 +377,153 @@ export const bulkUploadResultsFromFile = async (req, res, next) => {
   }
 }
 
+// GET /results/plan-grid?planId=X&cohortId=Y
+// Returns the plan courses x cohort students grid with existing results
+export const getPlanGrid = async (req, res, next) => {
+  try {
+    const planId = Number(req.query.planId || 0)
+    const cohortId = Number(req.query.cohortId || 0)
+    if (!planId || !cohortId) throw httpError(400, 'planId and cohortId are required')
+
+    const [planRes, cohortRes] = await Promise.all([
+      query(`SELECT id, name, year FROM course_plans WHERE id = $1`, [planId]),
+      query(`SELECT id, name FROM cohorts WHERE id = $1`, [cohortId]),
+    ])
+    if (!planRes.rows.length) throw httpError(404, 'Plan not found')
+    if (!cohortRes.rows.length) throw httpError(404, 'Cohort not found')
+
+    const coursesRes = await query(
+      `SELECT cpi.course_id AS id, c.title, c.course_code, c.has_assignment, c.has_exam
+       FROM course_plan_items cpi
+       JOIN courses c ON c.id = cpi.course_id
+       WHERE cpi.plan_id = $1
+       ORDER BY cpi.sort_order ASC NULLS LAST, cpi.start_date ASC NULLS LAST`,
+      [planId]
+    )
+    const courses = coursesRes.rows
+
+    const studentsRes = await query(
+      `SELECT s.id AS student_id, u.full_name, s.matric_no
+       FROM students s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.cohort_id = $1
+       ORDER BY u.full_name ASC`,
+      [cohortId]
+    )
+    const students = studentsRes.rows
+
+    if (!courses.length || !students.length) {
+      return res.json({
+        plan: planRes.rows[0],
+        cohort: cohortRes.rows[0],
+        courses,
+        students,
+      })
+    }
+
+    const courseIds = courses.map((c) => c.id)
+    const studentIds = students.map((s) => s.student_id)
+
+    const resultsRes = await query(
+      `SELECT r.student_id, r.course_id, r.id, r.result_type, r.score, r.status, r.uploaded_at
+       FROM results r
+       WHERE r.course_id = ANY($1) AND r.student_id = ANY($2)`,
+      [courseIds, studentIds]
+    )
+
+    // Build a lookup: studentId -> courseId -> result
+    const resultMap = {}
+    for (const r of resultsRes.rows) {
+      if (!resultMap[r.student_id]) resultMap[r.student_id] = {}
+      resultMap[r.student_id][r.course_id] = {
+        id: r.id,
+        result_type: r.result_type,
+        score: r.score,
+        status: r.status,
+        uploaded_at: r.uploaded_at,
+      }
+    }
+
+    const studentsWithResults = students.map((s) => ({
+      ...s,
+      results: resultMap[s.student_id] || {},
+    }))
+
+    res.json({
+      plan: planRes.rows[0],
+      cohort: cohortRes.rows[0],
+      courses,
+      students: studentsWithResults,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// POST /results/bulk-plan
+// Saves multiple results for a plan+cohort grid in one request
+export const bulkSavePlanResults = async (req, res, next) => {
+  try {
+    const { entries } = req.body
+    if (!Array.isArray(entries) || !entries.length) {
+      throw httpError(400, 'entries array is required')
+    }
+
+    const saved = []
+    const errors = []
+
+    for (const entry of entries) {
+      try {
+        const { studentId, courseId, resultType = 'Final', score, status: requestedStatus } = entry
+        if (!studentId || !courseId) {
+          errors.push({ entry, error: 'studentId and courseId are required' })
+          continue
+        }
+
+        const normalizedResultType = String(resultType).trim()
+        if (!['Assignment', 'Exam', 'Final'].includes(normalizedResultType)) {
+          errors.push({ entry, error: 'resultType must be Assignment, Exam, or Final' })
+          continue
+        }
+
+        let numericScore = null
+        let resolvedStatus = requestedStatus
+
+        if (score !== undefined && score !== null && score !== '') {
+          numericScore = Number(score)
+          if (Number.isNaN(numericScore) || numericScore < 0 || numericScore > 100) {
+            errors.push({ entry, error: 'score must be between 0 and 100' })
+            continue
+          }
+          resolvedStatus = numericScore >= 50 ? 'Pass' : 'Fail'
+        }
+
+        if (!['Pass', 'Fail'].includes(resolvedStatus)) {
+          errors.push({ entry, error: 'status must be Pass or Fail' })
+          continue
+        }
+
+        const result = await query(
+          `INSERT INTO results (course_id, student_id, result_type, score, status, uploaded_by)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (course_id, student_id, result_type)
+           DO UPDATE SET score = EXCLUDED.score, status = EXCLUDED.status,
+                         uploaded_at = NOW(), uploaded_by = EXCLUDED.uploaded_by
+           RETURNING id`,
+          [Number(courseId), Number(studentId), normalizedResultType, numericScore, resolvedStatus, req.user.userId]
+        )
+        saved.push(result.rows[0].id)
+      } catch (err) {
+        errors.push({ entry, error: err.message })
+      }
+    }
+
+    res.json({ saved: saved.length, errors })
+  } catch (error) {
+    next(error)
+  }
+}
+
 // GET /results/history
 // Returns results grouped by cohort -> course -> students
 export const getResultsHistory = async (req, res, next) => {

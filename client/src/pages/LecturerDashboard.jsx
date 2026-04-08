@@ -100,6 +100,12 @@ const LecturerDashboard = () => {
   const [resultsHistory, setResultsHistory] = useState([])
   const [resultsHistoryLoading, setResultsHistoryLoading] = useState(false)
   const [historyOpenCohort, setHistoryOpenCohort] = useState(null)
+  const [resultPlanId, setResultPlanId] = useState('')
+  const [resultCohortId, setResultCohortId] = useState('')
+  const [planGrid, setPlanGrid] = useState(null)
+  const [planGridLoading, setPlanGridLoading] = useState(false)
+  const [planGridEdits, setPlanGridEdits] = useState({})
+  const [planGridResultType, setPlanGridResultType] = useState('Final')
   const [openGraduationActionFor, setOpenGraduationActionFor] = useState(null)
 
   const [courseStudents, setCourseStudents] = useState([])
@@ -2439,56 +2445,58 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'results' ? (() => {
-        // Tab switcher
-        const loadHistory = async () => {
-          if (resultsHistory.length > 0) return
-          setResultsHistoryLoading(true)
+        const ensurePlans = async () => {
+          if (plans.length) return
           try {
-            const res = await apiClient.get('/results/history')
-            setResultsHistory(res.data)
-          } catch { /* silently fail */ }
-          finally { setResultsHistoryLoading(false) }
+            const res = await apiClient.get('/course-plans')
+            setPlans(res.data)
+          } catch { /* ignore */ }
         }
 
-        // Build the student list for the results table.
-        // If a cohort/batch is selected: use all enrollments for the course, filtered to that cohort.
-        // Otherwise: use active-only courseStudents (current behaviour).
-        const studentsByIdFromAll = Object.fromEntries(allStudents.map((s) => [s.id, s]))
+        const loadPlanGrid = async () => {
+          if (!resultPlanId || !resultCohortId) return
+          setPlanGridLoading(true)
+          setPlanGrid(null)
+          setPlanGridEdits({})
+          try {
+            const res = await apiClient.get(`/results/plan-grid?planId=${resultPlanId}&cohortId=${resultCohortId}`)
+            setPlanGrid(res.data)
+          } catch (err) { notify(err.response?.data?.message || 'Failed to load grid') }
+          finally { setPlanGridLoading(false) }
+        }
 
-        const resultsStudentList = resultCohortFilter
-          ? (() => {
-              // deduplicate by student_id (a student may have multiple enrollment rows)
-              const seen = new Set()
-              return courseAllEnrollments
-                .filter((e) => {
-                  const s = studentsByIdFromAll[e.student_id]
-                  return s && String(s.cohort_id) === String(resultCohortFilter)
-                })
-                .filter((e) => {
-                  if (seen.has(e.student_id)) return false
-                  seen.add(e.student_id)
-                  return true
-                })
-                .map((e) => ({
-                  student_id: e.student_id,
-                  full_name: e.full_name,
-                  matric_no: e.matric_no,
-                  enrollment_status: e.status,
-                }))
-            })()
-          : sortedCourseStudentsForResults
-
-        const selectedCohortName = cohorts.find((c) => String(c.id) === String(resultCohortFilter))?.name
+        const saveAllEdits = async () => {
+          const entries = Object.entries(planGridEdits)
+            .map(([key, edit]) => {
+              const [studentId, courseId] = key.split('_')
+              return {
+                studentId: Number(studentId),
+                courseId: Number(courseId),
+                resultType: planGridResultType,
+                score: edit.score !== '' && edit.score !== undefined ? Number(edit.score) : undefined,
+                status: edit.status,
+              }
+            })
+            .filter((e) => e.status)
+          if (!entries.length) { notify('No changes to save'); return }
+          try {
+            await apiClient.post('/results/bulk-plan', { entries })
+            setPlanGridEdits({})
+            await loadPlanGrid()
+            await loadGraduationMatrix()
+            notify('Results saved')
+          } catch (err) { notify(err.response?.data?.message || 'Save failed') }
+        }
 
         return (
           <div className="space-y-5">
             {/* Tab bar */}
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-              {[{ key: 'input', label: 'Enter Results' }, { key: 'history', label: 'Results History' }].map(({ key, label }) => (
+              {[{ key: 'input', label: 'Enter Results' }, { key: 'history', label: 'History' }].map(({ key, label }) => (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => { setResultsTab(key); if (key === 'history') loadHistory() }}
+                  onClick={() => { setResultsTab(key); ensurePlans() }}
                   className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${resultsTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   {label}
@@ -2496,294 +2504,213 @@ const LecturerDashboard = () => {
               ))}
             </div>
 
-          {resultsTab === 'input' ? (
-          <div className="grid lg:grid-cols-[390px_1fr] gap-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-              <h3 className="font-semibold text-slate-900">Results Setup</h3>
-              <label className="text-sm text-slate-600 block">
-                Course
-                <select
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={selectedCourseId}
-                  onChange={(event) => {
-                    setSelectedCourseId(event.target.value)
-                    setResultCohortFilter('')
-                  }}
-                >
-                  <option value="">Select course</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.course_code ? `${course.course_code} — ` : ''}{course.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm text-slate-600 block">
-                Batch / Cohort
-                <select
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={resultCohortFilter}
-                  onChange={(event) => setResultCohortFilter(event.target.value)}
-                  disabled={!selectedCourseId}
-                >
-                  <option value="">Current (active enrollments only)</option>
-                  {cohorts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} — {c.status}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  Select a batch to enter results for past or upcoming cohorts.
-                </p>
-              </label>
-
-              <label className="text-sm text-slate-600 block">
-                Result Type
-                <select
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={selectedResultType}
-                  onChange={(event) => setSelectedResultType(event.target.value)}
-                >
-                  <option value="Final">Final</option>
-                  <option value="Assignment" disabled={!selectedCourse?.has_assignment}>Assignment</option>
-                  <option value="Exam" disabled={!selectedCourse?.has_exam}>Exam</option>
-                </select>
-                <p className="mt-1 text-xs text-slate-500">Assignment/Exam is available only if enabled on the course.</p>
-              </label>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                <div>
-                  <h3 className="font-semibold text-slate-900">Student Results Table</h3>
-                  {selectedCohortName ? (
-                    <p className="text-xs text-slate-400 mt-0.5">Showing batch: <span className="font-medium text-slate-700">{selectedCohortName}</span> — all enrolled students</p>
-                  ) : (
-                    <p className="text-xs text-slate-400 mt-0.5">Showing active enrollments only</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <select className="border rounded-lg px-3 py-2 text-sm" value={resultSortBy} onChange={(event) => setResultSortBy(event.target.value)}>
-                    <option value="name">Sort by Name</option>
-                    <option value="score">Sort by Score</option>
-                    <option value="status">Sort by Status</option>
+            {/* Shared selectors */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex flex-wrap gap-4 items-end">
+                <label className="text-sm text-slate-600 block flex-1 min-w-[200px]">
+                  Plan
+                  <select
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={resultPlanId}
+                    onClick={ensurePlans}
+                    onChange={(e) => { setResultPlanId(e.target.value); setPlanGrid(null); setPlanGridEdits({}) }}
+                  >
+                    <option value="">Select plan</option>
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.year})</option>
+                    ))}
                   </select>
-                  <button onClick={exportResultsCsv} type="button" disabled={!selectedCourseId} className="bg-slate-900 text-white rounded-lg px-3 py-2 text-sm disabled:opacity-50">Export CSV</button>
-                </div>
+                </label>
+                <label className="text-sm text-slate-600 block flex-1 min-w-[200px]">
+                  Cohort
+                  <select
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={resultCohortId}
+                    onChange={(e) => { setResultCohortId(e.target.value); setPlanGrid(null); setPlanGridEdits({}) }}
+                  >
+                    <option value="">Select cohort</option>
+                    {cohorts.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {resultsTab === 'input' ? (
+                  <label className="text-sm text-slate-600 block">
+                    Result Type
+                    <select
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={planGridResultType}
+                      onChange={(e) => setPlanGridResultType(e.target.value)}
+                    >
+                      <option value="Final">Final</option>
+                      <option value="Assignment">Assignment</option>
+                      <option value="Exam">Exam</option>
+                    </select>
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={loadPlanGrid}
+                  disabled={!resultPlanId || !resultCohortId || planGridLoading}
+                  className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  {planGridLoading ? 'Loading...' : 'Load Grid'}
+                </button>
               </div>
-
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Name</th>
-                    <th>Matric</th>
-                    {resultCohortFilter ? <th>Enrollment</th> : null}
-                    <th>Current Result</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(selectedCourseId ? resultsStudentList : []).map((student) => {
-                    const row = currentCourseResultMap.get(Number(student.student_id))
-                    const rowKey = row?.id || `course-${selectedCourseId}-student-${student.student_id}-${selectedResultType}`
-                    const isEditing = editingResultRowId === student.student_id
-                    return (
-                      <tr key={rowKey} className="border-t border-slate-200">
-                        <td className="py-3">{student.full_name}</td>
-                        <td>{student.matric_no || '—'}</td>
-                        {resultCohortFilter ? (
-                          <td>
-                            <span className={`text-xs rounded-full px-2 py-0.5 ${
-                              student.enrollment_status === 'active' ? 'bg-sky-100 text-sky-700' :
-                              student.enrollment_status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                              'bg-slate-100 text-slate-500'
-                            }`}>
-                              {student.enrollment_status || '—'}
-                            </span>
-                          </td>
-                        ) : null}
-                        <td>
-                          {isEditing ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                className="w-20 border rounded-lg px-2 py-1"
-                                placeholder="Score"
-                                value={resultRowEdits[student.student_id]?.score ?? (row?.score != null ? String(row.score) : '')}
-                                onChange={(event) => updateResultRowField(student.student_id, 'score', event.target.value)}
-                              />
-                              <select
-                                className="border rounded-lg px-2 py-1"
-                                value={resultRowEdits[student.student_id]?.status ?? row?.status ?? 'Pass'}
-                                onChange={(event) => updateResultRowField(student.student_id, 'status', event.target.value)}
-                              >
-                                <option>Pass</option>
-                                <option>Fail</option>
-                              </select>
-                            </div>
-                          ) : row ? (
-                            <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${row.status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                              {row.status}{row.score != null ? ` (${row.score})` : ''}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs">No result yet</span>
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                className="rounded-lg px-3 py-1.5 bg-slate-900 text-white text-sm disabled:opacity-50"
-                                disabled={
-                                  !['Pass', 'Fail'].includes(resultRowEdits[student.student_id]?.status || row?.status || '') ||
-                                  (resultRowEdits[student.student_id]?.score !== '' && resultRowEdits[student.student_id]?.score !== undefined && (
-                                    Number(resultRowEdits[student.student_id]?.score) < 0 ||
-                                    Number(resultRowEdits[student.student_id]?.score) > 100
-                                  ))
-                                }
-                                onClick={async () => {
-                                  await updateResultInline(
-                                    Number(student.student_id),
-                                    resultRowEdits[student.student_id]?.score ?? row?.score ?? '',
-                                    resultRowEdits[student.student_id]?.status || row?.status || 'Pass'
-                                  )
-                                  setEditingResultRowId(null)
-                                }}
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-lg px-3 py-1.5 bg-slate-200 text-slate-700 text-sm"
-                                onClick={() => { setEditingResultRowId(null); setResultRowEdits((prev) => { const next = { ...prev }; delete next[student.student_id]; return next }) }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="rounded-lg px-3 py-1.5 bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
-                              onClick={() => {
-                                setEditingResultRowId(student.student_id)
-                                setResultRowEdits((prev) => ({
-                                  ...prev,
-                                  [student.student_id]: { score: row?.score != null ? String(row.score) : '', status: row?.status ?? 'Pass' },
-                                }))
-                              }}
-                            >
-                              {row ? 'Edit' : 'Enter Result'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {!selectedCourseId ? (
-                    <tr><td colSpan={5} className="py-8 text-center text-slate-400">Select a course to enter results.</td></tr>
-                  ) : resultsStudentList.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
-                        {resultCohortFilter
-                          ? 'No students from the selected batch are enrolled in this course.'
-                          : 'No active students found in selected course.'}
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
             </div>
-          </div>
-          ) : null}
 
-          {resultsTab === 'history' ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-              <h3 className="font-semibold text-slate-900">Results History by Batch</h3>
-              {resultsHistoryLoading ? (
-                <p className="text-sm text-slate-400">Loading...</p>
-              ) : resultsHistory.length === 0 ? (
-                <p className="text-sm text-slate-400">No results recorded yet.</p>
-              ) : (
-                <div className="space-y-4">
-                  {resultsHistory.map((cohort) => {
-                    const isOpen = historyOpenCohort === cohort.cohort_id
-                    const totalStudents = new Set(cohort.courses.flatMap(c => c.students.map(s => s.student_id))).size
-                    const coursesWithResults = cohort.courses.filter(c => c.students.some(s => s.result_status))
-                    return (
-                      <div key={cohort.cohort_id} className="border border-slate-200 rounded-xl overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryOpenCohort(isOpen ? null : cohort.cohort_id)}
-                          className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 text-left"
-                        >
-                          <div>
-                            <span className="font-semibold text-slate-900">{cohort.cohort_name}</span>
-                            <span className="ml-3 text-xs text-slate-500">{totalStudents} student{totalStudents !== 1 ? 's' : ''} · {cohort.courses.length} course{cohort.courses.length !== 1 ? 's' : ''}</span>
-                          </div>
-                          <span className="text-slate-400 text-sm">{isOpen ? '▲' : '▼'}</span>
-                        </button>
-                        {isOpen ? (
-                          <div className="divide-y divide-slate-100">
-                            {cohort.courses.map((course) => {
-                              const passCount = course.students.filter(s => s.result_status === 'Pass').length
-                              const failCount = course.students.filter(s => s.result_status === 'Fail').length
-                              const noResult = course.students.filter(s => !s.result_status).length
+            {/* Input grid */}
+            {resultsTab === 'input' ? (
+              planGrid ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+                  <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{planGrid.plan.name} — {planGrid.cohort.name}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">{planGrid.students.length} students · {planGrid.courses.length} courses · {planGridResultType}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={Object.keys(planGridEdits).length === 0}
+                      onClick={saveAllEdits}
+                      className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+                    >
+                      Save Changes {Object.keys(planGridEdits).length > 0 ? `(${Object.keys(planGridEdits).length})` : ''}
+                    </button>
+                  </div>
+                  {planGrid.courses.length === 0 ? (
+                    <p className="text-sm text-slate-400">No courses in this plan.</p>
+                  ) : planGrid.students.length === 0 ? (
+                    <p className="text-sm text-slate-400">No students in this cohort.</p>
+                  ) : (
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
+                          <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
+                          {planGrid.courses.map((c) => (
+                            <th key={c.id} className="py-2 px-3 text-left text-slate-500 font-medium text-xs whitespace-nowrap">
+                              {c.course_code || c.title}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {planGrid.students.map((student) => (
+                          <tr key={student.student_id} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
+                            <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
+                            {planGrid.courses.map((course) => {
+                              const editKey = `${student.student_id}_${course.id}`
+                              const edit = planGridEdits[editKey]
+                              const existing = student.results?.[course.id]
+                              const displayScore = edit?.score !== undefined ? edit.score : (existing?.score != null ? String(existing.score) : '')
+                              const displayStatus = edit?.status !== undefined ? edit.status : (existing?.status || 'Pass')
+                              const isEdited = !!edit
                               return (
-                                <div key={course.course_id} className="px-5 py-4">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <p className="font-medium text-slate-800">{course.course_title}</p>
-                                    {course.course_code ? <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5 font-mono">{course.course_code}</span> : null}
-                                    <div className="ml-auto flex gap-2 text-xs">
-                                      <span className="bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">{passCount} Pass</span>
-                                      <span className="bg-red-100 text-red-700 rounded-full px-2 py-0.5">{failCount} Fail</span>
-                                      {noResult > 0 ? <span className="bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">{noResult} Pending</span> : null}
-                                    </div>
+                                <td key={course.id} className="py-2 px-3">
+                                  <div className="flex flex-col gap-1 min-w-[110px]">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      placeholder="Score"
+                                      className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                                      value={displayScore}
+                                      onChange={(e) => {
+                                        const val = e.target.value
+                                        const autoStatus = val !== '' ? (Number(val) >= 50 ? 'Pass' : 'Fail') : (edit?.status || existing?.status || 'Pass')
+                                        setPlanGridEdits((prev) => ({
+                                          ...prev,
+                                          [editKey]: { ...(prev[editKey] || {}), score: val, status: autoStatus },
+                                        }))
+                                      }}
+                                    />
+                                    <select
+                                      className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                                      value={displayStatus}
+                                      onChange={(e) => setPlanGridEdits((prev) => ({
+                                        ...prev,
+                                        [editKey]: { ...(prev[editKey] || { score: displayScore }), status: e.target.value },
+                                      }))}
+                                    >
+                                      <option value="Pass">Pass</option>
+                                      <option value="Fail">Fail</option>
+                                    </select>
                                   </div>
-                                  <table className="w-full text-sm">
-                                    <thead>
-                                      <tr className="text-left text-slate-500">
-                                        <th className="pb-1.5 font-medium">Name</th>
-                                        <th className="font-medium">Matric</th>
-                                        <th className="font-medium">Result</th>
-                                        <th className="font-medium">Score</th>
-                                        <th className="font-medium">Type</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {course.students.map((s) => (
-                                        <tr key={s.student_id} className="border-t border-slate-100">
-                                          <td className="py-2">{s.full_name}</td>
-                                          <td>{s.matric_no || <span className="text-slate-300 italic text-xs">pending</span>}</td>
-                                          <td>
-                                            {s.result_status ? (
-                                              <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${s.result_status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                                {s.result_status}
-                                              </span>
-                                            ) : <span className="text-slate-300 text-xs">—</span>}
-                                          </td>
-                                          <td>{s.score != null ? s.score : <span className="text-slate-300 text-xs">—</span>}</td>
-                                          <td className="text-slate-500 text-xs">{s.result_type || '—'}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
+                                </td>
                               )
                             })}
-                          </div>
-                        ) : null}
-                      </div>
-                    )
-                  })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
-              )}
-            </div>
-          ) : null}
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    Select a plan and cohort, then click "Load Grid" to enter results.
+                  </p>
+                </div>
+              )
+            ) : null}
+
+            {/* History grid (read-only) */}
+            {resultsTab === 'history' ? (
+              planGrid ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+                  <h3 className="font-semibold text-slate-900 mb-1">{planGrid.plan.name} — {planGrid.cohort.name}</h3>
+                  <p className="text-xs text-slate-400 mb-4">{planGrid.students.length} students · {planGrid.courses.length} courses</p>
+                  {planGrid.courses.length === 0 ? (
+                    <p className="text-sm text-slate-400">No courses in this plan.</p>
+                  ) : planGrid.students.length === 0 ? (
+                    <p className="text-sm text-slate-400">No students in this cohort.</p>
+                  ) : (
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
+                          <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
+                          {planGrid.courses.map((c) => (
+                            <th key={c.id} className="py-2 px-3 text-left text-slate-500 font-medium text-xs whitespace-nowrap">
+                              {c.course_code || c.title}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {planGrid.students.map((student) => (
+                          <tr key={student.student_id} className="border-b border-slate-100">
+                            <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
+                            <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
+                            {planGrid.courses.map((course) => {
+                              const result = student.results?.[course.id]
+                              return (
+                                <td key={course.id} className="py-2 px-3">
+                                  {result ? (
+                                    <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${result.status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                      {result.status}{result.score != null ? ` (${result.score})` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 text-xs">—</span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    Select a plan and cohort, then click "Load Grid" to view results history.
+                  </p>
+                </div>
+              )
+            ) : null}
           </div>
         )
       })() : null}
