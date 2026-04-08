@@ -1,6 +1,28 @@
 import { query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 
+export const getActivePlan = async (req, res, next) => {
+  try {
+    const planResult = await query(`SELECT * FROM course_plans WHERE is_active = TRUE LIMIT 1`)
+    if (!planResult.rows.length) return res.json(null)
+
+    const plan = planResult.rows[0]
+    const itemsResult = await query(
+      `SELECT cpi.id, cpi.course_id, cpi.start_date, cpi.end_date, cpi.sort_order, cpi.notes,
+              c.title AS course_title, c.course_code, c.lecturer_name, c.duration_weeks
+       FROM course_plan_items cpi
+       JOIN courses c ON c.id = cpi.course_id
+       WHERE cpi.plan_id = $1
+       ORDER BY cpi.start_date ASC NULLS LAST, cpi.sort_order ASC`,
+      [plan.id]
+    )
+
+    res.json({ ...plan, items: itemsResult.rows })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const listPlans = async (req, res, next) => {
   try {
     const result = await query(

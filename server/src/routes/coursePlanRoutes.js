@@ -7,6 +7,7 @@ import {
   deletePlan,
   updatePlan,
   setActivePlan,
+  getActivePlan,
   getEligibleStudents,
   addPlanItem,
   updatePlanItem,
@@ -16,6 +17,7 @@ import {
 const router = Router()
 
 router.use(authenticate)
+router.get('/active', authorize('admin', 'lecturer'), getActivePlan)
 router.get('/', authorize('admin', 'lecturer'), listPlans)
 router.post('/', authorize('admin', 'lecturer'), createPlan)
 router.get('/:planId', authorize('admin', 'lecturer'), getPlan)

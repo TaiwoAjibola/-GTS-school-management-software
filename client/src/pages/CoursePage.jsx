@@ -8,35 +8,6 @@ import { fmtDate, fmtDateRange } from '../utils/formatDate'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-const CLASS_DAY_INDEX = {
-  Sunday: 0,
-  Monday: 1,
-  Tuesday: 2,
-  Wednesday: 3,
-  Thursday: 4,
-  Friday: 5,
-  Saturday: 6,
-}
-
-const suggestCourseEndDate = (startDate, durationWeeks, classDay) => {
-  if (!startDate || !durationWeeks || !classDay) return ''
-  const start = new Date(`${startDate}T00:00:00`)
-  if (Number.isNaN(start.getTime())) return ''
-
-  const targetDay = CLASS_DAY_INDEX[classDay]
-  if (targetDay === undefined) return ''
-
-  const diffToFirstClass = (targetDay - start.getDay() + 7) % 7
-  const firstClassDate = new Date(start)
-  firstClassDate.setDate(firstClassDate.getDate() + diffToFirstClass)
-
-  const weeks = Math.max(1, Number(durationWeeks))
-  const lastClassDate = new Date(firstClassDate)
-  lastClassDate.setDate(lastClassDate.getDate() + (weeks - 1) * 7)
-
-  return lastClassDate.toISOString().slice(0, 10)
-}
-
 const statusBadge = (label, active, activeColor = 'bg-emerald-100 text-emerald-800') => (
   <span
     key={label}
@@ -63,6 +34,7 @@ export default function CoursePage() {
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
   const [course, setCourse] = useState(null)
+  const [lecturers, setLecturers] = useState([])
   const [batches, setBatches] = useState([])
   const [selectedBatchId, setSelectedBatchId] = useState('')
   const [batchStudents, setBatchStudents] = useState([])
@@ -153,6 +125,7 @@ export default function CoursePage() {
 
   useEffect(() => {
     loadAll()
+    apiClient.get('/lecturers').then((r) => setLecturers(r.data)).catch(() => {})
   }, [courseId])
 
   useEffect(() => {
@@ -174,8 +147,6 @@ export default function CoursePage() {
       hasAssignment: editForm.has_assignment,
       hasExam: editForm.has_exam,
       lecturerName: editForm.lecturer_name,
-      startDate: editForm.start_date,
-      endDate: editForm.end_date,
       classDay: editForm.class_day,
       classTime: editForm.class_time,
     })
@@ -245,11 +216,6 @@ export default function CoursePage() {
       (entry) => entry.result_status === 'Fail' && !activeStudentIds.has(Number(entry.student_id))
     )
   }, [allEnrollments])
-
-  const suggestedCourseEndDate = useMemo(
-    () => suggestCourseEndDate(editForm?.start_date, editForm?.duration_weeks, editForm?.class_day),
-    [editForm?.start_date, editForm?.duration_weeks, editForm?.class_day]
-  )
 
   const currentBatch = useMemo(() => batches.find((b) => b.status === 'ongoing'), [batches])
 
@@ -936,12 +902,17 @@ export default function CoursePage() {
                 />
               </label>
               <label className="text-sm text-slate-600 block">
-                Lecturer Name
-                <input
+                Lecturer
+                <select
                   className="mt-1 w-full border rounded-lg px-3 py-2"
                   value={editForm.lecturer_name || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, lecturer_name: e.target.value }))}
-                />
+                >
+                  <option value="">— No lecturer —</option>
+                  {lecturers.map((l) => (
+                    <option key={l.id} value={l.name}>{l.name}</option>
+                  ))}
+                </select>
               </label>
             </div>
 
@@ -967,39 +938,6 @@ export default function CoursePage() {
                   onChange={(e) => setEditForm((p) => ({ ...p, min_attendance_required: e.target.value }))}
                   required
                 />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm text-slate-600 block">
-                Start Date
-                <input
-                  type="date"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={editForm.start_date || ''}
-                  onChange={(e) => setEditForm((p) => ({ ...p, start_date: e.target.value }))}
-                />
-              </label>
-              <label className="text-sm text-slate-600 block">
-                End Date
-                <input
-                  type="date"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={editForm.end_date || ''}
-                  onChange={(e) => setEditForm((p) => ({ ...p, end_date: e.target.value }))}
-                />
-                {suggestedCourseEndDate ? (
-                  <p className="mt-1 text-xs text-slate-500">
-                    Suggested from start + duration/class day: {suggestedCourseEndDate}
-                    <button
-                      type="button"
-                      className="ml-2 text-slate-900 underline"
-                      onClick={() => setEditForm((p) => ({ ...p, end_date: suggestedCourseEndDate }))}
-                    >
-                      Use suggested
-                    </button>
-                  </p>
-                ) : null}
               </label>
             </div>
 

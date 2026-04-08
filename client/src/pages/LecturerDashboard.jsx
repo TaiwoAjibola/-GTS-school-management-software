@@ -126,11 +126,30 @@ const LecturerDashboard = () => {
   const [graduationMatrix, setGraduationMatrix] = useState({ courses: [], students: [] })
   const [graduationSortBy, setGraduationSortBy] = useState('progress')
   const [graduationStatusFilter, setGraduationStatusFilter] = useState('all')
+  const [lecturers, setLecturers] = useState([])
+  const [lecturerForm, setLecturerForm] = useState({ name: '', email: '', phone: '' })
+  const [editingLecturerId, setEditingLecturerId] = useState(null)
+  const [lecturerEditForm, setLecturerEditForm] = useState({ name: '', email: '', phone: '' })
+  const [activePlanItems, setActivePlanItems] = useState([]) // [{course_id, start_date, end_date}]
   const [notice, setNotice] = useState('')
 
   const notify = (message) => {
     setNotice(message)
     setTimeout(() => setNotice(''), 3500)
+  }
+
+  const loadLecturers = async () => {
+    try {
+      const res = await apiClient.get('/lecturers')
+      setLecturers(res.data)
+    } catch { /* silently ignore */ }
+  }
+
+  const loadActivePlan = async () => {
+    try {
+      const res = await apiClient.get('/course-plans/active')
+      setActivePlanItems(res.data?.items || [])
+    } catch { /* silently ignore */ }
   }
 
   const loadCourses = async () => {
@@ -248,6 +267,8 @@ const LecturerDashboard = () => {
     loadAllStudents()
     loadGraduationMatrix()
     loadCohorts()
+    loadLecturers()
+    loadActivePlan()
   }, [user?.id])
 
   useEffect(() => {
@@ -901,6 +922,7 @@ const LecturerDashboard = () => {
     results: 'Results',
     graduation: 'Graduation',
     assignments: 'Assignments',
+    lecturers: 'Lecturers',
   }[section] || 'Lecturer Dashboard'
 
   return (
@@ -965,8 +987,13 @@ const LecturerDashboard = () => {
             </label>
 
             <label className="text-sm text-slate-600 block">
-              Lecturer Name
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Lecturer name" value={courseForm.lecturerName} onChange={(event) => setCourseForm((prev) => ({ ...prev, lecturerName: event.target.value }))} />
+              Lecturer
+              <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.lecturerName} onChange={(event) => setCourseForm((prev) => ({ ...prev, lecturerName: event.target.value }))}>
+                <option value="">— No lecturer —</option>
+                {lecturers.map((l) => (
+                  <option key={l.id} value={l.name}>{l.name}</option>
+                ))}
+              </select>
             </label>
 
             <label className="text-sm text-slate-600 block">
@@ -1110,7 +1137,18 @@ const LecturerDashboard = () => {
               const yearEnd = new Date(calendarYear, 11, 31)
               const yearMs = yearEnd - yearStart + 86400000
 
+              // Build a lookup: course_id → plan dates (prefer active plan dates, fall back to course dates)
+              const planDateByCourse = {}
+              for (const item of activePlanItems) {
+                planDateByCourse[item.course_id] = { start_date: item.start_date, end_date: item.end_date }
+              }
+
               const bars = courses
+                .map((c) => ({
+                  ...c,
+                  start_date: planDateByCourse[c.id]?.start_date ?? c.start_date,
+                  end_date: planDateByCourse[c.id]?.end_date ?? c.end_date,
+                }))
                 .filter((c) => {
                   if (!c.start_date && !c.end_date) return true // show undated at top
                   const s = c.start_date ? new Date(c.start_date) : null
@@ -1136,6 +1174,9 @@ const LecturerDashboard = () => {
                     <span className="font-semibold text-slate-900 text-sm">{calendarYear}</span>
                     <button type="button" onClick={() => setCalendarYear((y) => y + 1)} className="rounded-lg px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">▶</button>
                     <span className="text-xs text-slate-400 ml-2">Click a course bar to open it · Click a month header to schedule a new course starting that month</span>
+                    {activePlanItems.length > 0 && (
+                      <span className="text-xs text-sky-600 ml-2">• Using active plan dates</span>
+                    )}
                   </div>
 
                   {/* Month header */}
@@ -1276,6 +1317,7 @@ const LecturerDashboard = () => {
           if (selectedPlan?.id === planId) {
             setSelectedPlan((p) => p ? { ...p, is_active: true } : p)
           }
+          await loadActivePlan()
           notify('Active plan updated')
         }
         const deletePlan = async (planId) => {
@@ -2875,6 +2917,160 @@ const LecturerDashboard = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : null}
+      {section === 'lecturers' ? (
+        <div className="grid lg:grid-cols-[360px_1fr] gap-6">
+          {/* Create lecturer form */}
+          <form
+            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 self-start"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!lecturerForm.name.trim()) return
+              try {
+                await apiClient.post('/lecturers', lecturerForm)
+                setLecturerForm({ name: '', email: '', phone: '' })
+                await loadLecturers()
+                notify('Lecturer added')
+              } catch (err) {
+                notify(err?.response?.data?.message || 'Unable to add lecturer')
+              }
+            }}
+          >
+            <h3 className="font-semibold text-slate-900">Add Lecturer</h3>
+            <label className="text-sm text-slate-600 block">
+              Name *
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                placeholder="Full name"
+                value={lecturerForm.name}
+                onChange={(e) => setLecturerForm((p) => ({ ...p, name: e.target.value }))}
+                required
+              />
+            </label>
+            <label className="text-sm text-slate-600 block">
+              Email
+              <input
+                type="email"
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                placeholder="email@example.com"
+                value={lecturerForm.email}
+                onChange={(e) => setLecturerForm((p) => ({ ...p, email: e.target.value }))}
+              />
+            </label>
+            <label className="text-sm text-slate-600 block">
+              Phone
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                placeholder="+1 234 567 8900"
+                value={lecturerForm.phone}
+                onChange={(e) => setLecturerForm((p) => ({ ...p, phone: e.target.value }))}
+              />
+            </label>
+            <button className="w-full bg-slate-900 text-white rounded-lg py-2">Add Lecturer</button>
+          </form>
+
+          {/* Lecturers list */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+            <h3 className="font-semibold text-slate-900 mb-4">All Lecturers ({lecturers.length})</h3>
+            {lecturers.length === 0 ? (
+              <p className="text-sm text-slate-400">No lecturers yet. Add one using the form.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="text-left text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th className="pb-2 pr-4">Name</th>
+                    <th className="pb-2 pr-4">Email</th>
+                    <th className="pb-2 pr-4">Phone</th>
+                    <th className="pb-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {lecturers.map((l) => (
+                    <tr key={l.id} className="border-t border-slate-100">
+                      {editingLecturerId === l.id ? (
+                        <>
+                          <td className="py-2 pr-2">
+                            <input
+                              className="w-full border rounded px-2 py-1 text-sm"
+                              value={lecturerEditForm.name}
+                              onChange={(e) => setLecturerEditForm((p) => ({ ...p, name: e.target.value }))}
+                            />
+                          </td>
+                          <td className="py-2 pr-2">
+                            <input
+                              type="email"
+                              className="w-full border rounded px-2 py-1 text-sm"
+                              value={lecturerEditForm.email}
+                              onChange={(e) => setLecturerEditForm((p) => ({ ...p, email: e.target.value }))}
+                            />
+                          </td>
+                          <td className="py-2 pr-2">
+                            <input
+                              className="w-full border rounded px-2 py-1 text-sm"
+                              value={lecturerEditForm.phone}
+                              onChange={(e) => setLecturerEditForm((p) => ({ ...p, phone: e.target.value }))}
+                            />
+                          </td>
+                          <td className="py-2 whitespace-nowrap">
+                            <button
+                              type="button"
+                              className="text-xs bg-slate-900 text-white rounded px-2 py-1 mr-1"
+                              onClick={async () => {
+                                try {
+                                  await apiClient.put(`/lecturers/${l.id}`, lecturerEditForm)
+                                  setEditingLecturerId(null)
+                                  await loadLecturers()
+                                  notify('Lecturer updated')
+                                } catch (err) {
+                                  notify(err?.response?.data?.message || 'Unable to update lecturer')
+                                }
+                              }}
+                            >Save</button>
+                            <button
+                              type="button"
+                              className="text-xs text-slate-500 hover:text-slate-700"
+                              onClick={() => setEditingLecturerId(null)}
+                            >Cancel</button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-3 pr-4 font-medium">{l.name}</td>
+                          <td className="py-3 pr-4 text-slate-500">{l.email || '—'}</td>
+                          <td className="py-3 pr-4 text-slate-500">{l.phone || '—'}</td>
+                          <td className="py-3 whitespace-nowrap">
+                            <button
+                              type="button"
+                              className="text-xs text-sky-600 hover:underline mr-3"
+                              onClick={() => {
+                                setEditingLecturerId(l.id)
+                                setLecturerEditForm({ name: l.name, email: l.email || '', phone: l.phone || '' })
+                              }}
+                            >Edit</button>
+                            <button
+                              type="button"
+                              className="text-xs text-red-500 hover:underline"
+                              onClick={async () => {
+                                if (!window.confirm(`Delete lecturer "${l.name}"?`)) return
+                                try {
+                                  await apiClient.delete(`/lecturers/${l.id}`)
+                                  await loadLecturers()
+                                  notify('Lecturer deleted')
+                                } catch (err) {
+                                  notify(err?.response?.data?.message || 'Unable to delete lecturer')
+                                }
+                              }}
+                            >Delete</button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       ) : null}

@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, UserPlus, Users, Layers } from 'lucide-react'
+import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, UserPlus, Users, Layers, UserCog } from 'lucide-react'
 
 export const lecturerNavItems = [
   { to: '/lecturer/courses', label: 'Courses', icon: BookOpen },
@@ -9,4 +9,5 @@ export const lecturerNavItems = [
   { to: '/lecturer/results', label: 'Results', icon: GraduationCap },
   { to: '/lecturer/graduation', label: 'Graduation', icon: GraduationCap },
   { to: '/lecturer/assignments', label: 'Assignments', icon: SquarePen },
+  { to: '/lecturer/lecturers', label: 'Lecturers', icon: UserCog },
 ]
