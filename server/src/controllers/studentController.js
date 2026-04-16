@@ -387,28 +387,49 @@ export const removeStudentStatus = async (req, res, next) => {
 export const downloadStudentTemplate = async (req, res, next) => {
   try {
     const headers = [
-      'Full Name', 'Email', 'Phone', 'Status', 'Matric Number', 'Batch Name', 'Comments',
+      'Full Name', 'Email', 'Phone', 'Status', 'Matric Number', 'Batch Name', 'Comments', 'Send Welcome Email',
     ]
-    const example = [
-      'Jane Doe', 'jane@example.com', '08012345678', 'Prospective', '', 'February 2026', 'Referred by pastor',
+    const examples = [
+      ['Jane Doe', 'jane@example.com', '08012345678', 'Active', '', 'February 2026', 'Referred by pastor', 'No'],
+      ['John Smith', 'john@example.com', '08098765432', 'Prospective', '', 'February 2026', '', 'No'],
     ]
-    const ws = XLSX.utils.aoa_to_sheet([headers, example])
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...examples])
     ws['!cols'] = headers.map(() => ({ wch: 22 }))
 
-    // Force "Batch Name" column (index 5) to text format so Excel doesn't convert month names to dates
-    const batchColCells = ['A','B','C','D','E','F','G']
-    // Mark all cells in Batch Name column (F) as text type
+    // Force "Batch Name" column (F) to text so Excel doesn't convert month names to dates
     for (let row = 1; row <= 100; row++) {
       const cellRef = `F${row}`
       if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' }
       ws[cellRef].t = 's'
     }
-    // Restore header and example
     ws['F1'] = { t: 's', v: 'Batch Name' }
     ws['F2'] = { t: 's', v: 'February 2026' }
+    ws['F3'] = { t: 's', v: 'February 2026' }
+
+    // Data validation: Status dropdown (column D) and Send Welcome Email dropdown (column H)
+    if (!ws['!dataValidations']) ws['!dataValidations'] = []
+    ws['!dataValidations'].push({
+      sqref: 'D2:D10000',
+      type: 'list',
+      formula1: '"Prospective,Active,Graduating,Graduated,Alumni"',
+      showDropDown: false,
+      showErrorMessage: true,
+      errorTitle: 'Invalid Status',
+      error: 'Choose from: Prospective, Active, Graduating, Graduated, Alumni',
+    })
+    ws['!dataValidations'].push({
+      sqref: 'H2:H10000',
+      type: 'list',
+      formula1: '"Yes,No"',
+      showDropDown: false,
+      showErrorMessage: true,
+      errorTitle: 'Invalid value',
+      error: 'Choose Yes or No',
+    })
 
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Students')
+    // Embed data validations into the worksheet XML via SheetJS writeOptions
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
     res.setHeader('Content-Disposition', 'attachment; filename="students_template.xlsx"')
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -494,12 +515,27 @@ export const uploadStudents = async (req, res, next) => {
       const providedMatric = String(row['Matric Number'] || row.matricNo || row.matric_no || row.MatricNo || '').trim()
       const rawBatch = row['Batch Name'] ?? row.batchName ?? row.batch_name ?? ''
       const comments = String(row.Comments || row.comments || '').trim()
+      // Default: do NOT send welcome email unless explicitly set to "Yes"
+      const sendEmail = String(row['Send Welcome Email'] || row.sendWelcomeEmail || 'No').trim().toLowerCase() === 'yes'
 
       if (!fullName || !email || !phone) {
         continue
       }
 
+      const needsMatric = !providedMatric && status !== 'Prospective'
       const cohortId = await resolveCohortId(rawBatch)
+
+      // Pre-generate matric if needed (lock to prevent concurrent duplicates)
+      let autoMatric = null
+      if (needsMatric) {
+        await client.query('LOCK TABLE students IN EXCLUSIVE MODE')
+        const maxResult = await client.query(
+          `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS count FROM students WHERE matric_no ~ '^GTT[0-9]+$'`
+        )
+        autoMatric = formatMatricNumber(Number(maxResult.rows[0].count) + 1)
+      }
+
+      const matricNo = providedMatric || autoMatric || null
 
       const existingUser = await client.query('SELECT id FROM users WHERE email = $1 LIMIT 1', [email])
 
@@ -510,12 +546,16 @@ export const uploadStudents = async (req, res, next) => {
         const existingStudent = await client.query('SELECT id, matric_no FROM students WHERE user_id = $1', [userId])
 
         if (existingStudent.rows.length) {
-          const candidateMatric = providedMatric || existingStudent.rows[0].matric_no || null
+          // If the existing record has no matric and this student now needs one, use the generated one
+          const finalMatric = providedMatric || existingStudent.rows[0].matric_no || autoMatric || null
           await client.query(
             `UPDATE students SET phone = $1, status = $2, matric_no = $3, comments = $4, cohort_id = $5 WHERE user_id = $6`,
-            [phone, status, candidateMatric, comments || null, cohortId, userId]
+            [phone, status, finalMatric, comments || null, cohortId, userId]
           )
           updated += 1
+          if (sendEmail && finalMatric) {
+            welcomeQueue.push({ email, fullName, matricNo: finalMatric })
+          }
           continue
         }
       }
@@ -526,21 +566,12 @@ export const uploadStudents = async (req, res, next) => {
         [fullName, email, hashed]
       )
 
-      let matricNo = providedMatric || null
-      if (!matricNo && status !== 'Prospective') {
-        await client.query('LOCK TABLE students IN EXCLUSIVE MODE')
-        const maxResult = await client.query(
-          `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS count FROM students WHERE matric_no IS NOT NULL`
-        )
-        matricNo = formatMatricNumber(Number(maxResult.rows[0].count) + 1)
-      }
-
       await client.query(
         `INSERT INTO students (user_id, matric_no, phone, status, comments, cohort_id) VALUES ($1, $2, $3, $4, $5, $6)`,
         [userResult.rows[0].id, matricNo, phone, status, comments || null, cohortId]
       )
 
-      if (status === 'Active' && matricNo) {
+      if (sendEmail && matricNo) {
         welcomeQueue.push({ email, fullName, matricNo })
       }
 
