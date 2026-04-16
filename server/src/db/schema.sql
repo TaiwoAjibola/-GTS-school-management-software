@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS cohorts (
 CREATE TABLE IF NOT EXISTS students (
   id SERIAL PRIMARY KEY,
   user_id INT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  matric_no VARCHAR(8) UNIQUE NOT NULL,
+  matric_no VARCHAR(20) UNIQUE,
   student_number VARCHAR(20),
   phone VARCHAR(30) NOT NULL,
   profile_image_url TEXT,
