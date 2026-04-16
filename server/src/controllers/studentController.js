@@ -525,14 +525,11 @@ export const uploadStudents = async (req, res, next) => {
       const needsMatric = !providedMatric && status !== 'Prospective'
       const cohortId = await resolveCohortId(rawBatch)
 
-      // Pre-generate matric if needed (lock to prevent concurrent duplicates)
+      // Pre-generate matric using the sequence (no table lock needed)
       let autoMatric = null
       if (needsMatric) {
-        await client.query('LOCK TABLE students IN EXCLUSIVE MODE')
-        const maxResult = await client.query(
-          `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS count FROM students WHERE matric_no ~ '^GTT[0-9]+$'`
-        )
-        autoMatric = formatMatricNumber(Number(maxResult.rows[0].count) + 1)
+        const seqResult = await client.query(`SELECT nextval('students_matric_seq') AS seq`)
+        autoMatric = formatMatricNumber(Number(seqResult.rows[0].seq))
       }
 
       const matricNo = providedMatric || autoMatric || null
