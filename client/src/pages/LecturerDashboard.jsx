@@ -1939,7 +1939,7 @@ const LecturerDashboard = () => {
                     onClick={async () => {
                       if (!window.confirm(`Delete ${selectedStudent.full_name}? This cannot be undone.`)) return
                       await apiClient.delete(`/students/${selectedStudent.id}`)
-                      setStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id))
+                      setAllStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id))
                       closeStudentPanel()
                     }}
                   >
