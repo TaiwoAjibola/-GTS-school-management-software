@@ -1835,30 +1835,55 @@ const LecturerDashboard = () => {
                 </button>
               </div>
             </div>
-            <table className="w-full text-sm">
-              <thead className="text-left text-slate-500">
-                <tr><th className="pb-2">Name</th><th>Matric</th><th>Phone</th><th>Email</th><th>Status</th><th>Batch</th><th>View</th></tr>
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
+              <thead className="text-left text-slate-500 bg-slate-50">
+                <tr>
+                  <th className="pb-2 pt-2 px-3 font-medium">Name</th>
+                  <th className="pb-2 pt-2 px-3 font-medium">Matric</th>
+                  <th className="pb-2 pt-2 px-3 font-medium">Phone</th>
+                  <th className="pb-2 pt-2 px-3 font-medium">Email</th>
+                  <th className="pb-2 pt-2 px-3 font-medium">Status</th>
+                  <th className="pb-2 pt-2 px-3 font-medium">Batch</th>
+                  <th className="pb-2 pt-2 px-3 font-medium">Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {filteredStudents.map((student) => (
-                  <tr key={student.id} className="border-t border-slate-200">
-                    <td className="py-3">
+                  <tr key={student.id} className="border-t border-slate-200 hover:bg-slate-50">
+                    <td className="py-3 px-3">
                       <Link to={`/lecturer/students/${student.id}`} className="font-medium text-slate-900 hover:underline">
                         {student.full_name}
                       </Link>
                     </td>
-                    <td>{student.matric_no || <span className="text-slate-400 text-xs italic">pending</span>}</td>
-                    <td>{student.phone || '—'}</td>
-                    <td>{student.email}</td>
-                    <td>{student.status}</td>
-                    <td>{student.cohort_name || <span className="text-slate-400">—</span>}</td>
-                    <td>
-                      <button onClick={() => openStudentPanel(student)} className="rounded-lg px-3 py-2 bg-slate-100 text-slate-700">View</button>
+                    <td className="py-3 px-3 whitespace-nowrap">{student.matric_no || <span className="text-slate-400 text-xs italic">pending</span>}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">{student.phone || '—'}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">{student.email}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">{student.status}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">{student.cohort_name || <span className="text-slate-400">—</span>}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => openStudentPanel(student)} className="rounded-lg px-3 py-1.5 bg-slate-100 text-slate-700 text-xs hover:bg-slate-200">View</button>
+                        <button
+                          type="button"
+                          className="rounded-lg px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 text-xs hover:bg-red-100"
+                          onClick={async () => {
+                            if (!window.confirm(`Delete ${student.full_name}? This cannot be undone.`)) return
+                            try {
+                              await apiClient.delete(`/students/${student.id}`)
+                              setAllStudents((prev) => prev.filter((s) => s.id !== student.id))
+                            } catch (err) {
+                              alert(err?.response?.data?.message || 'Delete failed')
+                            }
+                          }}
+                        >Delete</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {selectedStudent && studentEditForm ? (
