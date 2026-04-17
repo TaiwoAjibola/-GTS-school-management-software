@@ -653,12 +653,16 @@ const LecturerDashboard = () => {
 
   const uploadStudents = async () => {
     if (!studentUploadFile) return
-    const formData = new FormData()
-    formData.append('file', studentUploadFile)
-    const response = await apiClient.post('/students/upload', formData)
-    await Promise.all([loadAllStudents(), loadCourseScopedData(selectedCourseId), loadGraduationMatrix()])
-    notify(`Students uploaded: ${response.data.processed} processed`)
-    setStudentUploadFile(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', studentUploadFile)
+      const response = await apiClient.post('/students/upload', formData)
+      await Promise.all([loadAllStudents(), loadCourseScopedData(selectedCourseId), loadGraduationMatrix()])
+      notify(`Students uploaded: ${response.data.processed} processed`)
+      setStudentUploadFile(null)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Upload failed. Please try again.')
+    }
   }
 
   const uploadCourses = async () => {

@@ -446,6 +446,10 @@ export const uploadStudents = async (req, res, next) => {
       throw httpError(400, 'Upload file is required')
     }
 
+    // Safety net: ensure the matric sequence exists even if the boot migration was skipped.
+    // CREATE SEQUENCE IF NOT EXISTS is a no-op when it already exists.
+    await client.query(`CREATE SEQUENCE IF NOT EXISTS students_matric_seq START 1`)
+
     // Use cellDates:false so we get raw values; date cells will come as serial numbers
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: false })
     const firstSheet = workbook.SheetNames[0]
