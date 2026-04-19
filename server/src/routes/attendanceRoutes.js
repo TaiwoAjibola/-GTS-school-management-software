@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   closeAttendanceSession,
   closeBatchAttendanceSession,
+  deleteAttendanceSession,
   editSessionAttendance,
   getCourseAttendanceHistory,
   getCourseAttendanceStudentSummary,
@@ -30,6 +31,7 @@ router.get('/course/:courseId/roster', authorize('lecturer', 'admin'), getCourse
 router.post('/manual-mark', authorize('lecturer', 'admin'), manualMarkAttendance)
 router.get('/session/:sessionId/roster', authorize('lecturer', 'admin'), getSessionRoster)
 router.patch('/session/:sessionId/toggle', authorize('lecturer', 'admin'), editSessionAttendance)
+router.delete('/session/:sessionId', authorize('lecturer', 'admin'), deleteAttendanceSession)
 router.post('/batch/start', authorize('lecturer', 'admin'), startBatchAttendanceSession)
 router.post('/batch/close', authorize('lecturer', 'admin'), closeBatchAttendanceSession)
 router.get('/batch/:batchId/status', authorize('lecturer', 'admin'), getBatchAttendanceStatus)

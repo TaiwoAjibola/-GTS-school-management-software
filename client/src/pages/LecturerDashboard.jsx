@@ -88,6 +88,8 @@ const LecturerDashboard = () => {
   const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '' })
   const [editingSession, setEditingSession] = useState(null) // { session, roster }
   const [editSessionLoading, setEditSessionLoading] = useState(false)
+  const [deleteSessionReason, setDeleteSessionReason] = useState('')
+  const [showDeleteSessionConfirm, setShowDeleteSessionConfirm] = useState(false)
 
   const [courseResults, setCourseResults] = useState([])
   const [resultSortBy, setResultSortBy] = useState('name')
@@ -865,6 +867,25 @@ const LecturerDashboard = () => {
       await loadCourseScopedData(selectedCourseId, selectedClassNumber)
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to update attendance')
+    }
+  }
+
+  const deleteSession = async () => {
+    if (!deleteSessionReason.trim()) {
+      notify('Please enter a reason before deleting')
+      return
+    }
+    try {
+      await apiClient.delete(`/attendance/session/${editingSession.session.id}`, {
+        data: { reason: deleteSessionReason.trim() },
+      })
+      setEditingSession(null)
+      setDeleteSessionReason('')
+      setShowDeleteSessionConfirm(false)
+      await loadCourseScopedData(selectedCourseId, selectedClassNumber)
+      notify('Attendance session deleted')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to delete session')
     }
   }
 
@@ -3101,74 +3122,166 @@ const LecturerDashboard = () => {
       ) : null}
 
       {/* ── Edit Session Modal ─────────────────────────────────────── */}
-      {editingSession ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-              <div>
-                <h3 className="font-semibold text-slate-900">
-                  Edit Attendance — Class {editingSession.session.class_number}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {new Date(editingSession.session.start_time).toLocaleString()}
-                </p>
+      {editingSession ? (() => {
+        const presentList = editingSession.roster.filter((s) => s.present)
+        const absentList  = editingSession.roster.filter((s) => !s.present)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+                <div>
+                  <h3 className="font-semibold text-slate-900">
+                    Class {editingSession.session.class_number} — Session Details
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {new Date(editingSession.session.start_time).toLocaleString()}
+                    {editingSession.session.end_time
+                      ? ` – ${new Date(editingSession.session.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                      : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setEditingSession(null); setShowDeleteSessionConfirm(false); setDeleteSessionReason('') }}
+                  className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-500"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditingSession(null)}
-                className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-500"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1 px-5 py-4">
-              {editSessionLoading ? (
-                <p className="text-sm text-slate-500">Loading roster…</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="text-left text-slate-500 bg-slate-50">
-                    <tr>
-                      <th className="py-2 px-3 font-medium">Name</th>
-                      <th className="py-2 px-3 font-medium">Matric</th>
-                      <th className="py-2 px-3 font-medium">Attendance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editingSession.roster.map((student) => (
-                      <tr key={student.student_id} className="border-t border-slate-100 hover:bg-slate-50">
-                        <td className="py-2.5 px-3">{student.full_name}</td>
-                        <td className="py-2.5 px-3 text-slate-500">{student.matric_no || '—'}</td>
-                        <td className="py-2.5 px-3">
-                          <button
-                            type="button"
-                            onClick={() => toggleSessionAttendance(editingSession.session.id, student.student_id)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                              student.present
-                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            {student.present ? 'Present' : 'Absent'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <div className="px-5 py-3 border-t border-slate-200 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setEditingSession(null)}
-                className="rounded-lg px-4 py-2 bg-slate-900 text-white text-sm"
-              >
-                Done
-              </button>
+
+              {/* Summary bar */}
+              <div className="flex gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-sm">
+                <span className="text-emerald-700 font-medium">{presentList.length} present</span>
+                <span className="text-slate-400">·</span>
+                <span className="text-red-600 font-medium">{absentList.length} absent</span>
+                <span className="text-slate-400">·</span>
+                <span className="text-slate-600">{editingSession.roster.length} total</span>
+              </div>
+
+              {/* Roster body */}
+              <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+                {editSessionLoading ? (
+                  <p className="text-sm text-slate-500">Loading roster…</p>
+                ) : (
+                  <>
+                    {/* Present */}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">
+                        Present ({presentList.length})
+                      </p>
+                      {presentList.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">No students marked present</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {presentList.map((s) => (
+                            <li key={s.student_id} className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+                              <div>
+                                <span className="text-sm font-medium text-slate-800">{s.full_name}</span>
+                                {s.matric_no && <span className="ml-2 text-xs text-slate-400">{s.matric_no}</span>}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleSessionAttendance(editingSession.session.id, s.student_id)}
+                                className="text-xs rounded-lg px-3 py-1 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                              >
+                                Mark Absent
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Absent */}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-red-600 mb-2">
+                        Absent ({absentList.length})
+                      </p>
+                      {absentList.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">All students are marked present</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {absentList.map((s) => (
+                            <li key={s.student_id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                              <div>
+                                <span className="text-sm font-medium text-slate-800">{s.full_name}</span>
+                                {s.matric_no && <span className="ml-2 text-xs text-slate-400">{s.matric_no}</span>}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleSessionAttendance(editingSession.session.id, s.student_id)}
+                                className="text-xs rounded-lg px-3 py-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                              >
+                                Mark Present
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Delete session */}
+                    <div className="pt-3 border-t border-red-100">
+                      {!showDeleteSessionConfirm ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteSessionConfirm(true)}
+                          className="text-xs text-red-600 underline hover:text-red-800"
+                        >
+                          Delete this attendance session…
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-red-700">Delete Session</p>
+                          <p className="text-xs text-slate-500">
+                            This will permanently remove the session and all attendance records for Class {editingSession.session.class_number}. This cannot be undone.
+                          </p>
+                          <textarea
+                            className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                            rows={2}
+                            placeholder="Reason for deletion (required)"
+                            value={deleteSessionReason}
+                            onChange={(e) => setDeleteSessionReason(e.target.value)}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={deleteSession}
+                              disabled={!deleteSessionReason.trim()}
+                              className="rounded-lg px-4 py-1.5 bg-red-600 text-white text-sm disabled:opacity-50 hover:bg-red-700"
+                            >
+                              Confirm Delete
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setShowDeleteSessionConfirm(false); setDeleteSessionReason('') }}
+                              className="rounded-lg px-4 py-1.5 bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setEditingSession(null); setShowDeleteSessionConfirm(false); setDeleteSessionReason('') }}
+                  className="rounded-lg px-4 py-2 bg-slate-900 text-white text-sm"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        )
+      })() : null}
     </AppShell>
   )
 }

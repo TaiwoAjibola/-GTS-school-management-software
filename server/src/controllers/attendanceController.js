@@ -678,3 +678,36 @@ export const editSessionAttendance = async (req, res, next) => {
     next(error)
   }
 }
+
+// DELETE /attendance/session/:sessionId
+// body: { reason } — required, logged for audit trail
+// Deletes session and all its records (cascade).
+export const deleteAttendanceSession = async (req, res, next) => {
+  try {
+    const sessionId = Number(req.params.sessionId)
+    if (!sessionId) throw httpError(400, 'Invalid sessionId')
+
+    const { reason } = req.body
+    if (!reason || !String(reason).trim()) {
+      throw httpError(400, 'A reason is required to delete an attendance session')
+    }
+
+    const sessionResult = await query(
+      `SELECT id, course_id, class_number FROM attendance_sessions WHERE id = $1`, [sessionId]
+    )
+    const session = sessionResult.rows[0]
+    if (!session) throw httpError(404, 'Session not found')
+
+    console.log(
+      `[Attendance] Session ${sessionId} (Class ${session.class_number}, Course ${session.course_id}) ` +
+      `deleted by user ${req.user.userId}. Reason: ${String(reason).trim()}`
+    )
+
+    // ON DELETE CASCADE removes all attendance_records automatically
+    await query(`DELETE FROM attendance_sessions WHERE id = $1`, [sessionId])
+
+    res.json({ message: 'Attendance session deleted' })
+  } catch (error) {
+    next(error)
+  }
+}
