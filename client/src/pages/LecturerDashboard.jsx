@@ -86,6 +86,8 @@ const LecturerDashboard = () => {
   const [assignmentForm, setAssignmentForm] = useState({ title: '', description: '', dueDate: '', file: null })
 
   const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '' })
+  const [editingSession, setEditingSession] = useState(null) // { session, roster }
+  const [editSessionLoading, setEditSessionLoading] = useState(false)
 
   const [courseResults, setCourseResults] = useState([])
   const [resultSortBy, setResultSortBy] = useState('name')
@@ -835,6 +837,35 @@ const LecturerDashboard = () => {
       classNumber: Number(selectedClassNumber),
     })
     await loadCourseScopedData(selectedCourseId, selectedClassNumber)
+  }
+
+  const openEditSession = async (session) => {
+    setEditSessionLoading(true)
+    try {
+      const res = await apiClient.get(`/attendance/session/${session.id}/roster`)
+      setEditingSession(res.data)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to load session roster')
+    } finally {
+      setEditSessionLoading(false)
+    }
+  }
+
+  const toggleSessionAttendance = async (sessionId, studentId) => {
+    try {
+      const res = await apiClient.patch(`/attendance/session/${sessionId}/toggle`, { studentId })
+      // Update the roster in state immediately (optimistic)
+      setEditingSession((prev) => ({
+        ...prev,
+        roster: prev.roster.map((r) =>
+          r.student_id === studentId ? { ...r, present: res.data.present } : r
+        ),
+      }))
+      // Refresh summary counts
+      await loadCourseScopedData(selectedCourseId, selectedClassNumber)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to update attendance')
+    }
   }
 
   const updateResultInline = async (studentId, score, status) => {
@@ -2410,10 +2441,19 @@ const LecturerDashboard = () => {
               <p className="text-sm font-medium text-slate-900">Session History</p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600 max-h-56 overflow-auto">
                 {attendanceHistory.map((session) => (
-                  <li key={session.id} className="rounded-lg bg-slate-50 px-3 py-2">
-                    <div>Class {session.class_number}</div>
-                    <div>{new Date(session.start_time).toLocaleString()}</div>
-                    <div>{session.attendees} present</div>
+                  <li key={session.id} className="rounded-lg bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-medium text-slate-800">Class {session.class_number}</div>
+                      <div className="text-xs text-slate-500">{new Date(session.start_time).toLocaleString()}</div>
+                      <div className="text-xs text-slate-500">{session.attendees} present</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openEditSession(session)}
+                      className="shrink-0 rounded-lg px-3 py-1.5 bg-slate-200 text-slate-700 text-xs hover:bg-slate-300"
+                    >
+                      Edit
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -3056,6 +3096,76 @@ const LecturerDashboard = () => {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Edit Session Modal ─────────────────────────────────────── */}
+      {editingSession ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="font-semibold text-slate-900">
+                  Edit Attendance — Class {editingSession.session.class_number}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {new Date(editingSession.session.start_time).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSession(null)}
+                className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-500"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-4">
+              {editSessionLoading ? (
+                <p className="text-sm text-slate-500">Loading roster…</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 bg-slate-50">
+                    <tr>
+                      <th className="py-2 px-3 font-medium">Name</th>
+                      <th className="py-2 px-3 font-medium">Matric</th>
+                      <th className="py-2 px-3 font-medium">Attendance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editingSession.roster.map((student) => (
+                      <tr key={student.student_id} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="py-2.5 px-3">{student.full_name}</td>
+                        <td className="py-2.5 px-3 text-slate-500">{student.matric_no || '—'}</td>
+                        <td className="py-2.5 px-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleSessionAttendance(editingSession.session.id, student.student_id)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                              student.present
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {student.present ? 'Present' : 'Absent'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEditingSession(null)}
+                className="rounded-lg px-4 py-2 bg-slate-900 text-white text-sm"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

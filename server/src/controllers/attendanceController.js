@@ -596,3 +596,85 @@ export const manualMarkBatchAttendance = async (req, res, next) => {
     next(error)
   }
 }
+
+// ── Edit a past attendance session ──────────────────────────────────────────
+// GET /attendance/session/:sessionId/roster
+export const getSessionRoster = async (req, res, next) => {
+  try {
+    const sessionId = Number(req.params.sessionId)
+    if (!sessionId) throw httpError(400, 'Invalid sessionId')
+
+    const sessionResult = await query(
+      `SELECT s.id, s.course_id, s.class_number, s.start_time, s.end_time, s.is_active
+       FROM attendance_sessions s WHERE s.id = $1`,
+      [sessionId]
+    )
+    const session = sessionResult.rows[0]
+    if (!session) throw httpError(404, 'Session not found')
+
+    const roster = await query(
+      `SELECT s.id AS student_id,
+              s.matric_no,
+              s.status,
+              u.full_name,
+              CASE WHEN ar.id IS NOT NULL THEN TRUE ELSE FALSE END AS present,
+              ar.id AS record_id
+       FROM enrollments e
+       JOIN students s ON s.id = e.student_id
+       JOIN users u ON u.id = s.user_id
+       LEFT JOIN attendance_records ar
+         ON ar.student_id = s.id AND ar.session_id = $1
+       WHERE e.course_id = $2
+       ORDER BY u.full_name ASC`,
+      [sessionId, session.course_id]
+    )
+
+    res.json({ session, roster: roster.rows })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// PATCH /attendance/session/:sessionId/toggle
+// body: { studentId }
+// Toggles a student present/absent in a closed (or open) session.
+export const editSessionAttendance = async (req, res, next) => {
+  try {
+    const sessionId = Number(req.params.sessionId)
+    const studentId = Number(req.body.studentId)
+    if (!sessionId || !studentId) throw httpError(400, 'sessionId and studentId are required')
+
+    const sessionResult = await query(
+      `SELECT id, course_id FROM attendance_sessions WHERE id = $1`, [sessionId]
+    )
+    const session = sessionResult.rows[0]
+    if (!session) throw httpError(404, 'Session not found')
+
+    // Verify student is enrolled in the course
+    const enrollment = await query(
+      `SELECT id FROM enrollments WHERE course_id = $1 AND student_id = $2`,
+      [session.course_id, studentId]
+    )
+    if (!enrollment.rows.length) throw httpError(400, 'Student is not enrolled in this course')
+
+    const existing = await query(
+      `SELECT id FROM attendance_records WHERE session_id = $1 AND student_id = $2`,
+      [sessionId, studentId]
+    )
+
+    if (existing.rows.length) {
+      // Currently present → mark absent (delete record)
+      await query(`DELETE FROM attendance_records WHERE id = $1`, [existing.rows[0].id])
+      res.json({ present: false })
+    } else {
+      // Currently absent → mark present (insert record)
+      await query(
+        `INSERT INTO attendance_records (session_id, student_id) VALUES ($1, $2)`,
+        [sessionId, studentId]
+      )
+      res.json({ present: true })
+    }
+  } catch (error) {
+    next(error)
+  }
+}

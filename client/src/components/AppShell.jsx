@@ -11,7 +11,7 @@ const AppShell = ({ title, navItems = [], children }) => {
   const navContent = (
     <div className="h-full flex flex-col">
       <Link to="/" className="block">
-        <h1 className="text-xl font-semibold tracking-tight">SAMS</h1>
+        <img src="/logo.svg" alt="GTS Logo" className="h-10 w-auto" />
         <p className="text-sm text-slate-400 mt-1">Seminary Academic System</p>
       </Link>
 
