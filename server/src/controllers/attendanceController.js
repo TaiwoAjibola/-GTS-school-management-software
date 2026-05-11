@@ -259,15 +259,8 @@ export const getCourseAttendanceStudentSummary = async (req, res, next) => {
               u.full_name,
               u.email,
               c.min_attendance_required,
-              COUNT(DISTINCT ses.id) FILTER (WHERE ses.end_time <= NOW())::int AS total_sessions,
-              COUNT(ar.id)::int AS present_count,
-              ROUND(
-                CASE
-                  WHEN COUNT(DISTINCT ses.id) FILTER (WHERE ses.end_time <= NOW()) = 0 THEN 0
-                  ELSE (COUNT(ar.id)::numeric / COUNT(DISTINCT ses.id) FILTER (WHERE ses.end_time <= NOW())) * 100
-                END,
-                2
-              ) AS attendance_rate
+              COUNT(DISTINCT ses.id) FILTER (WHERE ses.end_time IS NOT NULL AND ses.end_time <= NOW())::int AS total_sessions,
+              COUNT(ar.id) FILTER (WHERE ses.end_time IS NOT NULL AND ses.end_time <= NOW())::int AS present_count
        FROM enrollments e
        JOIN students s ON s.id = e.student_id
        JOIN users u ON u.id = s.user_id
@@ -281,11 +274,20 @@ export const getCourseAttendanceStudentSummary = async (req, res, next) => {
       [courseId]
     )
 
-    const formatted = result.rows.map((row) => ({
-      ...row,
-      eligible: Number(row.present_count) >= Number(row.min_attendance_required),
-      absent_count: Math.max(0, Number(row.total_sessions) - Number(row.present_count)),
-    }))
+    const formatted = result.rows.map((row) => {
+      const total = Number(row.total_sessions)
+      const present = Number(row.present_count)
+      const absent = Math.max(0, total - present)
+      const rate = total > 0 ? Math.round((present / total) * 100) : 0
+      return {
+        ...row,
+        total_sessions: total,
+        present_count: present,
+        absent_count: absent,
+        attendance_rate: rate,
+        eligible: present >= Number(row.min_attendance_required),
+      }
+    })
 
     res.json(formatted)
   } catch (error) {

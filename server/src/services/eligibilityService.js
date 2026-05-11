@@ -4,9 +4,8 @@ export const getEligibilityForStudentInCourse = async (studentId, courseId) => {
   const result = await query(
     `SELECT c.min_attendance_required,
             COALESCE(
-              COUNT(DISTINCT ar.id) FILTER (
-                WHERE s.course_id = c.id AND s.end_time <= NOW()
-              ), 0
+              COUNT(ar.id) FILTER (WHERE s.end_time IS NOT NULL AND s.end_time <= NOW()),
+              0
             ) AS attendance_count
      FROM courses c
      LEFT JOIN attendance_sessions s ON s.course_id = c.id
@@ -65,9 +64,8 @@ export const getEligibilityForStudentInBatch = async (studentId, batchId) => {
   const result = await query(
     `SELECT c.min_attendance_required,
             COALESCE(
-              COUNT(DISTINCT ar.id) FILTER (
-                WHERE s.batch_id = $2 AND s.end_time <= NOW()
-              ), 0
+              COUNT(ar.id) FILTER (WHERE s.end_time IS NOT NULL AND s.end_time <= NOW()),
+              0
             ) AS attendance_count
      FROM batches b
      JOIN courses c ON c.id = b.course_id
