@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 
