@@ -17,31 +17,42 @@ const createToken = (user) =>
   )
 
 export const login = async (req, res, next) => {
+  console.log('[LOGIN] Attempting login for:', req.body?.email)
   try {
     const { email, password } = req.body
 
     if (!email || !password) {
+      console.log('[LOGIN] Missing email or password')
       throw httpError(400, 'Email and password are required')
     }
 
+    console.log('[LOGIN] Querying database...')
     const result = await query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email])
+    console.log('[LOGIN] Query result rows:', result.rows?.length)
 
     const user = result.rows[0]
     if (!user) {
+      console.log('[LOGIN] User not found')
       throw httpError(401, 'Invalid credentials')
     }
 
+    console.log('[LOGIN] Comparing password...')
     const isValid = await bcrypt.compare(password, user.password_hash)
+    console.log('[LOGIN] Password valid:', isValid)
+    
     if (!isValid) {
       throw httpError(401, 'Invalid credentials')
     }
 
     // Temporarily block student logins as per requirement #7
     if (user.role === 'student') {
+      console.log('[LOGIN] Student login blocked')
       throw httpError(403, 'Student login is temporarily disabled. Please contact the administrator.')
     }
 
+    console.log('[LOGIN] Creating token...')
     const token = createToken(user)
+    console.log('[LOGIN] Login successful for:', email)
 
     res.json({
       token,
@@ -53,6 +64,7 @@ export const login = async (req, res, next) => {
       },
     })
   } catch (error) {
+    console.error('[LOGIN] Error:', error.message, error.status)
     next(error)
   }
 }
