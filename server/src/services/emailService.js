@@ -1,77 +1,119 @@
 import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
+import { getSetting } from './settingsService.js'
 
 let transporter = null
 
-if (env.smtpHost && env.smtpUser && env.smtpPass) {
+const getTransporter = async () => {
+  const emailEnabled = await getSetting('email_enabled', 'true')
+  if (emailEnabled !== 'true') return null
+
+  const smtpHost = await getSetting('smtp_host', env.smtpHost)
+  const smtpPort = Number(await getSetting('smtp_port', String(env.smtpPort)))
+  const smtpUser = await getSetting('smtp_user', env.smtpUser)
+  const smtpPass = await getSetting('smtp_pass', env.smtpPass)
+
+  if (!smtpHost || !smtpUser || !smtpPass) return null
+
+  if (transporter) return transporter
+
   transporter = nodemailer.createTransport({
-    host: env.smtpHost,
-    port: env.smtpPort,
-    secure: env.smtpPort === 465,
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
     auth: {
-      user: env.smtpUser,
-      pass: env.smtpPass,
+      user: smtpUser,
+      pass: smtpPass,
     },
   })
+
+  return transporter
+}
+
+const getEmailFrom = async () => {
+  return await getSetting('email_from', env.emailFrom)
+}
+
+const renderTemplate = (template, variables) => {
+  let result = template
+  for (const [key, value] of Object.entries(variables)) {
+    const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+    result = result.replace(pattern, value != null ? value : '')
+    const conditionalPattern = new RegExp(`\\{\\{#\\s*${key}\\s*\\}\\}([\\s\\S]*?)\\{\\{/\\s*${key}\\s*\\}\\}`, 'g')
+    result = result.replace(conditionalPattern, value ? `$1` : '')
+  }
+  return result
 }
 
 const send = async (mailOptions) => {
-  if (!transporter) return false
-  await transporter.sendMail({ from: env.emailFrom, ...mailOptions })
+  const tx = await getTransporter()
+  if (!tx) return false
+  const from = await getEmailFrom()
+  await tx.sendMail({ from, ...mailOptions })
   return true
 }
 
 export const sendWelcomeEmail = async ({ to, studentName, matricNo }) => {
+  const subject = await getSetting('template_welcome_subject', 'Welcome to GTS — You Have Been Activated')
+  const body = await getSetting('template_welcome_body', 'Dear {{studentName}},\n\nCongratulations! Your student account has been activated.\n\nYour Matriculation Number is: {{matricNo}}\n\nPlease keep this number safe — you will need it for future reference.\n\nGod bless you,\nThe GTS Team')
+
+  const text = renderTemplate(body, { studentName, matricNo })
+  const html = text.replace(/\n/g, '<br/>').replace(/{{\w+}}/g, '').replace(/{{#\w+}}.*?{{\/\w+}}/g, '')
+
   return send({
     to,
-    subject: 'Welcome to GTS — You Have Been Activated',
-    text: `Dear ${studentName},\n\nCongratulations! Your student account has been activated.\n\nYour Matriculation Number is: ${matricNo}\n\nPlease keep this number safe — you will need it for future reference.\n\nGod bless you,\nThe GTS Team`,
-    html: `<p>Dear <strong>${studentName}</strong>,</p>
-<p>Congratulations! Your student account has been activated.</p>
-<p>Your Matriculation Number is: <strong style="font-size:1.2em;">${matricNo}</strong></p>
-<p>Please keep this number safe — you will need it for future reference.</p>
-<br/><p>God bless you,<br/>The GTS Team</p>`,
+    subject,
+    text,
+    html: `<p>${html}</p>`,
   })
 }
 
 export const sendGraduationEmail = async ({ to, studentName }) => {
+  const subject = await getSetting('template_graduation_subject', 'Congratulations on Your Graduation — GTS')
+  const body = await getSetting('template_graduation_body', 'Dear {{studentName}},\n\nOn behalf of the GTS faculty and staff, we congratulate you on successfully completing all requirements for graduation.\n\nMay God continue to guide and bless you in your ministry.\n\nWith blessings,\nThe GTS Team')
+
+  const text = renderTemplate(body, { studentName })
+  const html = text.replace(/\n/g, '<br/>').replace(/{{\w+}}/g, '')
+
   return send({
     to,
-    subject: 'Congratulations on Your Graduation — GTS',
-    text: `Dear ${studentName},\n\nOn behalf of the GTS faculty and staff, we congratulate you on successfully completing all requirements for graduation.\n\nMay God continue to guide and bless you in your ministry.\n\nWith blessings,\nThe GTS Team`,
-    html: `<p>Dear <strong>${studentName}</strong>,</p>
-<p>On behalf of the GTS faculty and staff, we congratulate you on successfully completing all requirements for graduation.</p>
-<p>May God continue to guide and bless you in your ministry.</p>
-<br/><p>With blessings,<br/>The GTS Team</p>`,
+    subject,
+    text,
+    html: `<p>${html}</p>`,
   })
 }
 
 export const sendResultEmail = async ({ to, studentName, courseTitle, resultType, status, score }) => {
-  const scoreText = score != null ? ` (Score: ${score}/100)` : ''
-  const statusLine = status === 'Pass'
-    ? `We are pleased to inform you that you have <strong>passed</strong> this ${resultType.toLowerCase()}${scoreText}.`
-    : `We regret to inform you that you did not pass this ${resultType.toLowerCase()}${scoreText}. Please speak with your lecturer for further guidance.`
+  const subjectTpl = await getSetting('template_result_subject', 'Your {{resultType}} Result — {{courseTitle}}')
+  const bodyTpl = await getSetting('template_result_body', 'Dear {{studentName}},\n\nYour {{resultType}} result for "{{courseTitle}}" is now available.\n\nResult: {{status}}{{#score}} (Score: {{score}}/100){{/score}}\n\nGod bless you,\nThe GTS Team')
+
+  const variables = { studentName, courseTitle, resultType, status, score: score != null ? score : '' }
+  const subject = renderTemplate(subjectTpl, variables)
+  const text = renderTemplate(bodyTpl, variables)
+  const html = text.replace(/\n/g, '<br/>').replace(/{{\w+}}/g, '').replace(/{{#\w+}}.*?{{\/\w+}}/g, '')
 
   return send({
     to,
-    subject: `Your ${resultType} Result — ${courseTitle}`,
-    text: `Dear ${studentName},\n\nYour ${resultType} result for "${courseTitle}" is now available.\n\nResult: ${status}${scoreText}\n\nGod bless you,\nThe GTS Team`,
-    html: `<p>Dear <strong>${studentName}</strong>,</p>
-<p>Your <strong>${resultType}</strong> result for "<em>${courseTitle}</em>" is now available.</p>
-<p>${statusLine}</p>
-<br/><p>God bless you,<br/>The GTS Team</p>`,
+    subject,
+    text,
+    html: `<p>${html}</p>`,
   })
 }
 
 export const sendAssignmentEmail = async ({ to, studentName, courseTitle, assignmentTitle, dueDate }) => {
+  const subjectTpl = await getSetting('template_assignment_subject', 'New Assignment: {{assignmentTitle}}')
+  const bodyTpl = await getSetting('template_assignment_body', 'Hello {{studentName}},\n\nYou have a new assignment in {{courseTitle}}: {{assignmentTitle}}.\nDue date: {{dueDate}}\n\nGTS')
+
+  const variables = { studentName, courseTitle, assignmentTitle, dueDate: dueDate || 'N/A' }
+  const subject = renderTemplate(subjectTpl, variables)
+  const text = renderTemplate(bodyTpl, variables)
+  const html = text.replace(/\n/g, '<br/>').replace(/{{\w+}}/g, '')
+
   return send({
     to,
-    subject: `New Assignment: ${assignmentTitle}`,
-    text: `Hello ${studentName},\n\nYou have a new assignment in ${courseTitle}: ${assignmentTitle}.\nDue date: ${dueDate || 'N/A'}\n\nGTS`,
-    html: `<p>Hello <strong>${studentName}</strong>,</p>
-<p>You have a new assignment in <em>${courseTitle}</em>: <strong>${assignmentTitle}</strong>.</p>
-<p>Due date: ${dueDate || 'N/A'}</p>
-<br/><p>The GTS Team</p>`,
+    subject,
+    text,
+    html: `<p>${html}</p>`,
   })
 }
 
@@ -84,17 +126,19 @@ export const sendCourseMaterialEmail = async ({
   sectionNumber,
   materialUrl,
 }) => {
+  const subjectTpl = await getSetting('template_material_subject', 'New Course Material: {{materialTitle}}')
+  const bodyTpl = await getSetting('template_material_body', 'Hello {{studentName}},\n\nA new material has been shared for {{courseTitle}}.\nTitle: {{materialTitle}}\nScope: {{sectionText}}\n{{#materialDescription}}Description: {{materialDescription}}{{/materialDescription}}\nLink: {{materialUrl}}\n\nGTS')
+
   const sectionText = sectionNumber ? `Section ${sectionNumber}` : 'General material'
+  const variables = { studentName, courseTitle, materialTitle, sectionText, materialDescription: materialDescription || '', materialUrl }
+  const subject = renderTemplate(subjectTpl, variables)
+  const text = renderTemplate(bodyTpl, variables)
+  const html = text.replace(/\n/g, '<br/>').replace(/{{\w+}}/g, '').replace(/{{#\w+}}.*?{{\/\w+}}/g, '')
 
   return send({
     to,
-    subject: `New Course Material: ${materialTitle}`,
-    text: `Hello ${studentName},\n\nA new material has been shared for ${courseTitle}.\nTitle: ${materialTitle}\nScope: ${sectionText}\n${materialDescription ? `Description: ${materialDescription}\n` : ''}Link: ${materialUrl}\n\nGTS`,
-    html: `<p>Hello <strong>${studentName}</strong>,</p>
-<p>A new material has been shared for <em>${courseTitle}</em>.</p>
-<p><strong>${materialTitle}</strong> (${sectionText})</p>
-${materialDescription ? `<p>${materialDescription}</p>` : ''}
-<p><a href="${materialUrl}">Open Material</a></p>
-<br/><p>The GTS Team</p>`,
+    subject,
+    text,
+    html: `<p>${html}</p>`,
   })
 }

@@ -82,10 +82,12 @@ const LecturerDashboard = () => {
   const [enrollmentNotesEdits, setEnrollmentNotesEdits] = useState({})
   const [loadingStudentHistory, setLoadingStudentHistory] = useState(false)
   const [newStatusInput, setNewStatusInput] = useState('')
+  const [profileImageFile, setProfileImageFile] = useState(null)
+  const [profileImageUploading, setProfileImageUploading] = useState(false)
 
   const [assignmentForm, setAssignmentForm] = useState({ title: '', description: '', dueDate: '', file: null })
 
-  const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '' })
+  const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '', secondaryLecturerId: '', lecturerNotes: '' })
   const [editingSession, setEditingSession] = useState(null) // { session, roster }
   const [editSessionLoading, setEditSessionLoading] = useState(false)
   const [deleteSessionReason, setDeleteSessionReason] = useState('')
@@ -142,10 +144,117 @@ const LecturerDashboard = () => {
   const [timelinePlanItems, setTimelinePlanItems] = useState([])
   const [timelinePlanLoading, setTimelinePlanLoading] = useState(false)
   const [notice, setNotice] = useState('')
+  const [settings, setSettings] = useState({})
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsTab, setSettingsTab] = useState('email')
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [forms, setForms] = useState([])
+  const [formsLoading, setFormsLoading] = useState(false)
+  const [editingForm, setEditingForm] = useState(null)
+  const [formBuilderOpen, setFormBuilderOpen] = useState(false)
+  const [formSubmissions, setFormSubmissions] = useState([])
+  const [submissionsLoading, setSubmissionsLoading] = useState(false)
+  const [selectedFormForSubmissions, setSelectedFormForSubmissions] = useState(null)
+  const [validNextStatuses, setValidNextStatuses] = useState([])
+  const [statusHistory, setStatusHistory] = useState([])
+  const [statusTransitionReason, setStatusTransitionReason] = useState('')
 
   const notify = (message) => {
     setNotice(message)
     setTimeout(() => setNotice(''), 3500)
+  }
+
+  const loadSettings = async () => {
+    setSettingsLoading(true)
+    try {
+      const res = await apiClient.get('/settings')
+      const flat = {}
+      for (const [key, val] of Object.entries(res.data)) {
+        flat[key] = val.value || ''
+      }
+      setSettings(flat)
+    } catch {
+      notify('Failed to load settings')
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  const saveSettings = async (updates) => {
+    setSettingsSaving(true)
+    try {
+      await apiClient.patch('/settings', { settings: updates })
+      setSettings((prev) => ({ ...prev, ...updates }))
+      notify('Settings saved')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to save settings')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  const loadForms = async () => {
+    setFormsLoading(true)
+    try {
+      const res = await apiClient.get('/forms')
+      setForms(res.data)
+    } catch {
+      notify('Failed to load forms')
+    } finally {
+      setFormsLoading(false)
+    }
+  }
+
+  const loadFormSubmissions = async (formId) => {
+    setSubmissionsLoading(true)
+    try {
+      const res = await apiClient.get(`/forms/${formId}/submissions`)
+      setFormSubmissions(res.data)
+    } catch {
+      notify('Failed to load submissions')
+    } finally {
+      setSubmissionsLoading(false)
+    }
+  }
+
+  const saveForm = async (formData) => {
+    try {
+      if (editingForm) {
+        await apiClient.patch(`/forms/${editingForm.id}`, formData)
+        notify('Form updated')
+      } else {
+        await apiClient.post('/forms', formData)
+        notify('Form created')
+      }
+      setEditingForm(null)
+      setFormBuilderOpen(false)
+      await loadForms()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to save form')
+    }
+  }
+
+  const deleteForm = async (formId) => {
+    if (!window.confirm('Delete this form and all its submissions?')) return
+    try {
+      await apiClient.delete(`/forms/${formId}`)
+      notify('Form deleted')
+      await loadForms()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to delete form')
+    }
+  }
+
+  const reviewSubmission = async (submissionId, status, notes) => {
+    try {
+      await apiClient.patch(`/forms/submissions/${submissionId}/review`, { status, reviewNotes: notes })
+      notify(`Submission ${status}`)
+      if (selectedFormForSubmissions) {
+        await loadFormSubmissions(selectedFormForSubmissions)
+      }
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to review submission')
+    }
   }
 
   const loadLecturers = async () => {
@@ -482,6 +591,15 @@ const LecturerDashboard = () => {
     setResultRowEdits(next)
   }, [courseResults, selectedResultType])
 
+  useEffect(() => {
+    if (section === 'settings') {
+      loadSettings()
+    }
+    if (section === 'forms') {
+      loadForms()
+    }
+  }, [section])
+
   const createCourse = async (event) => {
     event.preventDefault()
     try {
@@ -723,15 +841,28 @@ const LecturerDashboard = () => {
     setSelectedStudent(student)
     setStudentEditForm({ ...student })
     setNewStatusInput('')
+    setStatusTransitionReason('')
     setLoadingStudentHistory(true)
     try {
-      const response = await apiClient.get(`/enrollments/student/${student.id}/history`)
-      setStudentHistory(response.data)
-      const notesMap = {}
-      for (const enrollment of response.data.enrollments || []) {
-        notesMap[enrollment.id] = enrollment.notes || ''
+      const [historyRes, nextStatusesRes, statusHistoryRes] = await Promise.allSettled([
+        apiClient.get(`/enrollments/student/${student.id}/history`),
+        apiClient.get(`/students/${student.id}/next-statuses`),
+        apiClient.get(`/students/${student.id}/status-history`),
+      ])
+      if (historyRes.status === 'fulfilled') {
+        setStudentHistory(historyRes.value.data)
+        const notesMap = {}
+        for (const enrollment of historyRes.value.data.enrollments || []) {
+          notesMap[enrollment.id] = enrollment.notes || ''
+        }
+        setEnrollmentNotesEdits(notesMap)
       }
-      setEnrollmentNotesEdits(notesMap)
+      if (nextStatusesRes.status === 'fulfilled') {
+        setValidNextStatuses(nextStatusesRes.value.data.nextStatuses || [])
+      }
+      if (statusHistoryRes.status === 'fulfilled') {
+        setStatusHistory(statusHistoryRes.value.data || [])
+      }
     } finally {
       setLoadingStudentHistory(false)
     }
@@ -743,6 +874,9 @@ const LecturerDashboard = () => {
     setStudentHistory({ enrollments: [], activities: [] })
     setEnrollmentNotesEdits({})
     setNewStatusInput('')
+    setValidNextStatuses([])
+    setStatusHistory([])
+    setStatusTransitionReason('')
   }
 
   const saveStudentEdit = async (event) => {
@@ -761,6 +895,7 @@ const LecturerDashboard = () => {
     if (studentEditForm.status !== selectedStudent?.status) {
       await apiClient.patch(`/students/${studentEditForm.id}/lifecycle-status`, {
         status: studentEditForm.status,
+        reason: statusTransitionReason || null,
       })
     }
     await Promise.all([loadAllStudents(), loadCourseScopedData(selectedCourseId)])
@@ -797,6 +932,28 @@ const LecturerDashboard = () => {
     notify('Student status removed')
   }
 
+  const uploadProfileImage = async () => {
+    if (!selectedStudent || !profileImageFile) return
+    setProfileImageUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', profileImageFile)
+      const res = await apiClient.post(`/students/${selectedStudent.id}/photo`, formData)
+      const updated = { ...selectedStudent, profile_image_url: res.data.profileImageUrl }
+      setSelectedStudent(updated)
+      setStudentEditForm((prev) => ({ ...prev, profile_image_url: res.data.profileImageUrl }))
+      setAllStudents((prev) =>
+        prev.map((s) => (s.id === selectedStudent.id ? { ...s, profile_image_url: res.data.profileImageUrl } : s))
+      )
+      setProfileImageFile(null)
+      notify('Profile image uploaded')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Upload failed')
+    } finally {
+      setProfileImageUploading(false)
+    }
+  }
+
   const startAttendance = async () => {
     if (!attendanceForm.date || !attendanceForm.startTime || !attendanceForm.endTime) {
       notify('Date, start time and end time are required')
@@ -819,8 +976,10 @@ const LecturerDashboard = () => {
       classNumber: Number(selectedClassNumber),
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
+      secondaryLecturerId: attendanceForm.secondaryLecturerId || null,
+      lecturerNotes: attendanceForm.lecturerNotes || '',
     })
-    setAttendanceForm({ date: '', startTime: '', endTime: '' })
+    setAttendanceForm({ date: '', startTime: '', endTime: '', secondaryLecturerId: '', lecturerNotes: '' })
     await loadCourseScopedData(selectedCourseId, selectedClassNumber)
   }
 
@@ -1089,6 +1248,16 @@ const LecturerDashboard = () => {
                 <option value="">— No lecturer —</option>
                 {lecturers.map((l) => (
                   <option key={l.id} value={l.name}>{l.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-slate-600 block">
+              Secondary Lecturer
+              <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.secondaryLecturerId || ''} onChange={(event) => setCourseForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || null }))}>
+                <option value="">— No secondary lecturer —</option>
+                {lecturers.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>
             </label>
@@ -1891,6 +2060,7 @@ const LecturerDashboard = () => {
             <table className="w-full text-sm min-w-[700px]">
               <thead className="text-left text-slate-500 bg-slate-50">
                 <tr>
+                  <th className="pb-2 pt-2 px-3 font-medium"></th>
                   <th className="pb-2 pt-2 px-3 font-medium">Name</th>
                   <th className="pb-2 pt-2 px-3 font-medium">Matric</th>
                   <th className="pb-2 pt-2 px-3 font-medium">Phone</th>
@@ -1903,6 +2073,15 @@ const LecturerDashboard = () => {
               <tbody>
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="border-t border-slate-200 hover:bg-slate-50">
+                    <td className="py-3 px-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
+                        {student.profile_image_url ? (
+                          <img src={student.profile_image_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-slate-500">{(student.full_name || '?')[0].toUpperCase()}</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-3">
                       <Link to={`/lecturer/students/${student.id}`} className="font-medium text-slate-900 hover:underline">
                         {student.full_name}
@@ -1948,28 +2127,111 @@ const LecturerDashboard = () => {
               </div>
 
               <form onSubmit={saveStudentEdit} className="p-4 space-y-3">
+                {/* Profile Image */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                    {studentEditForm.profile_image_url ? (
+                      <img src={studentEditForm.profile_image_url} alt={studentEditForm.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl font-bold text-slate-500">{(studentEditForm.full_name || '?')[0].toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-sm text-slate-600 block">
+                      Profile Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="mt-1 w-full text-sm"
+                        onChange={(e) => setProfileImageFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                    {profileImageFile && (
+                      <button
+                        type="button"
+                        onClick={uploadProfileImage}
+                        disabled={profileImageUploading}
+                        className="mt-1 text-xs bg-slate-900 text-white rounded-lg px-3 py-1 disabled:opacity-50"
+                      >
+                        {profileImageUploading ? 'Uploading...' : 'Upload'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <input className="w-full border rounded-lg px-3 py-2" value={studentEditForm.full_name || ''} onChange={(event) => setStudentEditForm((prev) => ({ ...prev, full_name: event.target.value }))} required />
                 <input className="w-full border rounded-lg px-3 py-2" value={studentEditForm.email || ''} onChange={(event) => setStudentEditForm((prev) => ({ ...prev, email: event.target.value }))} required />
                 <input className="w-full border rounded-lg px-3 py-2" value={studentEditForm.phone || ''} onChange={(event) => setStudentEditForm((prev) => ({ ...prev, phone: event.target.value }))} required />
                 <input className="w-full border rounded-lg px-3 py-2" value={studentEditForm.matric_no || ''} onChange={(event) => setStudentEditForm((prev) => ({ ...prev, matric_no: event.target.value }))} />
                 <textarea className="w-full border rounded-lg px-3 py-2" placeholder="Comments" rows={3} value={studentEditForm.comments || ''} onChange={(event) => setStudentEditForm((prev) => ({ ...prev, comments: event.target.value }))} />
-                <select
-                  className="w-full border rounded-lg px-3 py-2"
-                  value={studentEditForm.status || 'Active'}
-                  onChange={(event) => {
-                    const nextStatus = event.target.value
-                    setStudentEditForm((prev) => ({
-                      ...prev,
-                      status: nextStatus,
-                    }))
-                  }}
-                >
-                  <option>Prospective</option>
-                  <option>Active</option>
-                  <option>Graduating</option>
-                  <option>Graduated</option>
-                  <option>Alumni</option>
-                </select>
+
+                {/* Status Pipeline */}
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Student Status</p>
+                  <div className="flex items-center gap-1 mb-3 overflow-x-auto pb-1">
+                    {['Applied', 'Under Review', 'Accepted', 'Prospective', 'Active', 'On Hold', 'Suspended', 'Withdrawn', 'Transferred', 'Graduating', 'Completed', 'Graduated', 'Alumni'].map((s, i, arr) => {
+                      const isCurrent = studentEditForm.status === s
+                      const isValidNext = validNextStatuses.includes(s)
+                      return (
+                        <div key={s} className="flex items-center shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isValidNext || isCurrent) {
+                                setStudentEditForm((prev) => ({ ...prev, status: s }))
+                              }
+                            }}
+                            disabled={!isValidNext && !isCurrent}
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                              isCurrent
+                                ? 'bg-slate-900 text-white'
+                                : isValidNext
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer'
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            }`}
+                            title={isValidNext ? 'Click to transition' : isCurrent ? 'Current status' : 'Not a valid transition'}
+                          >
+                            {s}
+                          </button>
+                          {i < arr.length - 1 && (
+                            <div className={`w-3 h-0.5 mx-0.5 ${isValidNext || isCurrent ? 'bg-emerald-300' : 'bg-slate-200'}`} />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {studentEditForm.status !== selectedStudent?.status && (
+                    <label className="text-sm text-slate-600 block">
+                      Reason for status change
+                      <input
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        placeholder="e.g. Completed orientation"
+                        value={statusTransitionReason}
+                        onChange={(e) => setStatusTransitionReason(e.target.value)}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Status History */}
+                {statusHistory.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-2">Status History</p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {statusHistory.map((h) => (
+                        <div key={h.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2">
+                          <div>
+                            <span className="text-slate-500">{h.from_status}</span>
+                            <span className="mx-1 text-slate-300">→</span>
+                            <span className="font-medium text-slate-800">{h.to_status}</span>
+                            {h.reason && <span className="ml-2 text-slate-400 italic">({h.reason})</span>}
+                          </div>
+                          <span className="text-slate-400">{new Date(h.changed_at).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <label className="text-sm text-slate-600 block">
                   Batch
@@ -2447,6 +2709,25 @@ const LecturerDashboard = () => {
                   <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.endTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, endTime: event.target.value }))} />
                 </label>
               </div>
+              <label className="text-sm text-slate-600 block">
+                Secondary Lecturer
+                <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.secondaryLecturerId || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || '' }))}>
+                  <option value="">— No secondary lecturer —</option>
+                  {lecturers.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600 block">
+                Session Notes
+                <textarea
+                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                  rows={2}
+                  value={attendanceForm.lecturerNotes || ''}
+                  onChange={(event) => setAttendanceForm((prev) => ({ ...prev, lecturerNotes: event.target.value }))}
+                  placeholder="Optional notes for this session"
+                />
+              </label>
               <button onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="w-full bg-slate-900 text-white rounded-lg px-4 py-2 disabled:opacity-50">Start Attendance</button>
               <button onClick={closeAttendance} disabled={!attendanceStatus.activeSession} className="w-full bg-slate-200 text-slate-800 rounded-lg px-4 py-2 disabled:opacity-50">Close Attendance</button>
               <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
@@ -3121,6 +3402,325 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
 
+      {section === 'settings' ? (
+        <div className="space-y-6">
+          {/* Settings tabs */}
+          <div className="flex gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
+            {[
+              { key: 'email', label: 'Email Configuration' },
+              { key: 'templates', label: 'Email Templates' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSettingsTab(key)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  settingsTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {settingsLoading ? (
+            <p className="text-sm text-slate-500">Loading settings...</p>
+          ) : settingsTab === 'email' ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
+              <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
+              <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <label className="text-sm text-slate-600 block">
+                  SMTP Host
+                  <input
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={settings.smtp_host || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, smtp_host: e.target.value }))}
+                    placeholder="smtp.gmail.com"
+                  />
+                </label>
+                <label className="text-sm text-slate-600 block">
+                  SMTP Port
+                  <input
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={settings.smtp_port || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, smtp_port: e.target.value }))}
+                    placeholder="587"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <label className="text-sm text-slate-600 block">
+                  SMTP User
+                  <input
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={settings.smtp_user || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, smtp_user: e.target.value }))}
+                    placeholder="your@email.com"
+                  />
+                </label>
+                <label className="text-sm text-slate-600 block">
+                  SMTP Password
+                  <input
+                    type="password"
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={settings.smtp_pass || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, smtp_pass: e.target.value }))}
+                    placeholder="App password"
+                  />
+                </label>
+              </div>
+
+              <label className="text-sm text-slate-600 block">
+                From Address
+                <input
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  value={settings.email_from || ''}
+                  onChange={(e) => setSettings((p) => ({ ...p, email_from: e.target.value }))}
+                  placeholder='"School Name" <noreply@school.com>'
+                />
+              </label>
+
+              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded"
+                  checked={settings.email_enabled === 'true'}
+                  onChange={(e) => setSettings((p) => ({ ...p, email_enabled: e.target.checked ? 'true' : 'false' }))}
+                />
+                Enable Email Sending
+              </label>
+
+              <button
+                type="button"
+                onClick={() => saveSettings({
+                  smtp_host: settings.smtp_host,
+                  smtp_port: settings.smtp_port,
+                  smtp_user: settings.smtp_user,
+                  smtp_pass: settings.smtp_pass,
+                  email_from: settings.email_from,
+                  email_enabled: settings.email_enabled,
+                })}
+                disabled={settingsSaving}
+                className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm disabled:opacity-50"
+              >
+                {settingsSaving ? 'Saving...' : 'Save Configuration'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {[
+                { key: 'welcome', label: 'Welcome / Activation Email', subjectKey: 'template_welcome_subject', bodyKey: 'template_welcome_body', vars: '{{studentName}}, {{matricNo}}' },
+                { key: 'graduation', label: 'Graduation Email', subjectKey: 'template_graduation_subject', bodyKey: 'template_graduation_body', vars: '{{studentName}}' },
+                { key: 'result', label: 'Result Notification Email', subjectKey: 'template_result_subject', bodyKey: 'template_result_body', vars: '{{studentName}}, {{resultType}}, {{courseTitle}}, {{status}}, {{score}}' },
+                { key: 'assignment', label: 'Assignment Notification Email', subjectKey: 'template_assignment_subject', bodyKey: 'template_assignment_body', vars: '{{studentName}}, {{courseTitle}}, {{assignmentTitle}}, {{dueDate}}' },
+                { key: 'material', label: 'Course Material Email', subjectKey: 'template_material_subject', bodyKey: 'template_material_body', vars: '{{studentName}}, {{courseTitle}}, {{materialTitle}}, {{sectionText}}, {{materialDescription}}, {{materialUrl}}' },
+              ].map(({ key, label, subjectKey, bodyKey, vars }) => (
+                <div key={key} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+                  <h3 className="font-semibold text-slate-900">{label}</h3>
+                  <p className="text-xs text-slate-400">Available variables: {vars}</p>
+
+                  <label className="text-sm text-slate-600 block">
+                    Subject
+                    <input
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={settings[subjectKey] || ''}
+                      onChange={(e) => setSettings((p) => ({ ...p, [subjectKey]: e.target.value }))}
+                    />
+                  </label>
+
+                  <label className="text-sm text-slate-600 block">
+                    Body
+                    <textarea
+                      className="mt-1 w-full border rounded-lg px-3 py-2 font-mono text-sm"
+                      rows={5}
+                      value={settings[bodyKey] || ''}
+                      onChange={(e) => setSettings((p) => ({ ...p, [bodyKey]: e.target.value }))}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => saveSettings({ [subjectKey]: settings[subjectKey], [bodyKey]: settings[bodyKey] })}
+                    disabled={settingsSaving}
+                    className="bg-slate-900 text-white rounded-xl px-4 py-1.5 text-sm disabled:opacity-50"
+                  >
+                    {settingsSaving ? 'Saving...' : 'Save Template'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {section === 'forms' ? (
+        <div className="space-y-6">
+          {/* Forms header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Form Builder</h2>
+              <p className="text-sm text-slate-500 mt-1">Create dynamic forms for applications, onboarding, and surveys.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setEditingForm(null); setFormBuilderOpen(true) }}
+              className="bg-slate-900 text-white rounded-xl px-4 py-2 text-sm"
+            >
+              New Form
+            </button>
+          </div>
+
+          {/* Forms list */}
+          {formsLoading ? (
+            <p className="text-sm text-slate-500">Loading forms...</p>
+          ) : (
+            <div className="grid gap-4">
+              {forms.map((form) => (
+                <div key={form.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold text-slate-900">{form.title}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          form.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                          form.status === 'closed' ? 'bg-red-100 text-red-700' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {form.status}
+                        </span>
+                      </div>
+                      {form.description && <p className="text-sm text-slate-500 mt-1">{form.description}</p>}
+                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                        <span>Slug: <code className="bg-slate-100 px-1.5 py-0.5 rounded">{form.slug}</code></span>
+                        <span>{form.submission_count || 0} submissions</span>
+                        <span>{form.fields?.length || 0} fields</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedFormForSubmissions(form.id); loadFormSubmissions(form.id) }}
+                        className="text-xs bg-slate-100 text-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-200"
+                      >
+                        View Submissions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingForm(form); setFormBuilderOpen(true) }}
+                        className="text-xs bg-sky-100 text-sky-700 rounded-lg px-3 py-1.5 hover:bg-sky-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteForm(form.id)}
+                        className="text-xs bg-red-50 text-red-600 rounded-lg px-3 py-1.5 hover:bg-red-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!forms.length && !formsLoading && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                  <p className="text-slate-500">No forms yet. Create your first form to get started.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Submissions drawer */}
+          {selectedFormForSubmissions && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
+              <div className="bg-white w-full max-w-3xl h-full overflow-y-auto shadow-2xl">
+                <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">Submissions</h3>
+                  <button type="button" onClick={() => setSelectedFormForSubmissions(null)} className="rounded-lg p-1 hover:bg-slate-100">
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="p-5">
+                  {submissionsLoading ? (
+                    <p className="text-sm text-slate-500">Loading submissions...</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {formSubmissions.map((sub) => (
+                        <div key={sub.id} className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <p className="font-medium text-slate-900">{sub.submitter_name || 'Anonymous'}</p>
+                              {sub.submitter_email && <p className="text-xs text-slate-500">{sub.submitter_email}</p>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                sub.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                sub.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                sub.status === 'reviewed' ? 'bg-blue-100 text-blue-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {sub.status}
+                              </span>
+                              <span className="text-xs text-slate-400">{new Date(sub.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          {/* Submission data */}
+                          <div className="bg-slate-50 rounded-lg p-3 text-sm space-y-1 mb-3">
+                            {Object.entries(sub.data || {}).map(([key, value]) => (
+                              <div key={key} className="flex gap-2">
+                                <span className="text-slate-500 shrink-0">#{key}:</span>
+                                <span className="text-slate-800">{String(value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Review actions */}
+                          {sub.status === 'submitted' && (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => reviewSubmission(sub.id, 'approved')}
+                                className="text-xs bg-emerald-600 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-700"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => reviewSubmission(sub.id, 'rejected')}
+                                className="text-xs bg-red-600 text-white rounded-lg px-3 py-1.5 hover:bg-red-700"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                          {sub.review_notes && (
+                            <p className="text-xs text-slate-500 mt-2">Notes: {sub.review_notes}</p>
+                          )}
+                        </div>
+                      ))}
+                      {!formSubmissions.length && !submissionsLoading && (
+                        <p className="text-sm text-slate-400 text-center py-8">No submissions yet.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Form Builder Drawer */}
+          {formBuilderOpen && (
+            <FormBuilderDrawer
+              form={editingForm}
+              onClose={() => { setFormBuilderOpen(false); setEditingForm(null) }}
+              onSave={saveForm}
+            />
+          )}
+        </div>
+      ) : null}
+
       {/* ── Edit Session Modal ─────────────────────────────────────── */}
       {editingSession ? (() => {
         const presentList = editingSession.roster.filter((s) => s.present)
@@ -3287,3 +3887,277 @@ const LecturerDashboard = () => {
 }
 
 export default LecturerDashboard
+
+const FIELD_TYPES = [
+  { value: 'text', label: 'Short Text' },
+  { value: 'textarea', label: 'Long Text' },
+  { value: 'number', label: 'Number' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'date', label: 'Date' },
+  { value: 'select', label: 'Dropdown' },
+  { value: 'multiselect', label: 'Multi-Select' },
+  { value: 'radio', label: 'Radio Buttons' },
+  { value: 'checkbox', label: 'Checkbox' },
+]
+
+function FormBuilderDrawer({ form, onClose, onSave }) {
+  const [title, setTitle] = useState(form?.title || '')
+  const [slug, setSlug] = useState(form?.slug || '')
+  const [description, setDescription] = useState(form?.description || '')
+  const [status, setStatus] = useState(form?.status || 'draft')
+  const [fields, setFields] = useState(
+    form?.fields?.map((f) => ({
+      id: f.id,
+      fieldType: f.field_type,
+      label: f.label,
+      placeholder: f.placeholder || '',
+      required: f.required || false,
+      options: f.options || [],
+      validation: f.validation || {},
+      section: f.section || '',
+    })) || []
+  )
+  const [saving, setSaving] = useState(false)
+
+  const addField = () => {
+    setFields((prev) => [
+      ...prev,
+      { fieldType: 'text', label: '', placeholder: '', required: false, options: [], validation: {}, section: '' },
+    ])
+  }
+
+  const removeField = (index) => {
+    setFields((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const updateField = (index, updates) => {
+    setFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)))
+  }
+
+  const addOption = (fieldIndex) => {
+    setFields((prev) =>
+      prev.map((f, i) =>
+        i === fieldIndex ? { ...f, options: [...f.options, { label: '', value: '' }] } : f
+      )
+    )
+  }
+
+  const updateOption = (fieldIndex, optIndex, updates) => {
+    setFields((prev) =>
+      prev.map((f, i) =>
+        i === fieldIndex
+          ? {
+              ...f,
+              options: f.options.map((o, j) => (j === optIndex ? { ...o, ...updates } : o)),
+            }
+          : f
+      )
+    )
+  }
+
+  const removeOption = (fieldIndex, optIndex) => {
+    setFields((prev) =>
+      prev.map((f, i) =>
+        i === fieldIndex ? { ...f, options: f.options.filter((_, j) => j !== optIndex) } : f
+      )
+    )
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!title.trim() || !slug.trim()) return
+    setSaving(true)
+    try {
+      await onSave({ title: title.trim(), slug: slug.trim(), description: description.trim(), status, fields })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
+      <div className="bg-white w-full max-w-3xl h-full overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-900">{form ? 'Edit Form' : 'Create Form'}</h3>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-6">
+          {/* Basic info */}
+          <div className="space-y-3">
+            <label className="text-sm text-slate-600 block">
+              Title *
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </label>
+            <label className="text-sm text-slate-600 block">
+              Slug *
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+                placeholder="e.g. student-application"
+                required
+              />
+            </label>
+            <label className="text-sm text-slate-600 block">
+              Description
+              <textarea
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </label>
+            <label className="text-sm text-slate-600 block">
+              Status
+              <select
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+          </div>
+
+          {/* Fields */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-slate-900">Fields ({fields.length})</h4>
+              <button type="button" onClick={addField} className="text-sm bg-slate-900 text-white rounded-lg px-3 py-1.5">
+                Add Field
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {fields.map((field, idx) => (
+                <div key={idx} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-500">Field #{idx + 1}</span>
+                    <button type="button" onClick={() => removeField(idx)} className="text-xs text-red-500 hover:underline">
+                      Remove
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm text-slate-600 block">
+                      Type
+                      <select
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={field.fieldType}
+                        onChange={(e) => updateField(idx, { fieldType: e.target.value })}
+                      >
+                        {FIELD_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      Section (optional)
+                      <input
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={field.section}
+                        onChange={(e) => updateField(idx, { section: e.target.value })}
+                        placeholder="e.g. Personal Info"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="text-sm text-slate-600 block">
+                    Label *
+                    <input
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={field.label}
+                      onChange={(e) => updateField(idx, { label: e.target.value })}
+                      required
+                    />
+                  </label>
+
+                  <label className="text-sm text-slate-600 block">
+                    Placeholder
+                    <input
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={field.placeholder}
+                      onChange={(e) => updateField(idx, { placeholder: e.target.value })}
+                    />
+                  </label>
+
+                  <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded"
+                      checked={field.required}
+                      onChange={(e) => updateField(idx, { required: e.target.checked })}
+                    />
+                    Required
+                  </label>
+
+                  {/* Options for select/multiselect/radio */}
+                  {['select', 'multiselect', 'radio'].includes(field.fieldType) && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-700">Options</span>
+                        <button type="button" onClick={() => addOption(idx)} className="text-xs text-sky-600 hover:underline">
+                          + Add Option
+                        </button>
+                      </div>
+                      {field.options.map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-2">
+                          <input
+                            className="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+                            placeholder="Label"
+                            value={opt.label}
+                            onChange={(e) => updateOption(idx, optIdx, { label: e.target.value })}
+                          />
+                          <input
+                            className="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+                            placeholder="Value"
+                            value={opt.value}
+                            onChange={(e) => updateOption(idx, optIdx, { value: e.target.value })}
+                          />
+                          <button type="button" onClick={() => removeOption(idx, optIdx)} className="text-xs text-red-500">
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {!field.options.length && (
+                        <p className="text-xs text-slate-400">No options added yet.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {!fields.length && (
+                <p className="text-sm text-slate-400 text-center py-4">No fields added yet. Click "Add Field" to start.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-3 border-t border-slate-200">
+            <button
+              type="submit"
+              disabled={saving || !title.trim() || !slug.trim()}
+              className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : form ? 'Update Form' : 'Create Form'}
+            </button>
+            <button type="button" onClick={onClose} className="bg-slate-100 text-slate-700 rounded-xl px-6 py-2 text-sm">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

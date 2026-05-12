@@ -50,6 +50,8 @@ export default function CoursePage() {
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState(null)
+  const [editSecondaryLecturerId, setEditSecondaryLecturerId] = useState('')
+  const [editLecturerNotes, setEditLecturerNotes] = useState('')
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -84,6 +86,8 @@ export default function CoursePage() {
 
       setCourse(courseRes.data)
       setEditForm({ ...courseRes.data })
+      setEditSecondaryLecturerId(courseRes.data.secondary_lecturer_id || '')
+      setEditLecturerNotes(courseRes.data.lecturer_notes || '')
 
       const nextBatches = batchesRes.status === 'fulfilled' ? batchesRes.value.data : []
       const nextEnrollments = enrollmentsRes.status === 'fulfilled' ? enrollmentsRes.value.data : []
@@ -149,6 +153,8 @@ export default function CoursePage() {
       lecturerName: editForm.lecturer_name,
       classDay: editForm.class_day,
       classTime: editForm.class_time,
+      secondaryLecturerId: editSecondaryLecturerId || null,
+      lecturerNotes: editLecturerNotes || '',
     })
     await loadAll()
     setEditing(false)
@@ -344,6 +350,12 @@ export default function CoursePage() {
               <p className="text-xs text-slate-400 uppercase tracking-wide">Lecturer</p>
               <p className="text-sm font-medium text-slate-800 mt-1">
                 {course.lecturer_name || course.assigned_lecturer || '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Secondary Lecturer</p>
+              <p className="text-sm font-medium text-slate-800 mt-1">
+                {course.secondary_lecturer_name || '—'}
               </p>
             </div>
           </div>
@@ -892,6 +904,17 @@ export default function CoursePage() {
               />
             </label>
 
+            <label className="text-sm text-slate-600 block">
+              Lecturer Notes
+              <textarea
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                rows={2}
+                value={editLecturerNotes}
+                onChange={(e) => setEditLecturerNotes(e.target.value)}
+                placeholder="Optional session notes for secondary lecturer"
+              />
+            </label>
+
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm text-slate-600 block">
                 Course Code
@@ -911,6 +934,19 @@ export default function CoursePage() {
                   <option value="">— No lecturer —</option>
                   {lecturers.map((l) => (
                     <option key={l.id} value={l.name}>{l.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600 block">
+                Secondary Lecturer
+                <select
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  value={editSecondaryLecturerId}
+                  onChange={(e) => setEditSecondaryLecturerId(e.target.value)}
+                >
+                  <option value="">— No secondary lecturer —</option>
+                  {lecturers.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
                   ))}
                 </select>
               </label>

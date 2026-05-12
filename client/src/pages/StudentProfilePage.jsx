@@ -8,11 +8,22 @@ import { lecturerNavItems } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 
 const STATUS_COLORS = {
+  Applied: 'bg-slate-100 text-slate-700',
+  'Under Review': 'bg-amber-100 text-amber-800',
+  Accepted: 'bg-sky-100 text-sky-800',
+  Prospective: 'bg-yellow-100 text-yellow-800',
   Active: 'bg-emerald-100 text-emerald-800',
+  'On Hold': 'bg-orange-100 text-orange-800',
+  Suspended: 'bg-red-100 text-red-800',
+  Withdrawn: 'bg-gray-200 text-gray-700',
+  Transferred: 'bg-indigo-100 text-indigo-800',
   Graduating: 'bg-blue-100 text-blue-800',
+  Completed: 'bg-teal-100 text-teal-800',
   Graduated: 'bg-purple-100 text-purple-800',
   Alumni: 'bg-slate-200 text-slate-700',
 }
+
+const ALL_STATUSES = ['Applied', 'Under Review', 'Accepted', 'Prospective', 'Active', 'On Hold', 'Suspended', 'Withdrawn', 'Transferred', 'Graduating', 'Completed', 'Graduated', 'Alumni']
 
 const CourseStatusCell = ({ enrollment }) => {
   if (!enrollment) {
@@ -55,6 +66,8 @@ export default function StudentProfilePage() {
   const [activeTab, setActiveTab] = useState('path')
   const [editingCohort, setEditingCohort] = useState(false)
   const [cohortSaving, setCohortSaving] = useState(false)
+  const [validNextStatuses, setValidNextStatuses] = useState([])
+  const [statusHistory, setStatusHistory] = useState([])
 
 
   useEffect(() => {
@@ -74,10 +87,12 @@ export default function StudentProfilePage() {
           return
         }
 
-        const [historyRes, coursesRes, cohortRes] = await Promise.allSettled([
+        const [historyRes, coursesRes, cohortRes, nextStatusesRes, statusHistoryRes] = await Promise.allSettled([
           apiClient.get(`/enrollments/student/${studentId}/history`),
           apiClient.get('/courses'),
           apiClient.get('/cohorts'),
+          apiClient.get(`/students/${studentId}/next-statuses`),
+          apiClient.get(`/students/${studentId}/status-history`),
         ])
 
         setStudent(studentRes.data)
@@ -96,6 +111,14 @@ export default function StudentProfilePage() {
 
         if (cohortRes.status === 'fulfilled') {
           setCohorts(cohortRes.value.data)
+        }
+
+        if (nextStatusesRes.status === 'fulfilled') {
+          setValidNextStatuses(nextStatusesRes.value.data.nextStatuses || [])
+        }
+
+        if (statusHistoryRes.status === 'fulfilled') {
+          setStatusHistory(statusHistoryRes.value.data || [])
         }
 
         if (historyRes.status === 'rejected' || coursesRes.status === 'rejected') {
@@ -165,9 +188,17 @@ export default function StudentProfilePage() {
       {/* Student header */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl font-bold text-slate-900">{student.full_name}</h2>
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+              {student.profile_image_url ? (
+                <img src={student.profile_image_url} alt={student.full_name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-slate-500">{(student.full_name || '?')[0].toUpperCase()}</span>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-2xl font-bold text-slate-900">{student.full_name}</h2>
               {student.matric_no ? (
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-mono text-slate-700">
                   {student.matric_no}
@@ -246,6 +277,7 @@ export default function StudentProfilePage() {
             {student.comments ? (
               <p className="mt-2 text-sm text-slate-500 max-w-lg">{student.comments}</p>
             ) : null}
+            </div>
           </div>
 
           {/* Progress summary */}
@@ -260,6 +292,54 @@ export default function StudentProfilePage() {
             <p className="text-xs text-slate-500 mt-1">{completionPct}% complete</p>
           </div>
         </div>
+      </div>
+
+      {/* Status Pipeline */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mb-6">
+        <h3 className="text-sm font-semibold text-slate-900 mb-3">Student Lifecycle Pipeline</h3>
+        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+          {ALL_STATUSES.map((s, i, arr) => {
+            const isCurrent = student.status === s
+            const isPast = ALL_STATUSES.indexOf(student.status) > i
+            const isValidNext = validNextStatuses.includes(s)
+            return (
+              <div key={s} className="flex items-center shrink-0">
+                <div
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isCurrent
+                      ? 'bg-slate-900 text-white ring-2 ring-slate-300'
+                      : isPast
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : isValidNext
+                      ? 'bg-sky-100 text-sky-700'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                  title={isCurrent ? 'Current status' : isPast ? 'Completed' : isValidNext ? 'Available next' : 'Not reachable'}
+                >
+                  {s}
+                </div>
+                {i < arr.length - 1 && (
+                  <div className={`w-4 h-0.5 mx-0.5 ${isPast || isValidNext || isCurrent ? 'bg-emerald-300' : 'bg-slate-200'}`} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {statusHistory.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-xs font-medium text-slate-500 mb-2">Status History</p>
+            <div className="flex flex-wrap gap-2">
+              {statusHistory.slice(0, 5).map((h) => (
+                <span key={h.id} className="inline-flex items-center gap-1 text-xs bg-slate-50 rounded-full px-2.5 py-1">
+                  <span className="text-slate-400">{h.from_status}</span>
+                  <span className="text-slate-300">→</span>
+                  <span className="font-medium text-slate-700">{h.to_status}</span>
+                  <span className="text-slate-400 ml-1">{new Date(h.changed_at).toLocaleDateString()}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

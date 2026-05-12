@@ -14,6 +14,8 @@ import {
 	removeStudentStatus,
 	uploadStudentPhoto,
 	updateStudentLifecycleStatus,
+	getStatusHistory,
+	getValidNextStatuses,
 } from '../controllers/studentController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 import { upload } from '../middleware/upload.js'
@@ -31,6 +33,8 @@ router.post('/upload', authorize('admin', 'lecturer'), upload.single('file'), up
 router.get('/:studentId', authorize('admin', 'lecturer'), getStudent)
 router.put('/:studentId', authorize('admin', 'lecturer'), updateStudent)
 router.patch('/:studentId/lifecycle-status', authorize('admin'), updateStudentLifecycleStatus)
+router.get('/:studentId/status-history', authorize('admin', 'lecturer'), getStatusHistory)
+router.get('/:studentId/next-statuses', authorize('admin', 'lecturer'), getValidNextStatuses)
 router.post('/:studentId/photo', authorize('admin', 'lecturer'), upload.single('file'), uploadStudentPhoto)
 router.post('/:studentId/status', authorize('admin', 'lecturer'), addStudentStatus)
 router.delete('/:studentId/status/:statusId', authorize('admin', 'lecturer'), removeStudentStatus)

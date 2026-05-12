@@ -7,6 +7,7 @@ import { pool, query } from '../db/pool.js'
 import { formatMatricNumber } from '../utils/matric.js'
 import { httpError } from '../utils/httpError.js'
 import { sendWelcomeEmail, sendGraduationEmail } from '../services/emailService.js'
+import { supabase, PROFILE_BUCKET } from '../services/supabaseClient.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -228,33 +229,56 @@ export const uploadStudentPhoto = async (req, res, next) => {
       throw httpError(400, 'Valid studentId and image file are required')
     }
 
-    const safeName = `${Date.now()}-${req.file.originalname.replace(/\s+/g, '_')}`
-    const filePath = path.join(studentUploadsRoot, safeName)
-    fs.writeFileSync(filePath, req.file.buffer)
-    const photoUrl = `/uploads/students/${safeName}`
+    if (!supabase) {
+      throw httpError(501, 'Supabase Storage is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.')
+    }
 
-    await query('UPDATE students SET profile_image_url = $1 WHERE id = $2', [photoUrl, studentId])
-    res.json({ profileImageUrl: photoUrl })
+    const ext = path.extname(req.file.originalname).toLowerCase()
+    const fileName = `student-${studentId}-${Date.now()}${ext}`
+
+    const { data, error } = await supabase.storage
+      .from(PROFILE_BUCKET)
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+        cacheControl: '3600',
+        upsert: true,
+      })
+
+    if (error) {
+      throw httpError(500, `Failed to upload image: ${error.message}`)
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(PROFILE_BUCKET)
+      .getPublicUrl(data.path)
+
+    await query('UPDATE students SET profile_image_url = $1 WHERE id = $2', [publicUrl, studentId])
+    res.json({ profileImageUrl: publicUrl })
   } catch (error) {
     next(error)
   }
 }
 
 export const updateStudentLifecycleStatus = async (req, res, next) => {
+  const client = await pool.connect()
   try {
     const studentId = Number(req.params.studentId)
-    const { status } = req.body
+    const { status, reason } = req.body
 
     if (!studentId || !status) {
       throw httpError(400, 'studentId and status are required')
     }
 
-    const allowed = ['Prospective', 'Active', 'Graduating', 'Graduated', 'Alumni']
+    const allowed = [
+      'Applied', 'Under Review', 'Accepted', 'Prospective', 'Active', 'On Hold',
+      'Suspended', 'Withdrawn', 'Transferred', 'Graduating', 'Completed',
+      'Graduated', 'Alumni',
+    ]
     if (!allowed.includes(status)) {
       throw httpError(400, `status must be one of: ${allowed.join(', ')}`)
     }
 
-    const currentResult = await query(
+    const currentResult = await client.query(
       `SELECT s.status, s.matric_no, u.full_name, u.email
        FROM students s JOIN users u ON u.id = s.user_id
        WHERE s.id = $1`,
@@ -265,52 +289,67 @@ export const updateStudentLifecycleStatus = async (req, res, next) => {
       throw httpError(404, 'Student not found')
     }
 
-    let newMatricNo = current.matric_no
-
-    // When activating a Prospective student, auto-generate a matric number if they don't have one
-    if (status === 'Active' && !current.matric_no) {
-      const client = await pool.connect()
-      try {
-        await client.query('BEGIN')
-        await client.query('LOCK TABLE students IN EXCLUSIVE MODE')
-        const maxResult = await client.query(
-          `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS count
-           FROM students WHERE matric_no IS NOT NULL`
-        )
-        newMatricNo = formatMatricNumber(Number(maxResult.rows[0].count) + 1)
-        await client.query('UPDATE students SET status = $1, matric_no = $2 WHERE id = $3', [status, newMatricNo, studentId])
-        await client.query('COMMIT')
-      } catch (err) {
-        await client.query('ROLLBACK')
-        throw err
-      } finally {
-        client.release()
+    // Validate transition if rules exist
+    if (current.status !== status) {
+      const ruleCheck = await client.query(
+        `SELECT 1 FROM status_transition_rules WHERE from_status = $1 AND to_status = $2`,
+        [current.status, status]
+      )
+      if (!ruleCheck.rows.length) {
+        throw httpError(400, `Transition from "${current.status}" to "${status}" is not allowed`)
       }
-    } else {
-      await query('UPDATE students SET status = $1 WHERE id = $2', [status, studentId])
     }
 
-    await query(
+    let newMatricNo = current.matricNo
+
+    await client.query('BEGIN')
+
+    // When activating a Prospective/Accepted student, auto-generate a matric number if they don't have one
+    if (status === 'Active' && !current.matric_no) {
+      await client.query('LOCK TABLE students IN EXCLUSIVE MODE')
+      const maxResult = await client.query(
+        `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS count
+         FROM students WHERE matric_no IS NOT NULL`
+      )
+      newMatricNo = formatMatricNumber(Number(maxResult.rows[0].count) + 1)
+      await client.query('UPDATE students SET status = $1, matric_no = $2 WHERE id = $3', [status, newMatricNo, studentId])
+    } else {
+      await client.query('UPDATE students SET status = $1 WHERE id = $2', [status, studentId])
+    }
+
+    // Log the transition
+    await client.query(
+      `INSERT INTO student_status_transitions (student_id, from_status, to_status, reason, changed_by)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [studentId, current.status, status, reason || null, req.user.userId]
+    )
+
+    await client.query(
       `INSERT INTO student_activity_logs (student_id, action, details, actor_user_id)
        VALUES ($1, 'student_lifecycle_status_updated', $2::jsonb, $3)`,
       [
         studentId,
-        JSON.stringify({ from: current.status, to: status }),
+        JSON.stringify({ from: current.status, to: status, reason }),
         req.user.userId,
       ]
     )
 
+    await client.query('COMMIT')
+
     // Send emails on key lifecycle transitions
-    if (status === 'Active' && current.status === 'Prospective') {
+    if (status === 'Active' && (current.status === 'Prospective' || current.status === 'Accepted')) {
       sendWelcomeEmail({ to: current.email, studentName: current.full_name, matricNo: newMatricNo }).catch(() => {})
     }
     if (status === 'Graduated') {
       sendGraduationEmail({ to: current.email, studentName: current.full_name }).catch(() => {})
     }
 
-    res.json({ message: 'Student lifecycle status updated', matricNo: newMatricNo })
+    res.json({ message: 'Student lifecycle status updated', matricNo: newMatricNo, previousStatus: current.status })
   } catch (error) {
+    await client.query('ROLLBACK')
     next(error)
+  } finally {
+    client.release()
   }
 }
 
@@ -384,6 +423,40 @@ export const removeStudentStatus = async (req, res, next) => {
   }
 }
 
+export const getStatusHistory = async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.studentId)
+    const result = await query(
+      `SELECT sst.*, u.full_name AS changed_by_name
+       FROM student_status_transitions sst
+       LEFT JOIN users u ON u.id = sst.changed_by
+       WHERE sst.student_id = $1
+       ORDER BY sst.changed_at DESC`,
+      [studentId]
+    )
+    res.json(result.rows)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getValidNextStatuses = async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.studentId)
+    const currentResult = await query('SELECT status FROM students WHERE id = $1', [studentId])
+    if (!currentResult.rows.length) throw httpError(404, 'Student not found')
+
+    const currentStatus = currentResult.rows[0].status
+    const result = await query(
+      `SELECT to_status AS status FROM status_transition_rules WHERE from_status = $1 ORDER BY to_status`,
+      [currentStatus]
+    )
+    res.json({ currentStatus, nextStatuses: result.rows.map((r) => r.status) })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const downloadStudentTemplate = async (req, res, next) => {
   try {
     const headers = [
@@ -411,11 +484,11 @@ export const downloadStudentTemplate = async (req, res, next) => {
     ws['!dataValidations'].push({
       sqref: 'D2:D10000',
       type: 'list',
-      formula1: '"Prospective,Active,Graduating,Graduated,Alumni"',
+      formula1: '"Applied,Under Review,Accepted,Prospective,Active,On Hold,Suspended,Withdrawn,Transferred,Graduating,Completed,Graduated,Alumni"',
       showDropDown: false,
       showErrorMessage: true,
       errorTitle: 'Invalid Status',
-      error: 'Choose from: Prospective, Active, Graduating, Graduated, Alumni',
+      error: 'Choose from: Applied, Under Review, Accepted, Prospective, Active, On Hold, Suspended, Withdrawn, Transferred, Graduating, Completed, Graduated, Alumni',
     })
     ws['!dataValidations'].push({
       sqref: 'H2:H10000',

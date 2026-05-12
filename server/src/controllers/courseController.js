@@ -14,6 +14,8 @@ export const createCourse = async (req, res, next) => {
       hasExam,
       lecturerId,
       lecturerName,
+      secondaryLecturerId,
+      secondaryLecturerName,
       startDate,
       endDate,
       classDay,
@@ -28,7 +30,6 @@ export const createCourse = async (req, res, next) => {
       throw httpError(400, 'endDate cannot be earlier than startDate')
     }
 
-    // Prevent overlapping courses — only one course can run at a time
     if (startDate && endDate) {
       const overlap = await query(
         `SELECT id, title FROM courses WHERE start_date < $2 AND end_date > $1 LIMIT 1`,
@@ -58,9 +59,11 @@ export const createCourse = async (req, res, next) => {
          class_time,
          lecturer_id,
          lecturer_name,
+         secondary_lecturer_id,
+         secondary_lecturer_name,
          created_by
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *`,
       [
         title,
@@ -77,6 +80,8 @@ export const createCourse = async (req, res, next) => {
         classTime || null,
         lecturerId || null,
         lecturerName || null,
+        secondaryLecturerId || null,
+        secondaryLecturerName || null,
         req.user.userId,
       ]
     )
@@ -93,15 +98,18 @@ export const listCourses = async (req, res, next) => {
       `SELECT c.id, c.title, c.course_code, c.duration_weeks, c.min_attendance_required,
           c.description, c.has_assignment, c.has_exam, c.requires_score,
               c.start_date, c.end_date, c.class_day, c.class_time, c.lecturer_id, c.lecturer_name,
+              c.secondary_lecturer_id, c.secondary_lecturer_name,
             c.created_by,
               c.is_current,
               u.full_name AS assigned_lecturer,
+              u2.full_name AS secondary_lecturer_full_name,
           COALESCE(COUNT(e.id) FILTER (WHERE e.status = 'active'), 0)::int AS enrolled_students,
               c.created_at
        FROM courses c
        LEFT JOIN users u ON u.id = c.lecturer_id
+       LEFT JOIN users u2 ON u2.id = c.secondary_lecturer_id
         LEFT JOIN enrollments e ON e.course_id = c.id
-       GROUP BY c.id, u.full_name
+       GROUP BY c.id, u.full_name, u2.full_name
        ORDER BY c.created_at DESC`
     )
 
@@ -165,9 +173,10 @@ export const getCourse = async (req, res, next) => {
     if (!courseId) throw httpError(400, 'Invalid courseId')
 
     const result = await query(
-      `SELECT c.*, u.full_name AS assigned_lecturer
+      `SELECT c.*, u.full_name AS assigned_lecturer, u2.full_name AS secondary_lecturer_full_name
        FROM courses c
        LEFT JOIN users u ON u.id = c.lecturer_id
+       LEFT JOIN users u2 ON u2.id = c.secondary_lecturer_id
        WHERE c.id = $1`,
       [courseId]
     )
@@ -197,6 +206,7 @@ export const updateCourse = async (req, res, next) => {
       hasAssignment = c.has_assignment,
       hasExam = c.has_exam,
       lecturerName = c.lecturer_name,
+      secondaryLecturerName = c.secondary_lecturer_name,
       startDate = c.start_date,
       endDate = c.end_date,
       classDay = c.class_day,
@@ -218,11 +228,12 @@ export const updateCourse = async (req, res, next) => {
          has_exam = $7,
          requires_score = $8,
          lecturer_name = $9,
-         start_date = $10,
-         end_date = $11,
-         class_day = $12,
-         class_time = $13
-       WHERE id = $14`,
+         secondary_lecturer_name = $10,
+         start_date = $11,
+         end_date = $12,
+         class_day = $13,
+         class_time = $14
+       WHERE id = $15`,
       [
         title,
         description || null,
@@ -233,6 +244,7 @@ export const updateCourse = async (req, res, next) => {
         Boolean(hasExam),
         true,
         lecturerName || null,
+        secondaryLecturerName || null,
         startDate || null,
         endDate || null,
         classDay || null,

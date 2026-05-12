@@ -22,7 +22,7 @@ const insertAttendanceRecord = async ({ sessionId, studentId }) => {
 
 export const startAttendanceSession = async (req, res, next) => {
   try {
-    const { courseId, classNumber, startTime, endTime } = req.body
+    const { courseId, classNumber, startTime, endTime, secondaryLecturerId, secondaryLecturerName, lecturerNotes } = req.body
     if (!courseId || !classNumber || !startTime || !endTime) {
       throw httpError(400, 'courseId, classNumber, startTime, and endTime are required')
     }
@@ -65,10 +65,10 @@ export const startAttendanceSession = async (req, res, next) => {
     }
 
     const result = await query(
-      `INSERT INTO attendance_sessions (course_id, class_number, start_time, end_time, is_active, created_by)
-       VALUES ($1, $2, $3, $4, TRUE, $5)
+      `INSERT INTO attendance_sessions (course_id, class_number, start_time, end_time, is_active, created_by, secondary_lecturer_id, secondary_lecturer_name, lecturer_notes)
+       VALUES ($1, $2, $3, $4, TRUE, $5, $6, $7, $8)
        RETURNING *`,
-      [courseId, Number(classNumber), start.toISOString(), end.toISOString(), req.user.userId]
+      [courseId, Number(classNumber), start.toISOString(), end.toISOString(), req.user.userId, secondaryLecturerId || null, secondaryLecturerName || null, lecturerNotes || null]
     )
 
     res.status(201).json(result.rows[0])

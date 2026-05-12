@@ -11,6 +11,8 @@ import enrollmentRoutes from './enrollmentRoutes.js'
 import cohortRoutes from './cohortRoutes.js'
 import coursePlanRoutes from './coursePlanRoutes.js'
 import lecturerRoutes from './lecturerRoutes.js'
+import settingsRoutes from './settingsRoutes.js'
+import formRoutes from './formRoutes.js'
 
 const router = Router()
 
@@ -30,5 +32,7 @@ router.use('/enrollments', enrollmentRoutes)
 router.use('/cohorts', cohortRoutes)
 router.use('/course-plans', coursePlanRoutes)
 router.use('/lecturers', lecturerRoutes)
+router.use('/settings', settingsRoutes)
+router.use('/forms', formRoutes)
 
 export default router
