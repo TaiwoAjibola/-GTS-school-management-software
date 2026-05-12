@@ -88,8 +88,12 @@ export const clearProcessCache = () => {
 /**
  * Send an email using the process-based template system.
  * Falls back to legacy settings-based templates if the process table doesn't exist yet.
+ * @param {string} processKey The key for the email process (e.g. 'student_activated')
+ * @param {object} variables Template variables
+ * @param {string} recipientEmail Recipient's email address
+ * @param {Array} attachments Optional array of nodemailer attachments
  */
-export const sendProcessEmail = async (processKey, variables, recipientEmail) => {
+export const sendProcessEmail = async (processKey, variables, recipientEmail, attachments = []) => {
   try {
     const processes = await loadProcesses()
     const process = processes[processKey]
@@ -116,6 +120,7 @@ export const sendProcessEmail = async (processKey, variables, recipientEmail) =>
       subject,
       text,
       html: `<p>${html}</p>`,
+      attachments,
     })
   } catch (error) {
     console.error(`❌ sendProcessEmail(${processKey}) failed:`, error.message)

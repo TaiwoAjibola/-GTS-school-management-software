@@ -3,10 +3,7 @@ import { query } from '../db/pool.js'
 export const getEligibilityForStudentInCourse = async (studentId, courseId) => {
   const result = await query(
     `SELECT c.min_attendance_required,
-            COALESCE(
-              COUNT(ar.id) FILTER (WHERE s.end_time IS NOT NULL AND s.end_time <= NOW()),
-              0
-            ) AS attendance_count
+            COALESCE(COUNT(ar.id), 0) AS attendance_count
      FROM courses c
      LEFT JOIN attendance_sessions s ON s.course_id = c.id
      LEFT JOIN attendance_records ar
@@ -37,10 +34,7 @@ export const getEligibleStudentsForCourse = async (courseId) => {
             u.full_name,
             u.email,
             c.min_attendance_required,
-            COALESCE(
-              COUNT(ar.id) FILTER (WHERE ses.end_time <= NOW()),
-              0
-            ) AS attendance_count
+            COALESCE(COUNT(ar.id), 0) AS attendance_count
      FROM enrollments e
      JOIN students s ON s.id = e.student_id
      JOIN users u ON u.id = s.user_id
@@ -50,10 +44,7 @@ export const getEligibleStudentsForCourse = async (courseId) => {
        ON ses.id = ar.session_id AND ses.course_id = c.id
     WHERE e.course_id = $1 AND e.status = 'active'
      GROUP BY s.id, u.id, c.id
-     HAVING COALESCE(
-       COUNT(ar.id) FILTER (WHERE ses.end_time <= NOW()),
-       0
-     ) >= c.min_attendance_required`,
+     HAVING COALESCE(COUNT(ar.id), 0) >= c.min_attendance_required`,
     [courseId]
   )
 
@@ -63,10 +54,7 @@ export const getEligibleStudentsForCourse = async (courseId) => {
 export const getEligibilityForStudentInBatch = async (studentId, batchId) => {
   const result = await query(
     `SELECT c.min_attendance_required,
-            COALESCE(
-              COUNT(ar.id) FILTER (WHERE s.end_time IS NOT NULL AND s.end_time <= NOW()),
-              0
-            ) AS attendance_count
+            COALESCE(COUNT(ar.id), 0) AS attendance_count
      FROM batches b
      JOIN courses c ON c.id = b.course_id
      LEFT JOIN attendance_sessions s ON s.batch_id = b.id
@@ -95,10 +83,7 @@ export const getEligibleStudentsForBatch = async (batchId) => {
             u.full_name,
             u.email,
             c.min_attendance_required,
-            COALESCE(
-              COUNT(ar.id) FILTER (WHERE ses.end_time <= NOW()),
-              0
-            ) AS attendance_count
+            COALESCE(COUNT(ar.id), 0) AS attendance_count
      FROM enrollments e
      JOIN students s ON s.id = e.student_id
      JOIN users u ON u.id = s.user_id
@@ -109,10 +94,7 @@ export const getEligibleStudentsForBatch = async (batchId) => {
        ON ses.id = ar.session_id AND ses.batch_id = b.id
      WHERE e.batch_id = $1 AND e.status = 'active'
      GROUP BY s.id, u.id, c.id
-     HAVING COALESCE(
-       COUNT(ar.id) FILTER (WHERE ses.end_time <= NOW()),
-       0
-     ) >= c.min_attendance_required`,
+     HAVING COALESCE(COUNT(ar.id), 0) >= c.min_attendance_required`,
     [batchId]
   )
 

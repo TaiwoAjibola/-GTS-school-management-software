@@ -259,8 +259,8 @@ export const getCourseAttendanceStudentSummary = async (req, res, next) => {
               u.full_name,
               u.email,
               c.min_attendance_required,
-              COUNT(DISTINCT ses.id) FILTER (WHERE ses.end_time IS NOT NULL AND ses.end_time <= NOW())::int AS total_sessions,
-              COUNT(ar.id) FILTER (WHERE ses.end_time IS NOT NULL AND ses.end_time <= NOW())::int AS present_count
+              COUNT(DISTINCT ses.id)::int AS total_sessions,
+              COUNT(ar.id)::int AS present_count
        FROM enrollments e
        JOIN students s ON s.id = e.student_id
        JOIN users u ON u.id = s.user_id

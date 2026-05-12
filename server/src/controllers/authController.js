@@ -36,6 +36,11 @@ export const login = async (req, res, next) => {
       throw httpError(401, 'Invalid credentials')
     }
 
+    // Temporarily block student logins as per requirement #7
+    if (user.role === 'student') {
+      throw httpError(403, 'Student login is temporarily disabled. Please contact the administrator.')
+    }
+
     const token = createToken(user)
 
     res.json({

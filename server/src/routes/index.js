@@ -15,6 +15,7 @@ import settingsRoutes from './settingsRoutes.js'
 import formRoutes from './formRoutes.js'
 import emailProcessRoutes from './emailProcessRoutes.js'
 import credentialRoutes from './credentialRoutes.js'
+import reportRoutes from './reportRoutes.js'
 
 const router = Router()
 
@@ -38,5 +39,6 @@ router.use('/settings', settingsRoutes)
 router.use('/forms', formRoutes)
 router.use('/email-processes', emailProcessRoutes)
 router.use('/credentials', credentialRoutes)
+router.use('/reports', reportRoutes)
 
 export default router

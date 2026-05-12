@@ -178,7 +178,18 @@ export const updateStudent = async (req, res, next) => {
     const nextStatus = status || current.status
     const nextCohortId = cohortId !== undefined ? (cohortId || null) : (current.cohort_id || null)
     const nextEmail = email || current.email
-    const nextMatric = matricNo || current.matric_no
+    let nextMatric = matricNo !== undefined ? matricNo : current.matric_no
+
+    // Auto-generate matric number if status is being changed to 'Active' and it's missing
+    if (nextStatus === 'Active' && !nextMatric && current.status !== 'Active') {
+      await query('LOCK TABLE students IN EXCLUSIVE MODE')
+      const studentCountResult = await query(
+        `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS count
+         FROM students WHERE matric_no IS NOT NULL`
+      )
+      const nextSequence = Number(studentCountResult.rows[0].count) + 1
+      nextMatric = formatMatricNumber(nextSequence)
+    }
 
     const duplicateEmail = await query('SELECT id FROM users WHERE email = $1 AND id <> $2', [
       nextEmail,
@@ -188,12 +199,14 @@ export const updateStudent = async (req, res, next) => {
       throw httpError(409, 'Email already exists')
     }
 
-    const duplicateMatric = await query('SELECT id FROM students WHERE matric_no = $1 AND id <> $2', [
-      nextMatric,
-      studentId,
-    ])
-    if (duplicateMatric.rows.length) {
-      throw httpError(409, 'Matric number already exists')
+    if (nextMatric) {
+      const duplicateMatric = await query('SELECT id FROM students WHERE matric_no = $1 AND id <> $2', [
+        nextMatric,
+        studentId,
+      ])
+      if (duplicateMatric.rows.length) {
+        throw httpError(409, 'Matric number already exists')
+      }
     }
 
     await query(

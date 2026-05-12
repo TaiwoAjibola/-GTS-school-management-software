@@ -112,6 +112,11 @@ const LecturerDashboard = () => {
   const [planGridLoading, setPlanGridLoading] = useState(false)
   const [planGridEdits, setPlanGridEdits] = useState({})
   const [planGridResultType, setPlanGridResultType] = useState('Final')
+
+  const [reportStats, setReportStats] = useState(null)
+  const [attendanceReport, setAttendanceReport] = useState(null)
+  const [reportFilters, setReportFilters] = useState({ year: '', batchId: '', courseId: '' })
+  const [reportLoading, setReportLoading] = useState(false)
   const [openGraduationActionFor, setOpenGraduationActionFor] = useState(null)
 
   const [courseStudents, setCourseStudents] = useState([])
@@ -644,6 +649,22 @@ const LecturerDashboard = () => {
     [courseForm.startDate, courseForm.durationWeeks, courseForm.classDay]
   )
 
+  const loadReports = async () => {
+    setReportLoading(true)
+    try {
+      const [general, attendance] = await Promise.all([
+        apiClient.get('/reports/general', { params: reportFilters }),
+        apiClient.get('/reports/attendance', { params: reportFilters }),
+      ])
+      setReportStats(general.data)
+      setAttendanceReport(attendance.data)
+    } catch (error) {
+      console.error('Failed to load reports:', error)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   useEffect(() => {
     const next = {}
     for (const row of courseResults) {
@@ -667,7 +688,10 @@ const LecturerDashboard = () => {
     if (section === 'forms') {
       loadForms()
     }
-  }, [section, user?.role])
+    if (section === 'reports') {
+      loadReports()
+    }
+  }, [section, user?.role, reportFilters])
 
   const createCourse = async (event) => {
     event.preventDefault()
@@ -3744,6 +3768,132 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
 
+      {section === 'reports' ? (
+        <div className="space-y-6">
+          {/* Filter Header */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Reporting & Analytics</h2>
+              <p className="text-sm text-slate-500">Comprehensive system performance and academic metrics.</p>
+            </div>
+            <div className="flex gap-3">
+              <select
+                className="border rounded-lg px-3 py-2 text-sm"
+                value={reportFilters.year}
+                onChange={(e) => setReportFilters(prev => ({ ...prev, year: e.target.value }))}
+              >
+                <option value="">All Years</option>
+                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <select
+                className="border rounded-lg px-3 py-2 text-sm"
+                value={reportFilters.courseId}
+                onChange={(e) => setReportFilters(prev => ({ ...prev, courseId: e.target.value }))}
+              >
+                <option value="">All Courses</option>
+                {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+              <button
+                onClick={loadReports}
+                className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm font-medium"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {reportLoading && !reportStats ? (
+            <div className="flex justify-center p-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div></div>
+          ) : (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Users className="w-6 h-6" /></div>
+                    <span className="text-xs font-medium text-slate-500 uppercase">Students</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{reportStats?.students?.total_students || 0}</div>
+                  <div className="flex gap-2 mt-2">
+                    <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full">{reportStats?.students?.active_students} Active</span>
+                    <span className="text-xs px-2 py-0.5 bg-slate-50 text-slate-600 rounded-full">{reportStats?.students?.prospective_students} Pros.</span>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2 bg-purple-50 rounded-lg text-purple-600"><BookOpen className="w-6 h-6" /></div>
+                    <span className="text-xs font-medium text-slate-500 uppercase">Courses</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{reportStats?.courses?.total_courses || 0}</div>
+                  <div className="text-xs text-slate-500 mt-2">{reportStats?.courses?.active_courses} Currently active</div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><ClipboardCheck className="w-6 h-6" /></div>
+                    <span className="text-xs font-medium text-slate-500 uppercase">Attendance</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{attendanceReport?.summary?.avg_attendance_rate || 0}%</div>
+                  <div className="text-xs text-slate-500 mt-2">Average across all sessions</div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><GraduationCap className="w-6 h-6" /></div>
+                    <span className="text-xs font-medium text-slate-500 uppercase">Graduation</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{reportStats?.students?.graduating_students || 0}</div>
+                  <div className="text-xs text-slate-500 mt-2">Candidates for completion</div>
+                </div>
+              </div>
+
+              {/* Attendance Table */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-slate-200 flex justify-between items-center">
+                  <h3 className="font-semibold text-slate-900">Attendance & Eligibility Detail</h3>
+                  <div className="flex gap-4 text-sm text-slate-500">
+                    <span>Eligible: <b className="text-green-600">{attendanceReport?.summary?.eligible_students}</b></span>
+                    <span>Ineligible: <b className="text-red-600">{attendanceReport?.summary?.ineligible_students}</b></span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[11px] font-semibold tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4">Student</th>
+                        <th className="px-6 py-4">Course</th>
+                        <th className="px-6 py-4">Sessions</th>
+                        <th className="px-6 py-4">Present</th>
+                        <th className="px-6 py-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {attendanceReport?.data?.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-4 font-medium text-slate-900">{row.full_name}</td>
+                          <td className="px-6 py-4 text-slate-600">{row.course_title}</td>
+                          <td className="px-6 py-4">{row.total_sessions}</td>
+                          <td className="px-6 py-4">{row.present_count}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase ${
+                              row.eligibility_status === 'Eligible'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {row.eligibility_status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
       {section === 'forms' ? (
         <div className="space-y-6">
           {/* Forms header */}
