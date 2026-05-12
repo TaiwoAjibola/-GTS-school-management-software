@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -425,7 +425,7 @@ const LecturerDashboard = () => {
       apiClient.get(`/attendance/course/${courseId}/status?classNumber=${classNumber}`),
       apiClient.get(`/attendance/course/${courseId}/roster?classNumber=${classNumber}`),
       apiClient.get(`/attendance/course/${courseId}/history`),
-      apiClient.get(`/attendance/course/${courseId}/students-summary?classNumber=${classNumber}`),
+      apiClient.get(`/attendance/course/${courseId}/students-summary`),
       apiClient.get(`/results/course/${courseId}`),
       apiClient.get(`/assignments/eligible/${courseId}`),
       apiClient.get(`/courses/${courseId}/enrollments`),

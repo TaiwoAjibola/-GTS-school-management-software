@@ -260,7 +260,17 @@ export const getCourseAttendanceStudentSummary = async (req, res, next) => {
               u.email,
               c.min_attendance_required,
               COUNT(DISTINCT ses.id)::int AS total_sessions,
-              COUNT(ar.id)::int AS present_count
+              COUNT(ar.id)::int AS present_count,
+              (COUNT(DISTINCT ses.id) - COUNT(ar.id))::int AS absent_count,
+              CASE
+                WHEN COUNT(DISTINCT ses.id) > 0
+                THEN ROUND((COUNT(ar.id)::float / COUNT(DISTINCT ses.id)::float) * 100)::int
+                ELSE 0
+              END AS attendance_rate,
+              CASE
+                WHEN COUNT(ar.id) >= c.min_attendance_required THEN true
+                ELSE false
+              END AS eligible
        FROM enrollments e
        JOIN students s ON s.id = e.student_id
        JOIN users u ON u.id = s.user_id
