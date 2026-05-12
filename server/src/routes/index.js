@@ -20,9 +20,9 @@ import reportRoutes from './reportRoutes.js'
 
 const router = Router()
 
-router.get('/health', async (req, res) => {
-  const status = await healthCheck()
-  res.status(status.status === 'ok' ? 200 : 500).json(status)
+// Public health check - no auth required
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'SAMS API', timestamp: new Date().toISOString() })
 })
 
 router.use('/auth', authRoutes)
