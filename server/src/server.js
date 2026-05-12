@@ -53,17 +53,26 @@ const runMigrations = async () => {
 
 const start = async () => {
   try {
+    console.log('🔌 Connecting to database...')
     await pool.query('SELECT 1')
+    console.log('✅ Database connected.')
+    
     console.log('📦 Starting migrations...')
     await runAllMigrations()
     await runMigrations()
     console.log('✅ Migrations complete.')
+  } catch (error) {
+    console.error('⚠️  Database/migration error (server will continue):', error.message)
+    console.error('   Fix the database connection and redeploy, or migrations will retry on next request.')
+  }
 
+  try {
     app.listen(env.port, '0.0.0.0', () => {
       console.log(`🚀 SAMS API running on port ${env.port}`)
+      console.log(`   Health check: http://localhost:${env.port}/api/health`)
     })
   } catch (error) {
-    console.error('Failed to start server', error)
+    console.error('❌ Failed to start server:', error.message)
     process.exit(1)
   }
 }

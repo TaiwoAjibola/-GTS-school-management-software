@@ -50,7 +50,6 @@ export const runAllMigrations = async () => {
     if (applied.has(file)) continue
     if (SKIP_FILES.has(file)) {
       console.log(`⏭️  Skipping ${file} (requires Supabase Dashboard)`)
-      // Record it so we don't warn every time
       await pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file])
       continue
     }
@@ -67,9 +66,8 @@ export const runAllMigrations = async () => {
     } catch (error) {
       await client.query('ROLLBACK')
       console.error(`❌ Migration ${file} failed:`, error.message)
-      // Don't throw — allow server to start even if a migration fails
-      // The admin can fix the issue and restart
-      break
+      // CRITICAL: Don't break - allow server to start even if migrations fail
+      // Admin can fix and redeploy
     } finally {
       client.release()
     }
