@@ -13,6 +13,8 @@ import coursePlanRoutes from './coursePlanRoutes.js'
 import lecturerRoutes from './lecturerRoutes.js'
 import settingsRoutes from './settingsRoutes.js'
 import formRoutes from './formRoutes.js'
+import emailProcessRoutes from './emailProcessRoutes.js'
+import credentialRoutes from './credentialRoutes.js'
 
 const router = Router()
 
@@ -34,5 +36,7 @@ router.use('/course-plans', coursePlanRoutes)
 router.use('/lecturers', lecturerRoutes)
 router.use('/settings', settingsRoutes)
 router.use('/forms', formRoutes)
+router.use('/email-processes', emailProcessRoutes)
+router.use('/credentials', credentialRoutes)
 
 export default router

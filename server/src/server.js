@@ -4,6 +4,7 @@ dns.setDefaultResultOrder('ipv4first')
 import app from './app.js'
 import { env } from './config/env.js'
 import { pool } from './db/pool.js'
+import { runAllMigrations } from './db/runMigrations.js'
 
 const runMigrations = async () => {
   // 1. Drop NOT NULL from matric_no if still required (idempotent).
@@ -53,6 +54,7 @@ const runMigrations = async () => {
 const start = async () => {
   try {
     await pool.query('SELECT 1')
+    await runAllMigrations()
     await runMigrations()
     app.listen(env.port, () => {
       console.log(`SAMS API running on port ${env.port}`)

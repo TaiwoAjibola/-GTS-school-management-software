@@ -6,7 +6,14 @@ import { fileURLToPath } from 'node:url'
 import { pool, query } from '../db/pool.js'
 import { formatMatricNumber } from '../utils/matric.js'
 import { httpError } from '../utils/httpError.js'
-import { sendWelcomeEmail, sendGraduationEmail } from '../services/emailService.js'
+import {
+  sendWelcomeEmail,
+  sendGraduationEmail,
+  sendApplicationReceivedEmail,
+  sendApplicationAcceptedEmail,
+  sendStudentSuspendedEmail,
+  sendStudentOnHoldEmail,
+} from '../services/emailService.js'
 import { supabase, PROFILE_BUCKET } from '../services/supabaseClient.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -92,6 +99,8 @@ export const createStudent = async (req, res, next) => {
     // Send welcome email if student is created directly as Active
     if (normalizedStatus === 'Active' && matricNo) {
       sendWelcomeEmail({ to: user.email, studentName: user.full_name, matricNo }).catch(() => {})
+    } else if (normalizedStatus === 'Applied') {
+      sendApplicationReceivedEmail({ to: user.email, studentName: user.full_name }).catch(() => {})
     }
 
     res.status(201).json(created)
@@ -336,12 +345,20 @@ export const updateStudentLifecycleStatus = async (req, res, next) => {
 
     await client.query('COMMIT')
 
-    // Send emails on key lifecycle transitions
-    if (status === 'Active' && (current.status === 'Prospective' || current.status === 'Accepted')) {
+    if (status === 'Active' && (current.status === 'Prospective' || current.status === 'Accepted' || current.status === 'Applied' || current.status === 'Under Review')) {
       sendWelcomeEmail({ to: current.email, studentName: current.full_name, matricNo: newMatricNo }).catch(() => {})
+    }
+    if (status === 'Accepted' && (current.status === 'Applied' || current.status === 'Under Review')) {
+      sendApplicationAcceptedEmail({ to: current.email, studentName: current.full_name }).catch(() => {})
     }
     if (status === 'Graduated') {
       sendGraduationEmail({ to: current.email, studentName: current.full_name }).catch(() => {})
+    }
+    if (status === 'Suspended') {
+      sendStudentSuspendedEmail({ to: current.email, studentName: current.full_name, reason }).catch(() => {})
+    }
+    if (status === 'On Hold') {
+      sendStudentOnHoldEmail({ to: current.email, studentName: current.full_name, reason }).catch(() => {})
     }
 
     res.json({ message: 'Student lifecycle status updated', matricNo: newMatricNo, previousStatus: current.status })

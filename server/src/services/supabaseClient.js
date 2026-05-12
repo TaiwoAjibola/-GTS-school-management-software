@@ -12,3 +12,17 @@ export const supabase = supabaseUrl && supabaseKey && supabaseKey !== 'your_supa
   : null
 
 export const PROFILE_BUCKET = 'student-profiles'
+
+export const ensureBucketExists = async (bucketName) => {
+  if (!supabase) return
+  const { data: buckets } = await supabase.storage.listBuckets()
+  const exists = buckets?.find((b) => b.name === bucketName)
+  if (!exists) {
+    await supabase.storage.createBucket(bucketName, { public: true })
+  }
+}
+
+// Auto-initialize
+if (supabase) {
+  ensureBucketExists(PROFILE_BUCKET).catch(console.error)
+}

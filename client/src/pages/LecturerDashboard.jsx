@@ -158,6 +158,10 @@ const LecturerDashboard = () => {
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
   const [statusTransitionReason, setStatusTransitionReason] = useState('')
+  const [emailProcesses, setEmailProcesses] = useState([])
+  const [emailProcessesLoading, setEmailProcessesLoading] = useState(false)
+  const [credentials, setCredentials] = useState([])
+  const [credentialsLoading, setCredentialsLoading] = useState(false)
 
   const notify = (message) => {
     setNotice(message)
@@ -262,6 +266,67 @@ const LecturerDashboard = () => {
       const res = await apiClient.get('/lecturers')
       setLecturers(res.data)
     } catch { /* silently ignore */ }
+  }
+
+  const saveEmailProcess = async (id, updates) => {
+    try {
+      await apiClient.patch(`/email-processes/${id}`, updates)
+      notify('Email process updated')
+      await loadEmailProcesses()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to update email process')
+    }
+  }
+
+  const toggleEmailProcess = async (id) => {
+    try {
+      await apiClient.patch(`/email-processes/${id}/toggle`)
+      await loadEmailProcesses()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to toggle email process')
+    }
+  }
+
+  const resetUserPassword = async (userId, newPassword) => {
+    try {
+      await apiClient.patch(`/credentials/${userId}/password`, { newPassword })
+      notify('Password reset successful')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to reset password')
+    }
+  }
+
+  const toggleUserActive = async (userId) => {
+    try {
+      await apiClient.patch(`/credentials/${userId}/toggle-active`)
+      await loadCredentials()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to toggle user status')
+    }
+  }
+
+  const loadEmailProcesses = async () => {
+    setEmailProcessesLoading(true)
+    try {
+      const res = await apiClient.get('/email-processes')
+      setEmailProcesses(res.data)
+    } catch {
+      notify('Failed to load email processes')
+    } finally {
+      setEmailProcessesLoading(false)
+    }
+  }
+
+  const loadCredentials = async () => {
+    setCredentialsLoading(true)
+    try {
+      const res = await apiClient.get('/credentials')
+      setCredentials(res.data)
+    } catch {
+      notify('Failed to load credentials')
+    } finally {
+      setCredentialsLoading(false)
+    }
   }
 
 
@@ -594,11 +659,15 @@ const LecturerDashboard = () => {
   useEffect(() => {
     if (section === 'settings') {
       loadSettings()
+      loadEmailProcesses()
+      if (user?.role === 'admin') {
+        loadCredentials()
+      }
     }
     if (section === 'forms') {
       loadForms()
     }
-  }, [section])
+  }, [section, user?.role])
 
   const createCourse = async (event) => {
     event.preventDefault()
@@ -3405,11 +3474,12 @@ const LecturerDashboard = () => {
       {section === 'settings' ? (
         <div className="space-y-6">
           {/* Settings tabs */}
-          <div className="flex gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
+          <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
             {[
-              { key: 'email', label: 'Email Configuration' },
-              { key: 'templates', label: 'Email Templates' },
-            ].map(({ key, label }) => (
+              { key: 'email', label: 'SMTP Configuration' },
+              { key: 'processes', label: 'Email Processes' },
+              user?.role === 'admin' && { key: 'credentials', label: 'Credentials' },
+            ].filter(Boolean).map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
@@ -3423,136 +3493,254 @@ const LecturerDashboard = () => {
             ))}
           </div>
 
-          {settingsLoading ? (
-            <p className="text-sm text-slate-500">Loading settings...</p>
-          ) : settingsTab === 'email' ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
-              <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
-              <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
+          {settingsTab === 'email' ? (
+            settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> : (
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
+                <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
+                <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
 
-              <div className="grid grid-cols-2 gap-4">
-                <label className="text-sm text-slate-600 block">
-                  SMTP Host
-                  <input
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={settings.smtp_host || ''}
-                    onChange={(e) => setSettings((p) => ({ ...p, smtp_host: e.target.value }))}
-                    placeholder="smtp.gmail.com"
-                  />
-                </label>
-                <label className="text-sm text-slate-600 block">
-                  SMTP Port
-                  <input
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={settings.smtp_port || ''}
-                    onChange={(e) => setSettings((p) => ({ ...p, smtp_port: e.target.value }))}
-                    placeholder="587"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="text-sm text-slate-600 block">
-                  SMTP User
-                  <input
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={settings.smtp_user || ''}
-                    onChange={(e) => setSettings((p) => ({ ...p, smtp_user: e.target.value }))}
-                    placeholder="your@email.com"
-                  />
-                </label>
-                <label className="text-sm text-slate-600 block">
-                  SMTP Password
-                  <input
-                    type="password"
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={settings.smtp_pass || ''}
-                    onChange={(e) => setSettings((p) => ({ ...p, smtp_pass: e.target.value }))}
-                    placeholder="App password"
-                  />
-                </label>
-              </div>
-
-              <label className="text-sm text-slate-600 block">
-                From Address
-                <input
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={settings.email_from || ''}
-                  onChange={(e) => setSettings((p) => ({ ...p, email_from: e.target.value }))}
-                  placeholder='"School Name" <noreply@school.com>'
-                />
-              </label>
-
-              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded"
-                  checked={settings.email_enabled === 'true'}
-                  onChange={(e) => setSettings((p) => ({ ...p, email_enabled: e.target.checked ? 'true' : 'false' }))}
-                />
-                Enable Email Sending
-              </label>
-
-              <button
-                type="button"
-                onClick={() => saveSettings({
-                  smtp_host: settings.smtp_host,
-                  smtp_port: settings.smtp_port,
-                  smtp_user: settings.smtp_user,
-                  smtp_pass: settings.smtp_pass,
-                  email_from: settings.email_from,
-                  email_enabled: settings.email_enabled,
-                })}
-                disabled={settingsSaving}
-                className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm disabled:opacity-50"
-              >
-                {settingsSaving ? 'Saving...' : 'Save Configuration'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {[
-                { key: 'welcome', label: 'Welcome / Activation Email', subjectKey: 'template_welcome_subject', bodyKey: 'template_welcome_body', vars: '{{studentName}}, {{matricNo}}' },
-                { key: 'graduation', label: 'Graduation Email', subjectKey: 'template_graduation_subject', bodyKey: 'template_graduation_body', vars: '{{studentName}}' },
-                { key: 'result', label: 'Result Notification Email', subjectKey: 'template_result_subject', bodyKey: 'template_result_body', vars: '{{studentName}}, {{resultType}}, {{courseTitle}}, {{status}}, {{score}}' },
-                { key: 'assignment', label: 'Assignment Notification Email', subjectKey: 'template_assignment_subject', bodyKey: 'template_assignment_body', vars: '{{studentName}}, {{courseTitle}}, {{assignmentTitle}}, {{dueDate}}' },
-                { key: 'material', label: 'Course Material Email', subjectKey: 'template_material_subject', bodyKey: 'template_material_body', vars: '{{studentName}}, {{courseTitle}}, {{materialTitle}}, {{sectionText}}, {{materialDescription}}, {{materialUrl}}' },
-              ].map(({ key, label, subjectKey, bodyKey, vars }) => (
-                <div key={key} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
-                  <h3 className="font-semibold text-slate-900">{label}</h3>
-                  <p className="text-xs text-slate-400">Available variables: {vars}</p>
-
+                <div className="grid grid-cols-2 gap-4">
                   <label className="text-sm text-slate-600 block">
-                    Subject
+                    SMTP Host
                     <input
                       className="mt-1 w-full border rounded-lg px-3 py-2"
-                      value={settings[subjectKey] || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, [subjectKey]: e.target.value }))}
+                      value={settings.smtp_host || ''}
+                      onChange={(e) => setSettings((p) => ({ ...p, smtp_host: e.target.value }))}
+                      placeholder="smtp.gmail.com"
                     />
                   </label>
-
                   <label className="text-sm text-slate-600 block">
-                    Body
-                    <textarea
-                      className="mt-1 w-full border rounded-lg px-3 py-2 font-mono text-sm"
-                      rows={5}
-                      value={settings[bodyKey] || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, [bodyKey]: e.target.value }))}
+                    SMTP Port
+                    <input
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={settings.smtp_port || ''}
+                      onChange={(e) => setSettings((p) => ({ ...p, smtp_port: e.target.value }))}
+                      placeholder="587"
                     />
                   </label>
-
-                  <button
-                    type="button"
-                    onClick={() => saveSettings({ [subjectKey]: settings[subjectKey], [bodyKey]: settings[bodyKey] })}
-                    disabled={settingsSaving}
-                    className="bg-slate-900 text-white rounded-xl px-4 py-1.5 text-sm disabled:opacity-50"
-                  >
-                    {settingsSaving ? 'Saving...' : 'Save Template'}
-                  </button>
                 </div>
-              ))}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="text-sm text-slate-600 block">
+                    SMTP User
+                    <input
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={settings.smtp_user || ''}
+                      onChange={(e) => setSettings((p) => ({ ...p, smtp_user: e.target.value }))}
+                      placeholder="your@email.com"
+                    />
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    SMTP Password
+                    <input
+                      type="password"
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      value={settings.smtp_pass || ''}
+                      onChange={(e) => setSettings((p) => ({ ...p, smtp_pass: e.target.value }))}
+                      placeholder="App password"
+                    />
+                  </label>
+                </div>
+
+                <label className="text-sm text-slate-600 block">
+                  From Address
+                  <input
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={settings.email_from || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, email_from: e.target.value }))}
+                    placeholder='"School Name" <noreply@school.com>'
+                  />
+                </label>
+
+                <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded"
+                    checked={settings.email_enabled === 'true'}
+                    onChange={(e) => setSettings((p) => ({ ...p, email_enabled: e.target.checked ? 'true' : 'false' }))}
+                  />
+                  Enable Email Sending
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => saveSettings({
+                    smtp_host: settings.smtp_host,
+                    smtp_port: settings.smtp_port,
+                    smtp_user: settings.smtp_user,
+                    smtp_pass: settings.smtp_pass,
+                    email_from: settings.email_from,
+                    email_enabled: settings.email_enabled,
+                  })}
+                  disabled={settingsSaving}
+                  className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm disabled:opacity-50"
+                >
+                  {settingsSaving ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            )
+          ) : settingsTab === 'processes' ? (
+            <div className="space-y-6 max-w-4xl">
+              {emailProcessesLoading ? <p className="text-sm text-slate-500">Loading email processes...</p> : (
+                emailProcesses.map((p) => (
+                  <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-slate-900">{p.display_name}</h3>
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{p.category}</span>
+                        </div>
+                        <p className="text-sm text-slate-500 mt-1">{p.description}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleEmailProcess(p.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                          p.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                        }`}
+                      >
+                        {p.enabled ? 'ENABLED' : 'DISABLED'}
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 pt-2 border-t border-slate-50">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {p.available_variables?.map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => {
+                              // Simple append for now
+                              const updatedBody = (p.body_template || '') + ` {{${v}}}`
+                              saveEmailProcess(p.id, { bodyTemplate: updatedBody })
+                            }}
+                            className="text-[10px] font-mono bg-sky-50 text-sky-700 px-2 py-0.5 rounded hover:bg-sky-100 transition-colors"
+                          >
+                            {`{{${v}}}`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <label className="text-sm text-slate-600 block">
+                        Subject Template
+                        <input
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                          value={p.subject_template || ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setEmailProcesses(prev => prev.map(proc => proc.id === p.id ? { ...proc, subject_template: val } : proc))
+                          }}
+                        />
+                      </label>
+
+                      <label className="text-sm text-slate-600 block">
+                        Body Template
+                        <textarea
+                          className="mt-1 w-full border rounded-lg px-3 py-2 font-mono text-sm"
+                          rows={6}
+                          value={p.body_template || ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setEmailProcesses(prev => prev.map(proc => proc.id === p.id ? { ...proc, body_template: val } : proc))
+                          }}
+                        />
+                      </label>
+
+                      <div className="flex items-center gap-3 justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const email = window.prompt('Enter recipient email for test:')
+                            if (!email) return
+                            apiClient.post(`/email-processes/${p.id}/test`, { recipientEmail: email })
+                              .then(() => notify('Test email sent'))
+                              .catch(err => notify(err?.response?.data?.message || 'Test failed'))
+                          }}
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1"
+                        >
+                          Send Test
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => saveEmailProcess(p.id, {
+                            subjectTemplate: p.subject_template,
+                            bodyTemplate: p.body_template,
+                            enabled: p.enabled
+                          })}
+                          className="bg-slate-900 text-white rounded-xl px-5 py-1.5 text-sm font-medium shadow-sm hover:bg-slate-800 transition-colors"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          )}
+          ) : settingsTab === 'credentials' ? (
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              {credentialsLoading ? <p className="p-10 text-sm text-slate-500 text-center">Loading user accounts...</p> : (
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-5 py-3 font-semibold text-slate-700">User</th>
+                      <th className="px-5 py-3 font-semibold text-slate-700">Role</th>
+                      <th className="px-5 py-3 font-semibold text-slate-700">Status</th>
+                      <th className="px-5 py-3 font-semibold text-slate-700 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {credentials.map((u) => (
+                      <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="font-medium text-slate-900">{u.full_name}</div>
+                          <div className="text-xs text-slate-500">{u.email}</div>
+                          {u.matric_no && <div className="text-[10px] text-sky-600 font-bold mt-0.5">{u.matric_no}</div>}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                            u.role === 'lecturer' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`flex items-center gap-1.5 ${u.is_active ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${u.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                            {u.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pass = window.prompt(`Enter new password for ${u.full_name}:`)
+                                if (pass) resetUserPassword(u.id, pass)
+                              }}
+                              className="text-xs font-semibold text-sky-600 hover:underline"
+                            >
+                              Reset Pass
+                            </button>
+                            {u.id !== user.id && (
+                              <button
+                                type="button"
+                                onClick={() => toggleUserActive(u.id)}
+                                className={`text-xs font-semibold hover:underline ${u.is_active ? 'text-red-500' : 'text-emerald-600'}`}
+                              >
+                                {u.is_active ? 'Deactivate' : 'Activate'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
