@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { healthCheck } from '../db/pool.js'
 import authRoutes from './authRoutes.js'
 import studentRoutes from './studentRoutes.js'
 import courseRoutes from './courseRoutes.js'
@@ -19,8 +20,9 @@ import reportRoutes from './reportRoutes.js'
 
 const router = Router()
 
-router.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'SAMS API' })
+router.get('/health', async (req, res) => {
+  const status = await healthCheck()
+  res.status(status.status === 'ok' ? 200 : 500).json(status)
 })
 
 router.use('/auth', authRoutes)

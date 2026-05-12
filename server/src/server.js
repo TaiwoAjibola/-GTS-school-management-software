@@ -54,10 +54,13 @@ const runMigrations = async () => {
 const start = async () => {
   try {
     await pool.query('SELECT 1')
+    console.log('📦 Starting migrations...')
     await runAllMigrations()
     await runMigrations()
-    app.listen(env.port, () => {
-      console.log(`SAMS API running on port ${env.port}`)
+    console.log('✅ Migrations complete.')
+
+    app.listen(env.port, '0.0.0.0', () => {
+      console.log(`🚀 SAMS API running on port ${env.port}`)
     })
   } catch (error) {
     console.error('Failed to start server', error)
