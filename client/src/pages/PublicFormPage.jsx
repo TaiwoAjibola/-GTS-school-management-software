@@ -17,7 +17,7 @@ const PublicFormPage = () => {
     const fetchForm = async () => {
       try {
         const res = await apiClient.get(`/forms/public/${slug}`)
-        setForm(res.data.form)
+        setForm(res.data)
         setFields(res.data.fields || [])
         // Initialize form data
         const initial = {}

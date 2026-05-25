@@ -166,19 +166,26 @@ export const deleteForm = async (req, res, next) => {
 export const submitForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
-    const { formId, data, submitterName, submitterEmail } = req.body
+    const { formId, slug, data, submitterName, submitterEmail } = req.body
 
-    if (!formId || !data) {
-      throw httpError(400, 'formId and data are required')
+    let resolvedFormId = formId
+    if (!resolvedFormId && slug) {
+      const lookup = await client.query('SELECT id FROM forms WHERE slug = $1', [slug])
+      if (!lookup.rows.length) throw httpError(404, 'Form not found')
+      resolvedFormId = lookup.rows[0].id
     }
 
-    const formResult = await client.query('SELECT id, status FROM forms WHERE id = $1', [formId])
+    if (!resolvedFormId || !data) {
+      throw httpError(400, 'formId (or slug) and data are required')
+    }
+
+    const formResult = await client.query('SELECT id, status FROM forms WHERE id = $1', [resolvedFormId])
     if (!formResult.rows.length) throw httpError(404, 'Form not found')
     if (formResult.rows[0].status !== 'active') throw httpError(400, 'Form is not accepting submissions')
 
     const fieldsResult = await client.query(
       'SELECT * FROM form_fields WHERE form_id = $1 ORDER BY order_index',
-      [formId]
+      [resolvedFormId]
     )
 
     const errors = []
@@ -199,7 +206,7 @@ export const submitForm = async (req, res, next) => {
       `INSERT INTO form_submissions (form_id, submitter_id, submitter_name, submitter_email, data)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [formId, submitterId, submitterName || null, submitterEmail || null, JSON.stringify(data)]
+      [resolvedFormId, submitterId, submitterName || null, submitterEmail || null, JSON.stringify(data)]
     )
 
     await client.query('COMMIT')
