@@ -163,6 +163,7 @@ const LecturerDashboard = () => {
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
   const [statusTransitionReason, setStatusTransitionReason] = useState('')
+  const [copiedFormId, setCopiedFormId] = useState(null)
   const [emailProcesses, setEmailProcesses] = useState([])
   const [emailProcessesLoading, setEmailProcessesLoading] = useState(false)
   const [credentials, setCredentials] = useState([])
@@ -3935,6 +3936,27 @@ const LecturerDashboard = () => {
                         <span>Slug: <code className="bg-slate-100 px-1.5 py-0.5 rounded">{form.slug}</code></span>
                         <span>{form.submission_count || 0} submissions</span>
                         <span>{form.fields?.length || 0} fields</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <code className="text-xs bg-sky-50 text-sky-700 px-2 py-1 rounded-lg border border-sky-200 break-all">
+                          {window.location.origin}/forms/{form.slug}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/forms/${form.slug}`)
+                            setCopiedFormId(form.id)
+                            setTimeout(() => setCopiedFormId(null), 2000)
+                          }}
+                          className={`text-xs rounded-lg px-2.5 py-1.5 shrink-0 transition-colors ${
+                            copiedFormId === form.id
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-sky-100 text-sky-700 hover:bg-sky-200'
+                          }`}
+                          title="Copy public link"
+                        >
+                          {copiedFormId === form.id ? 'Copied!' : 'Copy Link'}
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
