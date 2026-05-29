@@ -4379,6 +4379,21 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     apiClient.get('/cohorts').then(res => setCohorts(res.data)).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (!mapsToStudent) return
+    setFields(prev => {
+      const hasName = prev.some(f => f.mapsToColumn === 'full_name')
+      const hasEmail = prev.some(f => f.mapsToColumn === 'email')
+      const hasPhone = prev.some(f => f.mapsToColumn === 'phone')
+      if (hasName && hasEmail && hasPhone) return prev
+      const autoFields = []
+      if (!hasName) autoFields.push({ fieldType: 'text', label: 'Full Name', placeholder: 'Enter your full name', required: true, options: [], validation: {}, section: '', width: 'full', fieldConditions: null, mapsToColumn: 'full_name' })
+      if (!hasEmail) autoFields.push({ fieldType: 'email', label: 'Email', placeholder: 'Enter your email', required: true, options: [], validation: {}, section: '', width: 'half', fieldConditions: null, mapsToColumn: 'email' })
+      if (!hasPhone) autoFields.push({ fieldType: 'phone', label: 'Phone Number', placeholder: 'Enter your phone number', required: true, options: [], validation: {}, section: '', width: 'half', fieldConditions: null, mapsToColumn: 'phone' })
+      return [...autoFields, ...prev]
+    })
+  }, [mapsToStudent])
+
   const addField = () => {
     setFields((prev) => [
       ...prev,
