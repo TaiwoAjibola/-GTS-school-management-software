@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import apiClient from '../api/client'
+import gtsLogo from '../assets/logo/gts logo.svg'
 
 const WIDTH_MAP = { full: 'col-span-12', half: 'col-span-6', third: 'col-span-4' }
 
@@ -151,9 +152,7 @@ const PublicFormPage = () => {
           {/* Form Header */}
           <div className="bg-slate-900 p-8 text-white">
             <div className="flex items-center gap-4">
-              {form.logo_url && (
-                <img src={form.logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-contain bg-white" />
-              )}
+              <img src={gtsLogo} alt="GTS Logo" className="h-12 w-12 rounded-lg object-contain bg-white p-1" />
               <div>
                 <h1 className="text-2xl font-bold">{form.title}</h1>
                 {form.description && <p className="mt-2 text-slate-300 text-sm leading-relaxed">{form.description}</p>}

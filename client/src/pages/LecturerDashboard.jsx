@@ -4014,8 +4014,10 @@ const LecturerDashboard = () => {
                             Student Application
                           </span>
                         )}
-                        {form.logo_url && (
-                          <span className="text-xs text-slate-400">Has logo</span>
+                        {form.maps_to_student && form.batch_id && batches.find(b => b.id === form.batch_id) && (
+                          <span className="text-xs text-slate-400">
+                            Batch: {batches.find(b => b.id === form.batch_id)?.name || `#${form.batch_id}`}
+                          </span>
                         )}
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
@@ -4348,14 +4350,17 @@ const FIELD_TYPES = [
   { value: 'checkbox', label: 'Checkbox' },
 ]
 
-function FormBuilderDrawer({ form, batches, onClose, onSave }) {
+function FormBuilderDrawer({ form, onClose, onSave }) {
   const [title, setTitle] = useState(form?.title || '')
   const [slug, setSlug] = useState(form?.slug || '')
   const [description, setDescription] = useState(form?.description || '')
   const [status, setStatus] = useState(form?.status || 'draft')
   const [mapsToStudent, setMapsToStudent] = useState(form?.maps_to_student || false)
   const [batchId, setBatchId] = useState(form?.batch_id || '')
-  const [logoUrl, setLogoUrl] = useState(form?.logo_url || '')
+  const [batches, setBatches] = useState([])
+  const [showCreateBatch, setShowCreateBatch] = useState(false)
+  const [newBatch, setNewBatch] = useState({ courseId: '', name: '', startDate: '', endDate: '' })
+  const [coursesForBatch, setCoursesForBatch] = useState([])
   const [fields, setFields] = useState(
     form?.fields?.map((f) => ({
       id: f.id,
@@ -4372,6 +4377,10 @@ function FormBuilderDrawer({ form, batches, onClose, onSave }) {
     })) || []
   )
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    apiClient.get('/batches').then(res => setBatches(res.data)).catch(() => {})
+  }, [])
 
   const addField = () => {
     setFields((prev) => [
@@ -4404,6 +4413,20 @@ function FormBuilderDrawer({ form, batches, onClose, onSave }) {
       next[index] = temp
       return next
     })
+  }
+
+  const handleCreateBatch = async (e) => {
+    e.preventDefault()
+    if (!newBatch.courseId || !newBatch.startDate || !newBatch.endDate) return
+    try {
+      const res = await apiClient.post('/batches', newBatch)
+      setBatches(prev => [...prev, res.data])
+      setBatchId(String(res.data.id))
+      setShowCreateBatch(false)
+      setNewBatch({ courseId: '', name: '', startDate: '', endDate: '' })
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Failed to create batch')
+    }
   }
 
   const updateField = (index, updates) => {
@@ -4451,7 +4474,6 @@ function FormBuilderDrawer({ form, batches, onClose, onSave }) {
         status,
         mapsToStudent,
         batchId: batchId ? Number(batchId) : null,
-        logoUrl: logoUrl.trim() || null,
         fields: fields.map((f) => ({
           fieldType: f.fieldType,
           label: f.label,
@@ -4512,15 +4534,6 @@ function FormBuilderDrawer({ form, batches, onClose, onSave }) {
               />
             </label>
             <label className="text-sm text-slate-600 block">
-              Logo URL (optional)
-              <input
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://example.com/logo.png"
-              />
-            </label>
-            <label className="text-sm text-slate-600 block">
               Status
               <select
                 className="mt-1 w-full border rounded-lg px-3 py-2"
@@ -4550,7 +4563,14 @@ function FormBuilderDrawer({ form, batches, onClose, onSave }) {
                   <select
                     className="mt-1 w-full border rounded-lg px-3 py-2"
                     value={batchId}
-                    onChange={(e) => setBatchId(e.target.value)}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        apiClient.get('/courses').then(res => setCoursesForBatch(res.data)).catch(() => {})
+                        setShowCreateBatch(true)
+                      } else {
+                        setBatchId(e.target.value)
+                      }
+                    }}
                     required={mapsToStudent}
                   >
                     <option value="">Select a batch...</option>
@@ -4559,11 +4579,82 @@ function FormBuilderDrawer({ form, batches, onClose, onSave }) {
                         {b.name || `${b.course_title} (${new Date(b.start_date).toLocaleDateString()})`}
                       </option>
                     ))}
+                    <option value="__new__">+ Create New Batch</option>
                   </select>
                 </label>
                 <p className="text-xs text-slate-400">
                   Map field columns below in each field's settings to define which submission data creates the student record.
                 </p>
+              </div>
+            )}
+
+            {/* Create Batch Modal */}
+            {showCreateBatch && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4">Create New Batch</h3>
+                  <div className="space-y-3">
+                    <label className="text-sm text-slate-600 block">
+                      Course
+                      <select
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={newBatch.courseId}
+                        onChange={(e) => setNewBatch(p => ({ ...p, courseId: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select a course...</option>
+                        {coursesForBatch.map((c) => (
+                          <option key={c.id} value={c.id}>{c.title} ({c.course_code})</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      Name (optional)
+                      <input
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={newBatch.name}
+                        onChange={(e) => setNewBatch(p => ({ ...p, name: e.target.value }))}
+                        placeholder="e.g. Fall 2026"
+                      />
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      Start Date *
+                      <input
+                        type="date"
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={newBatch.startDate}
+                        onChange={(e) => setNewBatch(p => ({ ...p, startDate: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      End Date *
+                      <input
+                        type="date"
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={newBatch.endDate}
+                        onChange={(e) => setNewBatch(p => ({ ...p, endDate: e.target.value }))}
+                        required
+                      />
+                    </label>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={handleCreateBatch}
+                      className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm"
+                    >
+                      Create
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateBatch(false)}
+                      className="bg-slate-100 text-slate-700 rounded-xl px-6 py-2 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
