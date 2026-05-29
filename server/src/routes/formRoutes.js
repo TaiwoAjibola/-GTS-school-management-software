@@ -11,12 +11,13 @@ import {
   getAllSubmissions,
   reviewSubmission,
   deleteSubmission,
+  getProspectiveStudents,
 } from '../controllers/formController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
 const router = Router()
 
-// Public routes (no auth required for viewing active forms and submitting)
+// Public routes
 router.get('/public/:slug', getFormBySlug)
 router.post('/submit', submitForm)
 
@@ -24,6 +25,7 @@ router.post('/submit', submitForm)
 router.use(authenticate)
 router.post('/', authorize('admin', 'lecturer'), createForm)
 router.get('/', authorize('admin', 'lecturer'), listForms)
+router.get('/prospective-students', authorize('admin', 'lecturer'), getProspectiveStudents)
 router.get('/submissions', authorize('admin', 'lecturer'), getAllSubmissions)
 router.get('/:id', authorize('admin', 'lecturer'), getForm)
 router.patch('/:id', authorize('admin', 'lecturer'), updateForm)

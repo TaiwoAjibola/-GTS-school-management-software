@@ -168,6 +168,9 @@ const LecturerDashboard = () => {
   const [emailProcessesLoading, setEmailProcessesLoading] = useState(false)
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
+  const [batches, setBatches] = useState([])
+  const [prospectiveStudents, setProspectiveStudents] = useState([])
+  const [prospectiveStudentsLoading, setProspectiveStudentsLoading] = useState(false)
 
   const notify = (message) => {
     setNotice(message)
@@ -224,6 +227,25 @@ const LecturerDashboard = () => {
       notify('Failed to load submissions')
     } finally {
       setSubmissionsLoading(false)
+    }
+  }
+
+  const loadBatches = async () => {
+    try {
+      const res = await apiClient.get('/batches')
+      setBatches(res.data)
+    } catch { /* ignore */ }
+  }
+
+  const loadProspectiveStudents = async () => {
+    setProspectiveStudentsLoading(true)
+    try {
+      const res = await apiClient.get('/forms/prospective-students')
+      setProspectiveStudents(res.data)
+    } catch {
+      notify('Failed to load prospective students')
+    } finally {
+      setProspectiveStudentsLoading(false)
     }
   }
 
@@ -688,6 +710,10 @@ const LecturerDashboard = () => {
     }
     if (section === 'forms') {
       loadForms()
+      loadBatches()
+    }
+    if (section === 'prospective-students') {
+      loadProspectiveStudents()
     }
     if (section === 'reports') {
       loadReports()
@@ -1273,6 +1299,7 @@ const LecturerDashboard = () => {
     graduation: 'Graduation',
     assignments: 'Assignments',
     lecturers: 'Lecturers',
+    'prospective-students': 'Prospective Students',
   }[section] || 'Lecturer Dashboard'
 
   return (
@@ -3895,6 +3922,63 @@ const LecturerDashboard = () => {
           )}
         </div>
       ) : null}
+      {section === 'prospective-students' ? (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Prospective Students</h2>
+            <p className="text-sm text-slate-500 mt-1">Students created from approved form submissions.</p>
+          </div>
+
+          {prospectiveStudentsLoading ? (
+            <p className="text-sm text-slate-500">Loading...</p>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Name</th>
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Email</th>
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Form</th>
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Batch / Course</th>
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Submitted</th>
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {prospectiveStudents.map((s) => (
+                      <tr key={s.student_id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="px-4 py-3 font-medium text-slate-900">{s.full_name}</td>
+                        <td className="px-4 py-3 text-slate-600">{s.email}</td>
+                        <td className="px-4 py-3 text-slate-600">{s.form_title || '-'}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {s.batch_name ? `${s.batch_name}${s.course_title ? ` (${s.course_title})` : ''}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">
+                          {s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                            {s.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {!prospectiveStudents.length && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                          No prospective students yet. Approve submissions on student application forms to create them.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {section === 'forms' ? (
         <div className="space-y-6">
           {/* Forms header */}
@@ -3932,6 +4016,16 @@ const LecturerDashboard = () => {
                         </span>
                       </div>
                       {form.description && <p className="text-sm text-slate-500 mt-1">{form.description}</p>}
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        {form.maps_to_student && (
+                          <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700">
+                            Student Application
+                          </span>
+                        )}
+                        {form.logo_url && (
+                          <span className="text-xs text-slate-400">Has logo</span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                         <span>Slug: <code className="bg-slate-100 px-1.5 py-0.5 rounded">{form.slug}</code></span>
                         <span>{form.submission_count || 0} submissions</span>
@@ -4074,6 +4168,7 @@ const LecturerDashboard = () => {
           {formBuilderOpen && (
             <FormBuilderDrawer
               form={editingForm}
+              batches={batches}
               onClose={() => { setFormBuilderOpen(false); setEditingForm(null) }}
               onSave={saveForm}
             />
@@ -4261,11 +4356,14 @@ const FIELD_TYPES = [
   { value: 'checkbox', label: 'Checkbox' },
 ]
 
-function FormBuilderDrawer({ form, onClose, onSave }) {
+function FormBuilderDrawer({ form, batches, onClose, onSave }) {
   const [title, setTitle] = useState(form?.title || '')
   const [slug, setSlug] = useState(form?.slug || '')
   const [description, setDescription] = useState(form?.description || '')
   const [status, setStatus] = useState(form?.status || 'draft')
+  const [mapsToStudent, setMapsToStudent] = useState(form?.maps_to_student || false)
+  const [batchId, setBatchId] = useState(form?.batch_id || '')
+  const [logoUrl, setLogoUrl] = useState(form?.logo_url || '')
   const [fields, setFields] = useState(
     form?.fields?.map((f) => ({
       id: f.id,
@@ -4276,6 +4374,9 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
       options: f.options || [],
       validation: f.validation || {},
       section: f.section || '',
+      width: f.width || 'full',
+      fieldConditions: f.field_conditions || null,
+      mapsToColumn: f.maps_to_column || '',
     })) || []
   )
   const [saving, setSaving] = useState(false)
@@ -4283,12 +4384,34 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
   const addField = () => {
     setFields((prev) => [
       ...prev,
-      { fieldType: 'text', label: '', placeholder: '', required: false, options: [], validation: {}, section: '' },
+      { fieldType: 'text', label: '', placeholder: '', required: false, options: [], validation: {}, section: '', width: 'full', fieldConditions: null, mapsToColumn: '' },
     ])
   }
 
   const removeField = (index) => {
     setFields((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const moveFieldUp = (index) => {
+    if (index === 0) return
+    setFields((prev) => {
+      const next = [...prev]
+      const temp = next[index - 1]
+      next[index - 1] = next[index]
+      next[index] = temp
+      return next
+    })
+  }
+
+  const moveFieldDown = (index) => {
+    setFields((prev) => {
+      if (index >= prev.length - 1) return prev
+      const next = [...prev]
+      const temp = next[index + 1]
+      next[index + 1] = next[index]
+      next[index] = temp
+      return next
+    })
   }
 
   const updateField = (index, updates) => {
@@ -4329,7 +4452,27 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     if (!title.trim() || !slug.trim()) return
     setSaving(true)
     try {
-      await onSave({ title: title.trim(), slug: slug.trim(), description: description.trim(), status, fields })
+      await onSave({
+        title: title.trim(),
+        slug: slug.trim(),
+        description: description.trim(),
+        status,
+        mapsToStudent,
+        batchId: batchId ? Number(batchId) : null,
+        logoUrl: logoUrl.trim() || null,
+        fields: fields.map((f) => ({
+          fieldType: f.fieldType,
+          label: f.label,
+          placeholder: f.placeholder,
+          required: f.required,
+          options: f.options,
+          validation: f.validation,
+          section: f.section,
+          width: f.width,
+          fieldConditions: f.fieldConditions,
+          mapsToColumn: f.mapsToColumn || null,
+        })),
+      })
     } finally {
       setSaving(false)
     }
@@ -4377,6 +4520,15 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
               />
             </label>
             <label className="text-sm text-slate-600 block">
+              Logo URL (optional)
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://example.com/logo.png"
+              />
+            </label>
+            <label className="text-sm text-slate-600 block">
               Status
               <select
                 className="mt-1 w-full border rounded-lg px-3 py-2"
@@ -4388,6 +4540,40 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                 <option value="closed">Closed</option>
               </select>
             </label>
+            {/* Maps to Student */}
+            <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer pt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded"
+                checked={mapsToStudent}
+                onChange={(e) => setMapsToStudent(e.target.checked)}
+              />
+              <span className="font-medium">Student Application Form</span>
+              <span className="text-xs text-slate-400">(auto-creates student on approval)</span>
+            </label>
+            {mapsToStudent && (
+              <div className="pl-7 space-y-3">
+                <label className="text-sm text-slate-600 block">
+                  Target Batch *
+                  <select
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    value={batchId}
+                    onChange={(e) => setBatchId(e.target.value)}
+                    required={mapsToStudent}
+                  >
+                    <option value="">Select a batch...</option>
+                    {batches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name || `${b.course_title} (${new Date(b.start_date).toLocaleDateString()})`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-xs text-slate-400">
+                  Map field columns below in each field's settings to define which submission data creates the student record.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Fields */}
@@ -4403,7 +4589,11 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
               {fields.map((field, idx) => (
                 <div key={idx} className="border border-slate-200 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Field #{idx + 1}</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => moveFieldUp(idx)} disabled={idx === 0} className="text-xs text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Move up">▲</button>
+                      <button type="button" onClick={() => moveFieldDown(idx)} disabled={idx >= fields.length - 1} className="text-xs text-slate-400 hover:text-slate-700 disabled:opacity-30" title="Move down">▼</button>
+                      <span className="text-xs font-medium text-slate-500 ml-1">Field #{idx + 1}</span>
+                    </div>
                     <button type="button" onClick={() => removeField(idx)} className="text-xs text-red-500 hover:underline">
                       Remove
                     </button>
@@ -4423,6 +4613,21 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                       </select>
                     </label>
                     <label className="text-sm text-slate-600 block">
+                      Width
+                      <select
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={field.width}
+                        onChange={(e) => updateField(idx, { width: e.target.value })}
+                      >
+                        <option value="full">Full Width</option>
+                        <option value="half">Half Width</option>
+                        <option value="third">Third Width</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm text-slate-600 block">
                       Section (optional)
                       <input
                         className="mt-1 w-full border rounded-lg px-3 py-2"
@@ -4431,6 +4636,22 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                         placeholder="e.g. Personal Info"
                       />
                     </label>
+                    {mapsToStudent && (
+                      <label className="text-sm text-slate-600 block">
+                        Maps to student column
+                        <select
+                          className="mt-1 w-full border rounded-lg px-3 py-2"
+                          value={field.mapsToColumn}
+                          onChange={(e) => updateField(idx, { mapsToColumn: e.target.value })}
+                        >
+                          <option value="">-- Not mapped --</option>
+                          <option value="full_name">Full Name</option>
+                          <option value="email">Email</option>
+                          <option value="phone">Phone</option>
+                          <option value="comments">Comments</option>
+                        </select>
+                      </label>
+                    )}
                   </div>
 
                   <label className="text-sm text-slate-600 block">
@@ -4452,15 +4673,91 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                     />
                   </label>
 
-                  <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded"
-                      checked={field.required}
-                      onChange={(e) => updateField(idx, { required: e.target.checked })}
-                    />
-                    Required
-                  </label>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded"
+                        checked={field.required}
+                        onChange={(e) => updateField(idx, { required: e.target.checked })}
+                      />
+                      Required
+                    </label>
+                  </div>
+
+                  {/* Conditional visibility */}
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-slate-500 hover:text-slate-700 font-medium">
+                      Conditional visibility
+                    </summary>
+                    <div className="mt-2 space-y-2 border border-slate-200 rounded-lg p-3 bg-slate-50">
+                      {field.fieldConditions ? (
+                        <>
+                          <label className="text-sm text-slate-600 block">
+                            Show when field
+                            <select
+                              className="mt-1 w-full border rounded-lg px-3 py-2"
+                              value={field.fieldConditions.fieldId || ''}
+                              onChange={(e) => {
+                                const cond = { ...field.fieldConditions, fieldId: Number(e.target.value) }
+                                updateField(idx, { fieldConditions: cond })
+                              }}
+                            >
+                              <option value="">Select a field...</option>
+                              {fields.filter((_, i) => i !== idx).map((f, i) => (
+                                <option key={i} value={f.id || `_idx_${i}`}>
+                                  {f.label || `Field #${i + 1}`}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="text-sm text-slate-600 block">
+                            Operator
+                            <select
+                              className="mt-1 w-full border rounded-lg px-3 py-2"
+                              value={field.fieldConditions.operator || 'equals'}
+                              onChange={(e) => {
+                                const cond = { ...field.fieldConditions, operator: e.target.value }
+                                updateField(idx, { fieldConditions: cond })
+                              }}
+                            >
+                              <option value="equals">equals</option>
+                              <option value="not_equals">not equals</option>
+                              <option value="contains">contains</option>
+                              <option value="is_checked">is checked</option>
+                            </select>
+                          </label>
+                          <label className="text-sm text-slate-600 block">
+                            Value
+                            <input
+                              className="mt-1 w-full border rounded-lg px-3 py-2"
+                              value={field.fieldConditions.value || ''}
+                              onChange={(e) => {
+                                const cond = { ...field.fieldConditions, value: e.target.value }
+                                updateField(idx, { fieldConditions: cond })
+                              }}
+                              placeholder="Value to match"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => updateField(idx, { fieldConditions: null })}
+                            className="text-xs text-red-500 hover:underline"
+                          >
+                            Remove condition
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => updateField(idx, { fieldConditions: { fieldId: '', operator: 'equals', value: '' } })}
+                          className="text-xs text-sky-600 hover:underline"
+                        >
+                          + Add condition
+                        </button>
+                      )}
+                    </div>
+                  </details>
 
                   {/* Options for select/multiselect/radio */}
                   {['select', 'multiselect', 'radio'].includes(field.fieldType) && (

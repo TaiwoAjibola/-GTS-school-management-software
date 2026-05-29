@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import apiClient from '../api/client'
+
+const WIDTH_MAP = { full: 'col-span-12', half: 'col-span-6', third: 'col-span-4' }
 
 const PublicFormPage = () => {
   const { slug } = useParams()
@@ -19,7 +21,6 @@ const PublicFormPage = () => {
         const res = await apiClient.get(`/forms/public/${slug}`)
         setForm(res.data)
         setFields(res.data.fields || [])
-        // Initialize form data
         const initial = {}
         res.data.fields.forEach(f => {
           initial[f.id] = f.field_type === 'checkbox' ? false : ''
@@ -34,16 +35,52 @@ const PublicFormPage = () => {
     fetchForm()
   }, [slug])
 
+  const isFieldVisible = (field) => {
+    if (!field.field_conditions) return true
+    const { fieldId, operator, value } = field.field_conditions
+    if (!fieldId) return true
+    const controlValue = formData[fieldId]
+    switch (operator) {
+      case 'equals': return String(controlValue) === String(value)
+      case 'not_equals': return String(controlValue) !== String(value)
+      case 'contains': return String(controlValue || '').includes(value || '')
+      case 'is_checked': return !!controlValue
+      default: return true
+    }
+  }
+
+  const visibleFields = useMemo(() => fields.filter(isFieldVisible), [fields, formData])
+
+  const groupedFields = useMemo(() => {
+    const groups = {}
+    for (const f of visibleFields) {
+      const section = f.section || '__default'
+      if (!groups[section]) groups[section] = []
+      groups[section].push(f)
+    }
+    return groups
+  }, [visibleFields])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
     setError('')
     try {
+      let submitterName = formData.submitter_name || ''
+      let submitterEmail = formData.submitter_email || ''
+
+      if (form.maps_to_student) {
+        const nameField = fields.find(f => f.maps_to_column === 'full_name')
+        const emailField = fields.find(f => f.maps_to_column === 'email')
+        if (nameField && formData[nameField.id]) submitterName = formData[nameField.id]
+        if (emailField && formData[emailField.id]) submitterEmail = formData[emailField.id]
+      }
+
       await apiClient.post('/forms/submit', {
         slug,
         data: formData,
-        submitterName: formData.submitter_name || '', // optional
-        submitterEmail: formData.submitter_email || '', // optional
+        submitterName,
+        submitterEmail,
       })
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -109,77 +146,133 @@ const PublicFormPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           {/* Form Header */}
           <div className="bg-slate-900 p-8 text-white">
-            <h1 className="text-2xl font-bold">{form.title}</h1>
-            {form.description && <p className="mt-2 text-slate-300 text-sm leading-relaxed">{form.description}</p>}
+            <div className="flex items-center gap-4">
+              {form.logo_url && (
+                <img src={form.logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-contain bg-white" />
+              )}
+              <div>
+                <h1 className="text-2xl font-bold">{form.title}</h1>
+                {form.description && <p className="mt-2 text-slate-300 text-sm leading-relaxed">{form.description}</p>}
+              </div>
+            </div>
           </div>
 
           {/* Form Body */}
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            {fields.map((field) => (
-              <div key={field.id} className="space-y-1.5">
-                <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
-                  {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
-                </label>
-
-                {field.field_type === 'textarea' ? (
-                  <textarea
-                    required={field.required}
-                    placeholder={field.placeholder}
-                    value={formData[field.id] || ''}
-                    onChange={(e) => handleChange(field.id, e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
-                  />
-                ) : field.field_type === 'select' ? (
-                  <select
-                    required={field.required}
-                    value={formData[field.id] || ''}
-                    onChange={(e) => handleChange(field.id, e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all appearance-none bg-white"
-                  >
-                    <option value="">Select an option</option>
-                    {field.options?.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                ) : field.field_type === 'checkbox' ? (
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={!!formData[field.id]}
-                      onChange={(e) => handleChange(field.id, e.target.checked)}
-                      className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-                    />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                      {field.placeholder || 'Yes'}
-                    </span>
-                  </label>
-                ) : (
-                  <input
-                    type={field.field_type === 'number' ? 'number' : field.field_type === 'email' ? 'email' : 'text'}
-                    required={field.required}
-                    placeholder={field.placeholder}
-                    value={formData[field.id] || ''}
-                    onChange={(e) => handleChange(field.id, e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
-                  />
+          <form onSubmit={handleSubmit} className="p-8">
+            {Object.entries(groupedFields).map(([sectionName, sectionFields]) => (
+              <div key={sectionName} className={sectionName !== '__default' ? 'mb-8' : ''}>
+                {sectionName !== '__default' && (
+                  <h2 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">{sectionName}</h2>
                 )}
+                <div className="grid grid-cols-12 gap-4">
+                  {sectionFields.map((field) => (
+                    <div key={field.id} className={`${WIDTH_MAP[field.width] || 'col-span-12'} space-y-1.5`}>
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                        {field.label}
+                        {field.required && <span className="text-red-500">*</span>}
+                      </label>
+
+                      {field.field_type === 'textarea' ? (
+                        <textarea
+                          required={field.required}
+                          placeholder={field.placeholder}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => handleChange(field.id, e.target.value)}
+                          rows={4}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      ) : field.field_type === 'select' ? (
+                        <select
+                          required={field.required}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => handleChange(field.id, e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all appearance-none bg-white"
+                        >
+                          <option value="">Select an option</option>
+                          {field.options?.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      ) : field.field_type === 'multiselect' ? (
+                        <select
+                          multiple
+                          required={field.required}
+                          value={formData[field.id] || []}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions, o => o.value)
+                            handleChange(field.id, selected)
+                          }}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                        >
+                          {field.options?.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      ) : field.field_type === 'checkbox' ? (
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={!!formData[field.id]}
+                            onChange={(e) => handleChange(field.id, e.target.checked)}
+                            className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                          />
+                          <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                            {field.placeholder || 'Yes'}
+                          </span>
+                        </label>
+                      ) : field.field_type === 'radio' ? (
+                        <div className="space-y-2">
+                          {field.options?.map(opt => (
+                            <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                              <input
+                                type="radio"
+                                name={`field_${field.id}`}
+                                value={opt.value}
+                                checked={formData[field.id] === opt.value}
+                                onChange={(e) => handleChange(field.id, e.target.value)}
+                                className="w-4 h-4 text-slate-900 focus:ring-slate-900"
+                              />
+                              <span className="text-sm text-slate-600">{opt.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : field.field_type === 'phone' ? (
+                        <input
+                          type="tel"
+                          required={field.required}
+                          placeholder={field.placeholder}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => handleChange(field.id, e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      ) : (
+                        <input
+                          type={field.field_type === 'number' ? 'number' : field.field_type === 'email' ? 'email' : field.field_type === 'date' ? 'date' : 'text'}
+                          required={field.required}
+                          placeholder={field.placeholder}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => handleChange(field.id, e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
 
             {error && (
-              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 mt-6">
                 <AlertCircle className="w-4 h-4" />
                 {error}
               </div>
             )}
 
-            <div className="pt-4">
+            <div className="pt-6">
               <button
                 type="submit"
                 disabled={submitting}
@@ -197,7 +290,7 @@ const PublicFormPage = () => {
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-8">
-          Powered by Grace Theological Seminary (GTS) — SAMS Form Builder
+          Powered by Grace Theological Seminary (GTS)
         </p>
       </div>
     </div>

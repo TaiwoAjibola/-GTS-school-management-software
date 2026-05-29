@@ -1,12 +1,13 @@
+import bcrypt from 'bcryptjs'
 import { pool, query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 
-// ── Forms CRUD ──────────────────────────────────────────────────────
+const STUDENT_COLUMNS = ['full_name', 'email', 'phone', 'comments']
 
 export const createForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
-    const { title, description, slug, fields } = req.body
+    const { title, description, slug, fields, mapsToStudent, batchId, logoUrl } = req.body
 
     if (!title || !slug) {
       throw httpError(400, 'Title and slug are required')
@@ -15,10 +16,10 @@ export const createForm = async (req, res, next) => {
     await client.query('BEGIN')
 
     const formResult = await client.query(
-      `INSERT INTO forms (title, description, slug, status, created_by)
-       VALUES ($1, $2, $3, 'draft', $4)
+      `INSERT INTO forms (title, description, slug, status, created_by, maps_to_student, batch_id, logo_url)
+       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7)
        RETURNING *`,
-      [title, description || null, slug, req.user.userId]
+      [title, description || null, slug, req.user.userId, mapsToStudent || false, batchId || null, logoUrl || null]
     )
 
     const form = formResult.rows[0]
@@ -27,8 +28,8 @@ export const createForm = async (req, res, next) => {
       for (let i = 0; i < fields.length; i++) {
         const f = fields[i]
         await client.query(
-          `INSERT INTO form_fields (form_id, field_type, label, placeholder, required, options, validation, order_index, section)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          `INSERT INTO form_fields (form_id, field_type, label, placeholder, required, options, validation, order_index, section, width, field_conditions, maps_to_column)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
             form.id,
             f.fieldType || f.field_type,
@@ -39,6 +40,9 @@ export const createForm = async (req, res, next) => {
             f.validation ? JSON.stringify(f.validation) : null,
             i,
             f.section || null,
+            f.width || 'full',
+            f.fieldConditions ? JSON.stringify(f.fieldConditions) : null,
+            f.mapsToColumn || null,
           ]
         )
       }
@@ -103,14 +107,21 @@ export const updateForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
     const { id } = req.params
-    const { title, description, status, fields } = req.body
+    const { title, description, status, fields, mapsToStudent, batchId, logoUrl } = req.body
 
     await client.query('BEGIN')
 
     const formResult = await client.query(
-      `UPDATE forms SET title = COALESCE($1, title), description = COALESCE($2, description), status = COALESCE($3, status), updated_at = NOW()
-       WHERE id = $4 RETURNING *`,
-      [title, description, status, id]
+      `UPDATE forms SET
+        title = COALESCE($1, title),
+        description = COALESCE($2, description),
+        status = COALESCE($3, status),
+        maps_to_student = COALESCE($4, maps_to_student),
+        batch_id = COALESCE($5, batch_id),
+        logo_url = COALESCE($6, logo_url),
+        updated_at = NOW()
+       WHERE id = $7 RETURNING *`,
+      [title, description, status, mapsToStudent, batchId || null, logoUrl || null, id]
     )
 
     if (!formResult.rows.length) {
@@ -122,8 +133,8 @@ export const updateForm = async (req, res, next) => {
       for (let i = 0; i < fields.length; i++) {
         const f = fields[i]
         await client.query(
-          `INSERT INTO form_fields (form_id, field_type, label, placeholder, required, options, validation, order_index, section)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          `INSERT INTO form_fields (form_id, field_type, label, placeholder, required, options, validation, order_index, section, width, field_conditions, maps_to_column)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
             id,
             f.fieldType || f.field_type,
@@ -134,6 +145,9 @@ export const updateForm = async (req, res, next) => {
             f.validation ? JSON.stringify(f.validation) : null,
             i,
             f.section || null,
+            f.width || 'full',
+            f.fieldConditions ? JSON.stringify(f.fieldConditions) : null,
+            f.mapsToColumn || null,
           ]
         )
       }
@@ -160,8 +174,6 @@ export const deleteForm = async (req, res, next) => {
     next(error)
   }
 }
-
-// ── Submissions ─────────────────────────────────────────────────────
 
 export const submitForm = async (req, res, next) => {
   const client = await pool.connect()
@@ -223,9 +235,13 @@ export const listSubmissions = async (req, res, next) => {
   try {
     const { formId } = req.params
     const result = await query(
-      `SELECT fs.*, u.full_name AS reviewed_by_name
+      `SELECT fs.*, u.full_name AS reviewed_by_name,
+              s.id AS linked_student_id, s.status AS student_status,
+              usr.full_name AS student_name, usr.email AS student_email
        FROM form_submissions fs
        LEFT JOIN users u ON u.id = fs.reviewed_by
+       LEFT JOIN students s ON s.id = fs.student_id
+       LEFT JOIN users usr ON usr.id = s.user_id
        WHERE fs.form_id = $1
        ORDER BY fs.created_at DESC`,
       [formId]
@@ -239,10 +255,14 @@ export const listSubmissions = async (req, res, next) => {
 export const getAllSubmissions = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT fs.*, f.title AS form_title, f.slug AS form_slug, u.full_name AS reviewed_by_name
+      `SELECT fs.*, f.title AS form_title, f.slug AS form_slug, u.full_name AS reviewed_by_name,
+              s.id AS linked_student_id, s.status AS student_status,
+              usr.full_name AS student_name, usr.email AS student_email
        FROM form_submissions fs
        JOIN forms f ON f.id = fs.form_id
        LEFT JOIN users u ON u.id = fs.reviewed_by
+       LEFT JOIN students s ON s.id = fs.student_id
+       LEFT JOIN users usr ON usr.id = s.user_id
        ORDER BY fs.created_at DESC`
     )
     res.json(result.rows)
@@ -252,6 +272,7 @@ export const getAllSubmissions = async (req, res, next) => {
 }
 
 export const reviewSubmission = async (req, res, next) => {
+  const client = await pool.connect()
   try {
     const { submissionId } = req.params
     const { status, reviewNotes } = req.body
@@ -260,7 +281,21 @@ export const reviewSubmission = async (req, res, next) => {
       throw httpError(400, 'Invalid status')
     }
 
-    const result = await query(
+    await client.query('BEGIN')
+
+    const subResult = await client.query(
+      `SELECT fs.*, f.maps_to_student, f.batch_id
+       FROM form_submissions fs
+       JOIN forms f ON f.id = fs.form_id
+       WHERE fs.id = $1 FOR UPDATE`,
+      [submissionId]
+    )
+
+    if (!subResult.rows.length) throw httpError(404, 'Submission not found')
+
+    const submission = subResult.rows[0]
+
+    const result = await client.query(
       `UPDATE form_submissions
        SET status = $1, review_notes = $2, reviewed_by = $3, reviewed_at = NOW(), updated_at = NOW()
        WHERE id = $4
@@ -268,10 +303,93 @@ export const reviewSubmission = async (req, res, next) => {
       [status, reviewNotes || null, req.user.userId, submissionId]
     )
 
-    if (!result.rows.length) throw httpError(404, 'Submission not found')
-    res.json(result.rows[0])
+    let createdStudent = null
+
+    if (status === 'approved' && submission.maps_to_student) {
+      createdStudent = await createStudentFromSubmission(client, submission, req.user.userId)
+
+      if (createdStudent) {
+        await client.query(
+          'UPDATE form_submissions SET student_id = $1 WHERE id = $2',
+          [createdStudent.id, submissionId]
+        )
+      }
+    }
+
+    await client.query('COMMIT')
+
+    res.json({
+      ...result.rows[0],
+      student: createdStudent,
+    })
   } catch (error) {
+    await client.query('ROLLBACK')
     next(error)
+  } finally {
+    client.release()
+  }
+}
+
+const createStudentFromSubmission = async (client, submission, actorUserId) => {
+  try {
+    const fieldsResult = await client.query(
+      `SELECT id, label, maps_to_column FROM form_fields
+       WHERE form_id = $1 AND maps_to_column IS NOT NULL`,
+      [submission.form_id]
+    )
+
+    const mapped = { batchId: submission.batch_id }
+    for (const field of fieldsResult.rows) {
+      const value = submission.data[field.id]
+      if (value !== undefined && value !== null && value !== '') {
+        mapped[field.maps_to_column] = value
+      }
+    }
+
+    if (!mapped.full_name || !mapped.email) {
+      return null
+    }
+
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [mapped.email]
+    )
+
+    if (existingUser.rows.length) {
+      const existingStudent = await client.query(
+        'SELECT id FROM students WHERE user_id = $1',
+        [existingUser.rows[0].id]
+      )
+      if (existingStudent.rows.length) {
+        await client.query(
+          `UPDATE students SET phone = COALESCE($1, phone), comments = COALESCE($2, comments)
+           WHERE id = $3`,
+          [mapped.phone || null, mapped.comments || null, existingStudent.rows[0].id]
+        )
+        return { id: existingStudent.rows[0].id }
+      }
+    } else {
+      const hashed = await bcrypt.hash('Student123!', 10)
+      const userResult = await client.query(
+        `INSERT INTO users (full_name, email, password_hash, role)
+         VALUES ($1, $2, $3, 'student')
+         RETURNING id, full_name, email`,
+        [mapped.full_name, mapped.email, hashed]
+      )
+
+      const studentResult = await client.query(
+        `INSERT INTO students (user_id, phone, status, comments)
+         VALUES ($1, $2, 'Prospective', $3)
+         RETURNING id`,
+        [userResult.rows[0].id, mapped.phone || null, mapped.comments || null]
+      )
+
+      return { id: studentResult.rows[0].id }
+    }
+
+    return null
+  } catch (err) {
+    return null
   }
 }
 
@@ -285,7 +403,30 @@ export const deleteSubmission = async (req, res, next) => {
   }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────
+export const getProspectiveStudents = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT
+        s.id AS student_id, s.status, s.created_at AS student_created_at,
+        u.full_name, u.email, s.phone,
+        fs.id AS submission_id, fs.data AS submission_data, fs.created_at AS submitted_at,
+        f.id AS form_id, f.title AS form_title, f.slug AS form_slug,
+        b.id AS batch_id, b.name AS batch_name,
+        c.title AS course_title
+       FROM students s
+       JOIN users u ON u.id = s.user_id
+       LEFT JOIN form_submissions fs ON fs.student_id = s.id
+       LEFT JOIN forms f ON f.id = fs.form_id
+       LEFT JOIN batches b ON b.id = f.batch_id
+       LEFT JOIN courses c ON c.id = b.course_id
+       WHERE s.status = 'Prospective'
+       ORDER BY fs.created_at DESC NULLS LAST, s.created_at DESC`
+    )
+    res.json(result.rows)
+  } catch (error) {
+    next(error)
+  }
+}
 
 const getFormById = async (id) => {
   const formResult = await query('SELECT * FROM forms WHERE id = $1', [id])
