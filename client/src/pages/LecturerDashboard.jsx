@@ -168,7 +168,6 @@ const LecturerDashboard = () => {
   const [emailProcessesLoading, setEmailProcessesLoading] = useState(false)
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
-  const [batches, setBatches] = useState([])
   const [prospectiveStudents, setProspectiveStudents] = useState([])
   const [prospectiveStudentsLoading, setProspectiveStudentsLoading] = useState(false)
 
@@ -228,13 +227,6 @@ const LecturerDashboard = () => {
     } finally {
       setSubmissionsLoading(false)
     }
-  }
-
-  const loadBatches = async () => {
-    try {
-      const res = await apiClient.get('/batches')
-      setBatches(res.data)
-    } catch { /* ignore */ }
   }
 
   const loadProspectiveStudents = async () => {
@@ -710,7 +702,7 @@ const LecturerDashboard = () => {
     }
     if (section === 'forms') {
       loadForms()
-      loadBatches()
+      apiClient.get('/batches').then(res => setBatches(res.data)).catch(() => {})
     }
     if (section === 'prospective-students') {
       loadProspectiveStudents()
