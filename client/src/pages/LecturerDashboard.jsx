@@ -3932,7 +3932,7 @@ const LecturerDashboard = () => {
                       <th className="text-left px-4 py-3 font-medium text-slate-700">Name</th>
                       <th className="text-left px-4 py-3 font-medium text-slate-700">Email</th>
                       <th className="text-left px-4 py-3 font-medium text-slate-700">Form</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-700">Batch / Course</th>
+                      <th className="text-left px-4 py-3 font-medium text-slate-700">Cohort</th>
                       <th className="text-left px-4 py-3 font-medium text-slate-700">Submitted</th>
                       <th className="text-left px-4 py-3 font-medium text-slate-700">Status</th>
                     </tr>
@@ -3944,7 +3944,7 @@ const LecturerDashboard = () => {
                         <td className="px-4 py-3 text-slate-600">{s.email}</td>
                         <td className="px-4 py-3 text-slate-600">{s.form_title || '-'}</td>
                         <td className="px-4 py-3 text-slate-600">
-                          {s.batch_name ? `${s.batch_name}${s.course_title ? ` (${s.course_title})` : ''}` : '-'}
+                          {s.cohort_name || '-'}
                         </td>
                         <td className="px-4 py-3 text-slate-500 text-xs">
                           {s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '-'}
@@ -4014,10 +4014,8 @@ const LecturerDashboard = () => {
                             Student Application
                           </span>
                         )}
-                        {form.maps_to_student && form.batch_id && batches.find(b => b.id === form.batch_id) && (
-                          <span className="text-xs text-slate-400">
-                            Batch: {batches.find(b => b.id === form.batch_id)?.name || `#${form.batch_id}`}
-                          </span>
+                        {form.cohort_name && (
+                          <span className="text-xs text-slate-400">Cohort: {form.cohort_name}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
@@ -4356,11 +4354,10 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
   const [description, setDescription] = useState(form?.description || '')
   const [status, setStatus] = useState(form?.status || 'draft')
   const [mapsToStudent, setMapsToStudent] = useState(form?.maps_to_student || false)
-  const [batchId, setBatchId] = useState(form?.batch_id || '')
-  const [batches, setBatches] = useState([])
-  const [showCreateBatch, setShowCreateBatch] = useState(false)
-  const [newBatch, setNewBatch] = useState({ courseId: '', name: '', startDate: '', endDate: '' })
-  const [coursesForBatch, setCoursesForBatch] = useState([])
+  const [cohortId, setCohortId] = useState(form?.cohort_id || '')
+  const [cohorts, setCohorts] = useState([])
+  const [showCreateCohort, setShowCreateCohort] = useState(false)
+  const [newCohort, setNewCohort] = useState({ name: '', startDate: '', endDate: '' })
   const [fields, setFields] = useState(
     form?.fields?.map((f) => ({
       id: f.id,
@@ -4379,7 +4376,7 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    apiClient.get('/batches').then(res => setBatches(res.data)).catch(() => {})
+    apiClient.get('/cohorts').then(res => setCohorts(res.data)).catch(() => {})
   }, [])
 
   const addField = () => {
@@ -4415,17 +4412,17 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     })
   }
 
-  const handleCreateBatch = async (e) => {
+  const handleCreateCohort = async (e) => {
     e.preventDefault()
-    if (!newBatch.courseId || !newBatch.startDate || !newBatch.endDate) return
+    if (!newCohort.name) return
     try {
-      const res = await apiClient.post('/batches', newBatch)
-      setBatches(prev => [...prev, res.data])
-      setBatchId(String(res.data.id))
-      setShowCreateBatch(false)
-      setNewBatch({ courseId: '', name: '', startDate: '', endDate: '' })
+      const res = await apiClient.post('/cohorts', newCohort)
+      setCohorts(prev => [...prev, res.data])
+      setCohortId(String(res.data.id))
+      setShowCreateCohort(false)
+      setNewCohort({ name: '', startDate: '', endDate: '' })
     } catch (err) {
-      alert(err?.response?.data?.message || 'Failed to create batch')
+      alert(err?.response?.data?.message || 'Failed to create student batch')
     }
   }
 
@@ -4473,7 +4470,7 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
         description: description.trim(),
         status,
         mapsToStudent,
-        batchId: batchId ? Number(batchId) : null,
+        cohortId: cohortId ? Number(cohortId) : null,
         fields: fields.map((f) => ({
           fieldType: f.fieldType,
           label: f.label,
@@ -4559,27 +4556,26 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
             {mapsToStudent && (
               <div className="pl-7 space-y-3">
                 <label className="text-sm text-slate-600 block">
-                  Target Batch *
+                  Target Cohort (Student Batch) *
                   <select
                     className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={batchId}
+                    value={cohortId}
                     onChange={(e) => {
                       if (e.target.value === '__new__') {
-                        apiClient.get('/courses').then(res => setCoursesForBatch(res.data)).catch(() => {})
-                        setShowCreateBatch(true)
+                        setShowCreateCohort(true)
                       } else {
-                        setBatchId(e.target.value)
+                        setCohortId(e.target.value)
                       }
                     }}
                     required={mapsToStudent}
                   >
-                    <option value="">Select a batch...</option>
-                    {batches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name || `${b.course_title} (${new Date(b.start_date).toLocaleDateString()})`}
+                    <option value="">Select a cohort...</option>
+                    {cohorts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.start_date ? ` (${new Date(c.start_date).toLocaleDateString()})` : ''}
                       </option>
                     ))}
-                    <option value="__new__">+ Create New Batch</option>
+                    <option value="__new__">+ Create New Cohort</option>
                   </select>
                 </label>
                 <p className="text-xs text-slate-400">
@@ -4588,67 +4584,52 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
               </div>
             )}
 
-            {/* Create Batch Modal */}
-            {showCreateBatch && (
+            {/* Create Cohort Modal */}
+            {showCreateCohort && (
               <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Create New Batch</h3>
+                  <h3 className="font-semibold text-slate-900 mb-4">Create New Cohort (Student Batch)</h3>
                   <div className="space-y-3">
                     <label className="text-sm text-slate-600 block">
-                      Course
-                      <select
-                        className="mt-1 w-full border rounded-lg px-3 py-2"
-                        value={newBatch.courseId}
-                        onChange={(e) => setNewBatch(p => ({ ...p, courseId: e.target.value }))}
-                        required
-                      >
-                        <option value="">Select a course...</option>
-                        {coursesForBatch.map((c) => (
-                          <option key={c.id} value={c.id}>{c.title} ({c.course_code})</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-sm text-slate-600 block">
-                      Name (optional)
+                      Name *
                       <input
                         className="mt-1 w-full border rounded-lg px-3 py-2"
-                        value={newBatch.name}
-                        onChange={(e) => setNewBatch(p => ({ ...p, name: e.target.value }))}
-                        placeholder="e.g. Fall 2026"
-                      />
-                    </label>
-                    <label className="text-sm text-slate-600 block">
-                      Start Date *
-                      <input
-                        type="date"
-                        className="mt-1 w-full border rounded-lg px-3 py-2"
-                        value={newBatch.startDate}
-                        onChange={(e) => setNewBatch(p => ({ ...p, startDate: e.target.value }))}
+                        value={newCohort.name}
+                        onChange={(e) => setNewCohort(p => ({ ...p, name: e.target.value }))}
+                        placeholder="e.g. 2026 Fall Intake"
                         required
                       />
                     </label>
                     <label className="text-sm text-slate-600 block">
-                      End Date *
+                      Start Date
                       <input
                         type="date"
                         className="mt-1 w-full border rounded-lg px-3 py-2"
-                        value={newBatch.endDate}
-                        onChange={(e) => setNewBatch(p => ({ ...p, endDate: e.target.value }))}
-                        required
+                        value={newCohort.startDate}
+                        onChange={(e) => setNewCohort(p => ({ ...p, startDate: e.target.value }))}
+                      />
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      End Date
+                      <input
+                        type="date"
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={newCohort.endDate}
+                        onChange={(e) => setNewCohort(p => ({ ...p, endDate: e.target.value }))}
                       />
                     </label>
                   </div>
                   <div className="flex gap-3 mt-6">
                     <button
                       type="button"
-                      onClick={handleCreateBatch}
+                      onClick={handleCreateCohort}
                       className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm"
                     >
                       Create
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowCreateBatch(false)}
+                      onClick={() => setShowCreateCohort(false)}
                       className="bg-slate-100 text-slate-700 rounded-xl px-6 py-2 text-sm"
                     >
                       Cancel

@@ -7,7 +7,7 @@ const STUDENT_COLUMNS = ['full_name', 'email', 'phone', 'comments']
 export const createForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
-    const { title, description, slug, fields, mapsToStudent, batchId, logoUrl } = req.body
+    const { title, description, slug, fields, mapsToStudent, cohortId, logoUrl } = req.body
 
     if (!title || !slug) {
       throw httpError(400, 'Title and slug are required')
@@ -16,10 +16,10 @@ export const createForm = async (req, res, next) => {
     await client.query('BEGIN')
 
     const formResult = await client.query(
-      `INSERT INTO forms (title, description, slug, status, created_by, maps_to_student, batch_id, logo_url)
+      `INSERT INTO forms (title, description, slug, status, created_by, maps_to_student, cohort_id, logo_url)
        VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7)
        RETURNING *`,
-      [title, description || null, slug, req.user.userId, mapsToStudent || false, batchId || null, logoUrl || null]
+      [title, description || null, slug, req.user.userId, mapsToStudent || false, cohortId || null, logoUrl || null]
     )
 
     const form = formResult.rows[0]
@@ -64,9 +64,11 @@ export const listForms = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT f.*, u.full_name AS created_by_name,
+              co.name AS cohort_name,
               (SELECT COUNT(*) FROM form_submissions WHERE form_id = f.id) AS submission_count
        FROM forms f
        LEFT JOIN users u ON u.id = f.created_by
+       LEFT JOIN cohorts co ON co.id = f.cohort_id
        ORDER BY f.created_at DESC`
     )
     res.json(result.rows)
@@ -107,7 +109,7 @@ export const updateForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
     const { id } = req.params
-    const { title, description, status, fields, mapsToStudent, batchId, logoUrl } = req.body
+    const { title, description, status, fields, mapsToStudent, cohortId, logoUrl } = req.body
 
     await client.query('BEGIN')
 
@@ -117,11 +119,11 @@ export const updateForm = async (req, res, next) => {
         description = COALESCE($2, description),
         status = COALESCE($3, status),
         maps_to_student = COALESCE($4, maps_to_student),
-        batch_id = COALESCE($5, batch_id),
+        cohort_id = COALESCE($5, cohort_id),
         logo_url = COALESCE($6, logo_url),
         updated_at = NOW()
        WHERE id = $7 RETURNING *`,
-      [title, description, status, mapsToStudent, batchId || null, logoUrl || null, id]
+      [title, description, status, mapsToStudent, cohortId || null, logoUrl || null, id]
     )
 
     if (!formResult.rows.length) {
@@ -284,7 +286,7 @@ export const reviewSubmission = async (req, res, next) => {
     await client.query('BEGIN')
 
     const subResult = await client.query(
-      `SELECT fs.*, f.maps_to_student, f.batch_id
+      `     SELECT fs.*, f.maps_to_student, f.cohort_id
        FROM form_submissions fs
        JOIN forms f ON f.id = fs.form_id
        WHERE fs.id = $1 FOR UPDATE`,
@@ -338,7 +340,7 @@ const createStudentFromSubmission = async (client, submission, actorUserId) => {
       [submission.form_id]
     )
 
-    const mapped = { batchId: submission.batch_id }
+    const mapped = { cohortId: submission.cohort_id }
     for (const field of fieldsResult.rows) {
       const value = submission.data[field.id]
       if (value !== undefined && value !== null && value !== '') {
@@ -378,10 +380,10 @@ const createStudentFromSubmission = async (client, submission, actorUserId) => {
       )
 
       const studentResult = await client.query(
-        `INSERT INTO students (user_id, phone, status, comments)
-         VALUES ($1, $2, 'Prospective', $3)
+        `INSERT INTO students (user_id, phone, status, comments, cohort_id)
+         VALUES ($1, $2, 'Prospective', $3, $4)
          RETURNING id`,
-        [userResult.rows[0].id, mapped.phone || null, mapped.comments || null]
+        [userResult.rows[0].id, mapped.phone || null, mapped.comments || null, mapped.cohortId || null]
       )
 
       return { id: studentResult.rows[0].id }
@@ -411,14 +413,12 @@ export const getProspectiveStudents = async (req, res, next) => {
         u.full_name, u.email, s.phone,
         fs.id AS submission_id, fs.data AS submission_data, fs.created_at AS submitted_at,
         f.id AS form_id, f.title AS form_title, f.slug AS form_slug,
-        b.id AS batch_id, b.name AS batch_name,
-        c.title AS course_title
+        co.id AS cohort_id, co.name AS cohort_name
        FROM students s
        JOIN users u ON u.id = s.user_id
        LEFT JOIN form_submissions fs ON fs.student_id = s.id
        LEFT JOIN forms f ON f.id = fs.form_id
-       LEFT JOIN batches b ON b.id = f.batch_id
-       LEFT JOIN courses c ON c.id = b.course_id
+       LEFT JOIN cohorts co ON co.id = f.cohort_id
        WHERE s.status = 'Prospective'
        ORDER BY fs.created_at DESC NULLS LAST, s.created_at DESC`
     )
