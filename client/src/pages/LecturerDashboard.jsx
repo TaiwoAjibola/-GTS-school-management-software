@@ -3632,7 +3632,7 @@ const LecturerDashboard = () => {
           </div>
 
            {settingsTab === 'email' ? (
-            settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> : (
+             settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> :
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
                 <div className="flex items-center justify-between">
                   <div>
