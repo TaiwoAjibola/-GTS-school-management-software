@@ -54,6 +54,17 @@ const send = async (mailOptions) => {
   return true
 }
 
+// ── Direct send with raw subject/body (for admin-created templates) ─
+export const sendRawEmail = async ({ to, subject, html }) => {
+  try {
+    const text = html ? html.replace(/<[^>]*>/g, '') : ''
+    return send({ to, subject, text, html })
+  } catch (error) {
+    console.error('sendRawEmail failed:', error.message)
+    return false
+  }
+}
+
 // ── Process-based email sending ────────────────────────────────────
 // This is the new primary method for sending emails.
 // It looks up the template from the email_processes table.

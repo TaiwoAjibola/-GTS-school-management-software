@@ -7,7 +7,7 @@ import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { lecturerNavItems } from '../constants/lecturerNav'
 import { fmtDateRange } from '../utils/formatDate'
-import CommunicationTemplates from '../components/CommunicationTemplates'
+import EmailProcesses from '../components/EmailProcesses'
 
 const CLASS_DAY_INDEX = {
   Sunday: 0,
@@ -187,8 +187,7 @@ const LecturerDashboard = () => {
   const [pendingStatus, setPendingStatus] = useState(null)
   const [statusSaving, setStatusSaving] = useState(false)
   const [copiedFormId, setCopiedFormId] = useState(null)
-  const [emailProcesses, setEmailProcesses] = useState([])
-  const [emailProcessesLoading, setEmailProcessesLoading] = useState(false)
+
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
   const [prospectiveStudents, setProspectiveStudents] = useState([])
@@ -311,24 +310,7 @@ const LecturerDashboard = () => {
     } catch { /* silently ignore */ }
   }
 
-  const saveEmailProcess = async (id, updates) => {
-    try {
-      await apiClient.patch(`/email-processes/${id}`, updates)
-      notify('Email process updated')
-      await loadEmailProcesses()
-    } catch (err) {
-      notify(err?.response?.data?.message || 'Failed to update email process')
-    }
-  }
 
-  const toggleEmailProcess = async (id) => {
-    try {
-      await apiClient.patch(`/email-processes/${id}/toggle`)
-      await loadEmailProcesses()
-    } catch (err) {
-      notify(err?.response?.data?.message || 'Failed to toggle email process')
-    }
-  }
 
   const resetUserPassword = async (userId, newPassword) => {
     try {
@@ -345,18 +327,6 @@ const LecturerDashboard = () => {
       await loadCredentials()
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to toggle user status')
-    }
-  }
-
-  const loadEmailProcesses = async () => {
-    setEmailProcessesLoading(true)
-    try {
-      const res = await apiClient.get('/email-processes')
-      setEmailProcesses(res.data)
-    } catch {
-      notify('Failed to load email processes')
-    } finally {
-      setEmailProcessesLoading(false)
     }
   }
 
@@ -718,7 +688,6 @@ const LecturerDashboard = () => {
   useEffect(() => {
     if (section === 'settings') {
       loadSettings()
-      loadEmailProcesses()
       if (user?.role === 'admin') {
         loadCredentials()
       }
@@ -3626,7 +3595,6 @@ const LecturerDashboard = () => {
             {[
               { key: 'email', label: 'SMTP Configuration' },
               { key: 'processes', label: 'Email Processes' },
-              { key: 'templates', label: 'Communication Templates' },
               user?.role === 'admin' && { key: 'credentials', label: 'Credentials' },
             ].filter(Boolean).map(({ key, label }) => (
               <button
@@ -3729,105 +3697,7 @@ const LecturerDashboard = () => {
               </div>
             )
           ) : settingsTab === 'processes' ? (
-            <div className="space-y-6 max-w-4xl">
-              {emailProcessesLoading ? <p className="text-sm text-slate-500">Loading email processes...</p> : (
-                emailProcesses.map((p) => (
-                  <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-slate-900">{p.display_name}</h3>
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{p.category}</span>
-                        </div>
-                        <p className="text-sm text-slate-500 mt-1">{p.description}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleEmailProcess(p.id)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                          p.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {p.enabled ? 'ENABLED' : 'DISABLED'}
-                      </button>
-                    </div>
-
-                    <div className="space-y-3 pt-2 border-t border-slate-50">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {p.available_variables?.map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => {
-                              // Simple append for now
-                              const updatedBody = (p.body_template || '') + ` {{${v}}}`
-                              saveEmailProcess(p.id, { bodyTemplate: updatedBody })
-                            }}
-                            className="text-[10px] font-mono bg-sky-50 text-sky-700 px-2 py-0.5 rounded hover:bg-sky-100 transition-colors"
-                          >
-                            {`{{${v}}}`}
-                          </button>
-                        ))}
-                      </div>
-
-                      <label className="text-sm text-slate-600 block">
-                        Subject Template
-                        <input
-                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-                          value={p.subject_template || ''}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setEmailProcesses(prev => prev.map(proc => proc.id === p.id ? { ...proc, subject_template: val } : proc))
-                          }}
-                        />
-                      </label>
-
-                      <label className="text-sm text-slate-600 block">
-                        Body Template
-                        <textarea
-                          className="mt-1 w-full border rounded-lg px-3 py-2 font-mono text-sm"
-                          rows={6}
-                          value={p.body_template || ''}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setEmailProcesses(prev => prev.map(proc => proc.id === p.id ? { ...proc, body_template: val } : proc))
-                          }}
-                        />
-                      </label>
-
-                      <div className="flex items-center gap-3 justify-end pt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const email = window.prompt('Enter recipient email for test:')
-                            if (!email) return
-                            apiClient.post(`/email-processes/${p.id}/test`, { recipientEmail: email })
-                              .then(() => notify('Test email sent'))
-                              .catch(err => notify(err?.response?.data?.message || 'Test failed'))
-                          }}
-                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1"
-                        >
-                          Send Test
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => saveEmailProcess(p.id, {
-                            subjectTemplate: p.subject_template,
-                            bodyTemplate: p.body_template,
-                            enabled: p.enabled
-                          })}
-                          className="bg-slate-900 text-white rounded-xl px-5 py-1.5 text-sm font-medium shadow-sm hover:bg-slate-800 transition-colors"
-                        >
-                          Save Changes
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : settingsTab === 'templates' ? (
-            <CommunicationTemplates notify={notify} />
+            <EmailProcesses notify={notify} />
           ) : settingsTab === 'credentials' ? (
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               {credentialsLoading ? <p className="p-10 text-sm text-slate-500 text-center">Loading user accounts...</p> : (
