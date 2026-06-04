@@ -3632,9 +3632,9 @@ const LecturerDashboard = () => {
           </div>
 
            {settingsTab === 'email' ? (
-             settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> :
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
-                <div className="flex items-center justify-between">
+              settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> : (<>
+                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
+                  <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
                     <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
@@ -3724,8 +3724,7 @@ const LecturerDashboard = () => {
                   </div>
                 )}
               </div>
-            ) : null}
-            {smtpEditConfirmOpen && (
+              {smtpEditConfirmOpen && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSmtpEditConfirmOpen(false)}>
                 <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
                   <h3 className="font-semibold text-slate-900 mb-2">Edit SMTP Configuration</h3>
@@ -3758,7 +3757,9 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
               </div>
-            )
+            )}
+            </>
+          )
           ) : settingsTab === 'processes' ? (
             <EmailProcesses notify={notify} />
           ) : settingsTab === 'credentials' ? (
