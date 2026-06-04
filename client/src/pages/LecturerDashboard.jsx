@@ -7,6 +7,7 @@ import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { lecturerNavItems } from '../constants/lecturerNav'
 import { fmtDateRange } from '../utils/formatDate'
+import CommunicationTemplates from '../components/CommunicationTemplates'
 
 const CLASS_DAY_INDEX = {
   Sunday: 0,
@@ -35,6 +36,24 @@ const suggestCourseEndDate = (startDate, durationWeeks, classDay) => {
   lastClassDate.setDate(lastClassDate.getDate() + (weeks - 1) * 7)
 
   return lastClassDate.toISOString().slice(0, 10)
+}
+
+const ALL_STATUSES = ['Applied', 'Under Review', 'Accepted', 'Prospective', 'Active', 'On Hold', 'Suspended', 'Withdrawn', 'Transferred', 'Graduating', 'Completed', 'Graduated', 'Alumni']
+
+const STATUS_COLORS = {
+  Applied: 'bg-slate-100 text-slate-700',
+  'Under Review': 'bg-amber-100 text-amber-800',
+  Accepted: 'bg-sky-100 text-sky-800',
+  Prospective: 'bg-yellow-100 text-yellow-800',
+  Active: 'bg-emerald-100 text-emerald-800',
+  'On Hold': 'bg-orange-100 text-orange-800',
+  Suspended: 'bg-red-100 text-red-800',
+  Withdrawn: 'bg-gray-200 text-gray-700',
+  Transferred: 'bg-indigo-100 text-indigo-800',
+  Graduating: 'bg-blue-100 text-blue-800',
+  Completed: 'bg-teal-100 text-teal-800',
+  Graduated: 'bg-purple-100 text-purple-800',
+  Alumni: 'bg-slate-200 text-slate-700',
 }
 
 const LecturerDashboard = () => {
@@ -163,6 +182,10 @@ const LecturerDashboard = () => {
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
   const [statusTransitionReason, setStatusTransitionReason] = useState('')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState(null)
+  const [statusSaving, setStatusSaving] = useState(false)
   const [copiedFormId, setCopiedFormId] = useState(null)
   const [emailProcesses, setEmailProcesses] = useState([])
   const [emailProcessesLoading, setEmailProcessesLoading] = useState(false)
@@ -2242,11 +2265,14 @@ const LecturerDashboard = () => {
               <form onSubmit={saveStudentEdit} className="p-4 space-y-3">
                 {/* Profile Image */}
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                  <div
+                    className="w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => studentEditForm.profile_image_url && setLightboxOpen(true)}
+                  >
                     {studentEditForm.profile_image_url ? (
                       <img src={studentEditForm.profile_image_url} alt={studentEditForm.full_name} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl font-bold text-slate-500">{(studentEditForm.full_name || '?')[0].toUpperCase()}</span>
+                      <span className="text-3xl font-bold text-slate-500">{(studentEditForm.full_name || '?')[0].toUpperCase()}</span>
                     )}
                   </div>
                   <div className="flex-1">
@@ -2281,70 +2307,62 @@ const LecturerDashboard = () => {
                 {/* Status Pipeline */}
                 <div>
                   <p className="text-sm font-medium text-slate-700 mb-2">Student Status</p>
-                  <div className="flex items-center gap-1 mb-3 overflow-x-auto pb-1">
-                    {['Applied', 'Under Review', 'Accepted', 'Prospective', 'Active', 'On Hold', 'Suspended', 'Withdrawn', 'Transferred', 'Graduating', 'Completed', 'Graduated', 'Alumni'].map((s, i, arr) => {
-                      const isCurrent = studentEditForm.status === s
-                      const isValidNext = validNextStatuses.includes(s)
-                      return (
-                        <div key={s} className="flex items-center shrink-0">
+                  <div className="relative group mb-2">
+                    <span
+                      className={`inline-block rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${
+                        STATUS_COLORS[studentEditForm.status] || 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {studentEditForm.status} <span className="text-[10px] ml-0.5 opacity-50">▼</span>
+                    </span>
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all py-1 max-h-64 overflow-y-auto">
+                      {ALL_STATUSES.map((s) => {
+                        const isCurrent = studentEditForm.status === s
+                        return (
                           <button
+                            key={s}
                             type="button"
+                            className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                              isCurrent
+                                ? 'bg-slate-100 text-slate-900 font-semibold'
+                                : 'text-slate-600 hover:bg-slate-50'
+                            }`}
                             onClick={() => {
-                              if (isValidNext || isCurrent) {
-                                setStudentEditForm((prev) => ({ ...prev, status: s }))
+                              if (!isCurrent) {
+                                setPendingStatus(s)
+                                setStatusTransitionReason('')
+                                setStatusConfirmOpen(true)
                               }
                             }}
-                            disabled={!isValidNext && !isCurrent}
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                              isCurrent
-                                ? 'bg-slate-900 text-white'
-                                : isValidNext
-                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer'
-                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                            }`}
-                            title={isValidNext ? 'Click to transition' : isCurrent ? 'Current status' : 'Not a valid transition'}
+                            disabled={isCurrent}
                           >
-                            {s}
+                            {isCurrent ? '✓ ' : ''}{s}
                           </button>
-                          {i < arr.length - 1 && (
-                            <div className={`w-3 h-0.5 mx-0.5 ${isValidNext || isCurrent ? 'bg-emerald-300' : 'bg-slate-200'}`} />
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                  {studentEditForm.status !== selectedStudent?.status && (
-                    <label className="text-sm text-slate-600 block">
-                      Reason for status change
-                      <input
-                        className="mt-1 w-full border rounded-lg px-3 py-2"
-                        placeholder="e.g. Completed orientation"
-                        value={statusTransitionReason}
-                        onChange={(e) => setStatusTransitionReason(e.target.value)}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                {/* Status History */}
-                {statusHistory.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-slate-700 mb-2">Status History</p>
-                    <div className="space-y-1 max-h-40 overflow-y-auto">
-                      {statusHistory.map((h) => (
-                        <div key={h.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2">
-                          <div>
-                            <span className="text-slate-500">{h.from_status}</span>
-                            <span className="mx-1 text-slate-300">→</span>
-                            <span className="font-medium text-slate-800">{h.to_status}</span>
-                            {h.reason && <span className="ml-2 text-slate-400 italic">({h.reason})</span>}
-                          </div>
-                          <span className="text-slate-400">{new Date(h.changed_at).toLocaleDateString()}</span>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
-                )}
+
+                  {/* Status History inline */}
+                  {statusHistory.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-xs text-slate-500 mb-1">Status History</p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {statusHistory.slice(0, 5).map((h) => (
+                          <div key={h.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-2.5 py-1.5">
+                            <div>
+                              <span className="text-slate-500">{h.from_status}</span>
+                              <span className="mx-1 text-slate-300">→</span>
+                              <span className="font-medium text-slate-800">{h.to_status}</span>
+                              {h.reason && <span className="ml-1.5 text-slate-400 italic">({h.reason})</span>}
+                            </div>
+                            <span className="text-slate-400 shrink-0 ml-2">{new Date(h.changed_at).toLocaleDateString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <label className="text-sm text-slate-600 block">
                   Batch
@@ -2383,6 +2401,92 @@ const LecturerDashboard = () => {
                   <button className="bg-slate-900 text-white rounded-lg py-2">Save</button>
                   <button type="button" className="bg-slate-200 rounded-lg py-2" onClick={closeStudentPanel}>Cancel</button>
                 </div>
+
+              {/* Lightbox */}
+              {lightboxOpen && studentEditForm.profile_image_url && (
+                <div
+                  className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
+                  onClick={() => setLightboxOpen(false)}
+                >
+                  <div className="relative max-w-xl w-full" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(false)}
+                      className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg z-10 hover:bg-slate-100"
+                    >
+                      <X size={20} />
+                    </button>
+                    <img
+                      src={studentEditForm.profile_image_url}
+                      alt={studentEditForm.full_name}
+                      className="w-full h-auto rounded-2xl shadow-2xl"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Status Confirm Modal */}
+              {statusConfirmOpen && (
+                <div
+                  className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+                  onClick={() => setStatusConfirmOpen(false)}
+                >
+                  <div
+                    className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 className="font-semibold text-slate-900 mb-2">Change Status</h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Move <strong>{selectedStudent?.full_name}</strong> from{' '}
+                      <strong>{studentEditForm.status}</strong> → <strong>{pendingStatus}</strong>
+                    </p>
+                    <label className="text-sm text-slate-600 block mb-4">
+                      Reason for change
+                      <input
+                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                        placeholder="e.g. Completed orientation"
+                        value={statusTransitionReason}
+                        onChange={(e) => setStatusTransitionReason(e.target.value)}
+                      />
+                    </label>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                        onClick={() => setStatusConfirmOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={statusSaving}
+                        className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                        onClick={async () => {
+                          if (!selectedStudent) return
+                          setStatusSaving(true)
+                          try {
+                            await apiClient.patch(`/students/${selectedStudent.id}/status`, {
+                              status: pendingStatus,
+                              reason: statusTransitionReason,
+                            })
+                            setStudentEditForm((prev) => ({ ...prev, status: pendingStatus }))
+                            // Refresh history
+                            const hRes = await apiClient.get(`/students/${selectedStudent.id}/status-history`)
+                            setStatusHistory(hRes.data || [])
+                            const nRes = await apiClient.get(`/students/${selectedStudent.id}/next-statuses`)
+                            setValidNextStatuses(nRes.data.nextStatuses || [])
+                            setStatusConfirmOpen(false)
+                          } finally {
+                            setStatusSaving(false)
+                          }
+                        }}
+                      >
+                        {statusSaving ? 'Saving…' : 'Confirm'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
                 <div className="pt-3 border-t border-red-100">
                   <button
@@ -3522,6 +3626,7 @@ const LecturerDashboard = () => {
             {[
               { key: 'email', label: 'SMTP Configuration' },
               { key: 'processes', label: 'Email Processes' },
+              { key: 'templates', label: 'Communication Templates' },
               user?.role === 'admin' && { key: 'credentials', label: 'Credentials' },
             ].filter(Boolean).map(({ key, label }) => (
               <button
@@ -3721,6 +3826,8 @@ const LecturerDashboard = () => {
                 ))
               )}
             </div>
+          ) : settingsTab === 'templates' ? (
+            <CommunicationTemplates notify={notify} />
           ) : settingsTab === 'credentials' ? (
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               {credentialsLoading ? <p className="p-10 text-sm text-slate-500 text-center">Loading user accounts...</p> : (

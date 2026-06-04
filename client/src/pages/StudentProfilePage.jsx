@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import ProgressBar from '../components/ui/ProgressBar'
 import apiClient from '../api/client'
@@ -68,6 +68,11 @@ export default function StudentProfilePage() {
   const [cohortSaving, setCohortSaving] = useState(false)
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState(null)
+  const [statusTransitionReason, setStatusTransitionReason] = useState('')
+  const [statusSaving, setStatusSaving] = useState(false)
 
 
   useEffect(() => {
@@ -189,11 +194,14 @@ export default function StudentProfilePage() {
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+            <div
+              className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => student.profile_image_url && setLightboxOpen(true)}
+            >
               {student.profile_image_url ? (
                 <img src={student.profile_image_url} alt={student.full_name} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-slate-500">{(student.full_name || '?')[0].toUpperCase()}</span>
+                <span className="text-3xl font-bold text-slate-500">{(student.full_name || '?')[0].toUpperCase()}</span>
               )}
             </div>
             <div>
@@ -206,13 +214,41 @@ export default function StudentProfilePage() {
               ) : student.status === 'Prospective' ? (
                 <span className="rounded-full bg-amber-100 text-amber-700 px-3 py-1 text-xs">Matric pending activation</span>
               ) : null}
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'
-                }`}
-              >
-                {student.status}
-              </span>
+              <div className="relative group">
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${
+                    STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  {student.status} <span className="text-[10px] ml-0.5 opacity-50">▼</span>
+                </span>
+                <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 min-w-[170px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all py-1 max-h-60 overflow-y-auto">
+                  {ALL_STATUSES.map((s) => {
+                    const isCurrent = student.status === s
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                          isCurrent
+                            ? 'bg-slate-100 text-slate-900 font-semibold'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                        onClick={() => {
+                          if (!isCurrent) {
+                            setPendingStatus(s)
+                            setStatusTransitionReason('')
+                            setStatusConfirmOpen(true)
+                          }
+                        }}
+                        disabled={isCurrent}
+                      >
+                        {isCurrent ? '✓ ' : ''}{s}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
               <span>{student.email}</span>
@@ -293,6 +329,91 @@ export default function StudentProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {lightboxOpen && student.profile_image_url && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg z-10 hover:bg-slate-100"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={student.profile_image_url}
+              alt={student.full_name}
+              className="w-full h-auto rounded-2xl shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Status Confirm Modal */}
+      {statusConfirmOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setStatusConfirmOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-semibold text-slate-900 mb-2">Change Status</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Move <strong>{student.full_name}</strong> from{' '}
+              <strong>{student.status}</strong> → <strong>{pendingStatus}</strong>
+            </p>
+            <label className="text-sm text-slate-600 block mb-4">
+              Reason for change
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. Completed orientation"
+                value={statusTransitionReason}
+                onChange={(e) => setStatusTransitionReason(e.target.value)}
+              />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                onClick={() => setStatusConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={statusSaving}
+                className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                onClick={async () => {
+                  setStatusSaving(true)
+                  try {
+                    await apiClient.patch(`/students/${studentId}/status`, {
+                      status: pendingStatus,
+                      reason: statusTransitionReason,
+                    })
+                    setStudent((prev) => ({ ...prev, status: pendingStatus }))
+                    // Refresh status history
+                    const hRes = await apiClient.get(`/students/${studentId}/status-history`)
+                    setStatusHistory(hRes.data || [])
+                    const nRes = await apiClient.get(`/students/${studentId}/next-statuses`)
+                    setValidNextStatuses(nRes.data.nextStatuses || [])
+                    setStatusConfirmOpen(false)
+                  } finally {
+                    setStatusSaving(false)
+                  }
+                }}
+              >
+                {statusSaving ? 'Saving…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Pipeline */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mb-6">
