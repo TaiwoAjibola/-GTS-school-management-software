@@ -82,6 +82,9 @@ INSERT INTO template_variables (category, variable_key, display_label, descripti
   ('custom', 'custom_01', 'Custom Variable 01', 'Reserved for future custom variables', '', 100),
   ('custom', 'custom_02', 'Custom Variable 02', 'Reserved for future custom variables', '', 101);
 
--- Enable RLS on template_variables
+-- Enable RLS on template_variables and communication_log
 ALTER TABLE template_variables ENABLE ROW LEVEL SECURITY;
 CREATE POLICY deny_all_template_variables ON template_variables FOR ALL USING (false);
+
+ALTER TABLE communication_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_all_communication_log ON communication_log FOR ALL USING (false);

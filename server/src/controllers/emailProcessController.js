@@ -40,14 +40,14 @@ export const getProcess = async (req, res, next) => {
 // ── Create a new blank template ────────────────────────────────────
 export const createProcess = async (req, res, next) => {
   try {
-    const { name, subjectTemplate, bodyTemplate, richBody, channel } = req.body
+    const { name, subject_template, body_template, rich_body, channel } = req.body
     if (!name) throw httpError(400, 'Template name is required')
 
     const result = await query(
       `INSERT INTO email_processes (name, subject_template, body_template, rich_body, channel, created_by)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, subjectTemplate || '', bodyTemplate || '', richBody || null, channel || 'email', req.user.id]
+      [name, subject_template || '', body_template || '', rich_body || null, channel || 'email', req.user.id]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -59,7 +59,7 @@ export const createProcess = async (req, res, next) => {
 export const updateProcess = async (req, res, next) => {
   try {
     const { id } = req.params
-    const { name, subjectTemplate, bodyTemplate, richBody, channel } = req.body
+    const { name, subject_template, body_template, rich_body, channel } = req.body
 
     const result = await query(
       `UPDATE email_processes
@@ -71,7 +71,7 @@ export const updateProcess = async (req, res, next) => {
            updated_at = NOW()
        WHERE id = $6 AND archived = false
        RETURNING *`,
-      [name, subjectTemplate, bodyTemplate, richBody, channel, id]
+      [name, subject_template, body_template, rich_body, channel, id]
     )
     if (!result.rows.length) throw httpError(404, 'Template not found or archived')
     res.json(result.rows[0])
