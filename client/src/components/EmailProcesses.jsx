@@ -238,7 +238,10 @@ export default function EmailProcesses({ notify }) {
       const res = await apiClient.post(`/email-processes/${selectedId}/send`, {
         recipientIds: selectedRecipients,
       })
-      notify(res.data.message || 'Sent successfully')
+      const msg = res.data.errors?.length
+        ? `${res.data.message}\nErrors: ${res.data.errors.join('; ')}`
+        : res.data.message
+      notify(msg)
       setSendOpen(false)
     } catch (err) {
       notify(err?.response?.data?.message || 'Send failed')
