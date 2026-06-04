@@ -81,7 +81,10 @@ export const createCredential = async (req, res, next) => {
 
     if (!actualFullName && studentId) {
       // Look up student for the new format
-      const student = await query('SELECT full_name, email FROM students WHERE id = $1', [studentId])
+      const student = await query(
+        'SELECT u.full_name, u.email FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = $1',
+        [studentId]
+      )
       if (!student.rows.length) throw httpError(404, 'Student not found')
       if (!password) throw httpError(400, 'Password is required')
 
