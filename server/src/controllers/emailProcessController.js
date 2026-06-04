@@ -239,17 +239,11 @@ export const sendTemplate = async (req, res, next) => {
       const body = render(process.body_template)
 
       try {
-        // Use sendRawEmail which takes direct subject/body
-        // Importing emailService lazily
-        const sent = await sendRawEmail({
-          to: s.email,
-          subject,
-          html: body,
-        })
-        if (sent) sentCount++
-        else errors.push(`${s.email}: sending failed`)
+        await sendRawEmail({ to: s.email, subject, html: body })
+        sentCount++
       } catch (err) {
         errors.push(`${s.email}: ${err.message}`)
+        console.error(`Email send failed for ${s.email}:`, err.message)
       }
     }
 

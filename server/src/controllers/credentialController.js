@@ -72,27 +72,49 @@ export const toggleActive = async (req, res, next) => {
 // ── Create credential (new user account) ───────────────────────────
 export const createCredential = async (req, res, next) => {
   try {
-    const { fullName, email, password, role } = req.body
+    const { studentId, username, password, fullName, email, role } = req.body
 
-    if (!fullName || !email || !password) {
-      throw httpError(400, 'fullName, email, and password are required')
+    // Accept both legacy and new format
+    const actualFullName = fullName
+    const actualEmail = email || username
+    const actualRole = role || 'student'
+
+    if (!actualFullName && studentId) {
+      // Look up student for the new format
+      const student = await query('SELECT full_name, email FROM students WHERE id = $1', [studentId])
+      if (!student.rows.length) throw httpError(404, 'Student not found')
+      if (!password) throw httpError(400, 'Password is required')
+
+      const existing = await query('SELECT id FROM users WHERE email = $1', [student.rows[0].email])
+      if (existing.rows.length) throw httpError(409, 'A user with this email already exists')
+
+      const hash = await bcrypt.hash(password, SALT_ROUNDS)
+      const result = await query(
+        `INSERT INTO users (full_name, email, password_hash, role, is_active)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING id, full_name, email, role, is_active, created_at`,
+        [student.rows[0].full_name, student.rows[0].email, hash, 'student']
+      )
+      return res.status(201).json(result.rows[0])
     }
 
-    if (!['admin', 'lecturer', 'student'].includes(role)) {
+    // Legacy format
+    if (!actualFullName || !actualEmail || !password) {
+      throw httpError(400, 'fullName, email, and password are required')
+    }
+    if (!['admin', 'lecturer', 'student'].includes(actualRole)) {
       throw httpError(400, 'role must be admin, lecturer, or student')
     }
 
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email])
-    if (existing.rows.length) {
-      throw httpError(409, 'A user with this email already exists')
-    }
+    const existing = await query('SELECT id FROM users WHERE email = $1', [actualEmail])
+    if (existing.rows.length) throw httpError(409, 'A user with this email already exists')
 
     const hash = await bcrypt.hash(password, SALT_ROUNDS)
     const result = await query(
       `INSERT INTO users (full_name, email, password_hash, role, is_active)
        VALUES ($1, $2, $3, $4, true)
        RETURNING id, full_name, email, role, is_active, created_at`,
-      [fullName, email, hash, role]
+      [actualFullName, actualEmail, hash, actualRole]
     )
 
     res.status(201).json(result.rows[0])

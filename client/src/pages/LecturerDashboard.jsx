@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -188,8 +188,20 @@ const LecturerDashboard = () => {
   const [statusSaving, setStatusSaving] = useState(false)
   const [copiedFormId, setCopiedFormId] = useState(null)
 
+  const [smtpEditing, setSmtpEditing] = useState(false)
+  const [smtpEditConfirmOpen, setSmtpEditConfirmOpen] = useState(false)
+  const [smtpSaveConfirmOpen, setSmtpSaveConfirmOpen] = useState(false)
+
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
+  const [credentialFormOpen, setCredentialFormOpen] = useState(false)
+  const [credentialAllStudents, setCredentialAllStudents] = useState([])
+  const [credentialStudentSearch, setCredentialStudentSearch] = useState('')
+  const [credentialStudentId, setCredentialStudentId] = useState(null)
+  const [credentialUsername, setCredentialUsername] = useState('')
+  const [credentialPassword, setCredentialPassword] = useState('')
+  const [credentialPasswordConfirm, setCredentialPasswordConfirm] = useState('')
+  const [credentialSaving, setCredentialSaving] = useState(false)
   const [prospectiveStudents, setProspectiveStudents] = useState([])
   const [prospectiveStudentsLoading, setProspectiveStudentsLoading] = useState(false)
 
@@ -312,34 +324,46 @@ const LecturerDashboard = () => {
 
 
 
-  const resetUserPassword = async (userId, newPassword) => {
+  const openCredentialForm = async () => {
+    setCredentialFormOpen(true)
+    setCredentialStudentId(null)
+    setCredentialUsername('')
+    setCredentialPassword('')
+    setCredentialPasswordConfirm('')
+    setCredentialStudentSearch('')
     try {
-      await apiClient.patch(`/credentials/${userId}/password`, { newPassword })
-      notify('Password reset successful')
-    } catch (err) {
-      notify(err?.response?.data?.message || 'Failed to reset password')
-    }
+      const res = await apiClient.get('/students')
+      setCredentialAllStudents(res.data || [])
+    } catch { notify('Failed to load students') }
   }
 
-  const toggleUserActive = async (userId) => {
-    try {
-      await apiClient.patch(`/credentials/${userId}/toggle-active`)
-      await loadCredentials()
-    } catch (err) {
-      notify(err?.response?.data?.message || 'Failed to toggle user status')
+  const generateCredentialPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
+    let pwd = ''
+    for (let i = 0; i < 14; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)]
     }
+    setCredentialPassword(pwd)
+    setCredentialPasswordConfirm(pwd)
   }
 
-  const loadCredentials = async () => {
-    setCredentialsLoading(true)
+  const saveCredential = async () => {
+    if (!credentialStudentId) { notify('Please select a student'); return }
+    if (!credentialPassword) { notify('Please enter a password'); return }
+    if (credentialPassword !== credentialPasswordConfirm) { notify('Passwords do not match'); return }
+
+    setCredentialSaving(true)
     try {
-      const res = await apiClient.get('/credentials')
-      setCredentials(res.data)
-    } catch {
-      notify('Failed to load credentials')
-    } finally {
-      setCredentialsLoading(false)
-    }
+      await apiClient.post('/credentials', {
+        studentId: credentialStudentId,
+        username: credentialUsername,
+        password: credentialPassword,
+      })
+      notify('Credential created successfully')
+      setCredentialFormOpen(false)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to create credential')
+    } finally { setCredentialSaving(false) }
   }
 
 
@@ -688,9 +712,6 @@ const LecturerDashboard = () => {
   useEffect(() => {
     if (section === 'settings') {
       loadSettings()
-      if (user?.role === 'admin') {
-        loadCredentials()
-      }
     }
     if (section === 'forms') {
       loadForms()
@@ -3593,9 +3614,9 @@ const LecturerDashboard = () => {
           {/* Settings tabs */}
           <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
             {[
-              { key: 'email', label: 'SMTP Configuration' },
               { key: 'processes', label: 'Email Processes' },
               user?.role === 'admin' && { key: 'credentials', label: 'Credentials' },
+              { key: 'email', label: 'SMTP Configuration' },
             ].filter(Boolean).map(({ key, label }) => (
               <button
                 key={key}
@@ -3610,155 +3631,206 @@ const LecturerDashboard = () => {
             ))}
           </div>
 
-          {settingsTab === 'email' ? (
+           {settingsTab === 'email' ? (
             settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> : (
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
-                <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
-                <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="text-sm text-slate-600 block">
-                    SMTP Host
-                    <input
-                      className="mt-1 w-full border rounded-lg px-3 py-2"
-                      value={settings.smtp_host || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, smtp_host: e.target.value }))}
-                      placeholder="smtp.gmail.com"
-                    />
-                  </label>
-                  <label className="text-sm text-slate-600 block">
-                    SMTP Port
-                    <input
-                      className="mt-1 w-full border rounded-lg px-3 py-2"
-                      value={settings.smtp_port || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, smtp_port: e.target.value }))}
-                      placeholder="587"
-                    />
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
+                    <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
+                  </div>
+                  {!smtpEditing && (
+                    <button type="button" onClick={() => setSmtpEditConfirmOpen(true)}
+                      className="text-sm font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 transition-colors"
+                    >Edit SMTP Configuration</button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="text-sm text-slate-600 block">
-                    SMTP User
-                    <input
-                      className="mt-1 w-full border rounded-lg px-3 py-2"
-                      value={settings.smtp_user || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, smtp_user: e.target.value }))}
-                      placeholder="your@email.com"
-                    />
-                  </label>
-                  <label className="text-sm text-slate-600 block">
-                    SMTP Password
-                    <input
-                      type="password"
-                      className="mt-1 w-full border rounded-lg px-3 py-2"
-                      value={settings.smtp_pass || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, smtp_pass: e.target.value }))}
-                      placeholder="App password"
-                    />
-                  </label>
+                {smtpEditing ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="text-sm text-slate-600 block">
+                        SMTP Host
+                        <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_host || ''}
+                          onChange={(e) => setSettings((p) => ({ ...p, smtp_host: e.target.value }))} placeholder="smtp.gmail.com" />
+                      </label>
+                      <label className="text-sm text-slate-600 block">
+                        SMTP Port
+                        <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_port || ''}
+                          onChange={(e) => setSettings((p) => ({ ...p, smtp_port: e.target.value }))} placeholder="587" />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="text-sm text-slate-600 block">
+                        SMTP User
+                        <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_user || ''}
+                          onChange={(e) => setSettings((p) => ({ ...p, smtp_user: e.target.value }))} placeholder="your@email.com" />
+                      </label>
+                      <label className="text-sm text-slate-600 block">
+                        SMTP Password
+                        <input type="password" className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_pass || ''}
+                          onChange={(e) => setSettings((p) => ({ ...p, smtp_pass: e.target.value }))} placeholder="App password" />
+                      </label>
+                    </div>
+                    <label className="text-sm text-slate-600 block">
+                      From Address
+                      <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.email_from || ''}
+                        onChange={(e) => setSettings((p) => ({ ...p, email_from: e.target.value }))} placeholder='"School Name" <noreply@school.com>' />
+                    </label>
+                    <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 rounded" checked={settings.email_enabled === 'true'}
+                        onChange={(e) => setSettings((p) => ({ ...p, email_enabled: e.target.checked ? 'true' : 'false' }))} />
+                      Enable Email Sending
+                    </label>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setSmtpEditing(false); loadSettings() }}
+                        className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200">Cancel</button>
+                      <button type="button" onClick={() => setSmtpSaveConfirmOpen(true)} disabled={settingsSaving}
+                        className="px-6 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50">
+                        {settingsSaving ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 rounded-lg px-4 py-3">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP Host</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_host || '—'}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg px-4 py-3">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP Port</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_port || '—'}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 rounded-lg px-4 py-3">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP User</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_user || '—'}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg px-4 py-3">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP Password</p>
+                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_pass ? '••••••••' : '—'}</p>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg px-4 py-3">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">From Address</p>
+                      <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.email_from || '—'}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-slate-700">
+                      <span className={`w-2 h-2 rounded-full ${settings.email_enabled === 'true' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      {settings.email_enabled === 'true' ? 'Email sending is enabled' : 'Email sending is disabled'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {smtpEditConfirmOpen && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSmtpEditConfirmOpen(false)}>
+                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="font-semibold text-slate-900 mb-2">Edit SMTP Configuration</h3>
+                  <p className="text-sm text-slate-600">SMTP settings control the application's email delivery system. Are you sure you want to modify these settings?</p>
+                  <div className="flex gap-2 justify-end mt-4">
+                    <button type="button" className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200" onClick={() => setSmtpEditConfirmOpen(false)}>Cancel</button>
+                    <button type="button" className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white" onClick={() => { setSmtpEditConfirmOpen(false); setSmtpEditing(true) }}>Continue</button>
+                  </div>
                 </div>
-
-                <label className="text-sm text-slate-600 block">
-                  From Address
-                  <input
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={settings.email_from || ''}
-                    onChange={(e) => setSettings((p) => ({ ...p, email_from: e.target.value }))}
-                    placeholder='"School Name" <noreply@school.com>'
-                  />
-                </label>
-
-                <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded"
-                    checked={settings.email_enabled === 'true'}
-                    onChange={(e) => setSettings((p) => ({ ...p, email_enabled: e.target.checked ? 'true' : 'false' }))}
-                  />
-                  Enable Email Sending
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => saveSettings({
-                    smtp_host: settings.smtp_host,
-                    smtp_port: settings.smtp_port,
-                    smtp_user: settings.smtp_user,
-                    smtp_pass: settings.smtp_pass,
-                    email_from: settings.email_from,
-                    email_enabled: settings.email_enabled,
-                  })}
-                  disabled={settingsSaving}
-                  className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm disabled:opacity-50"
-                >
-                  {settingsSaving ? 'Saving...' : 'Save Configuration'}
-                </button>
+              </div>
+            )}
+            {smtpSaveConfirmOpen && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSmtpSaveConfirmOpen(false)}>
+                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="font-semibold text-slate-900 mb-2">Save SMTP Changes</h3>
+                  <p className="text-sm text-slate-600">You are about to change SMTP settings. Incorrect values may prevent all system emails from being delivered. Do you want to continue?</p>
+                  <div className="flex gap-2 justify-end mt-4">
+                    <button type="button" className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200" onClick={() => setSmtpSaveConfirmOpen(false)}>Cancel</button>
+                    <button type="button" disabled={settingsSaving} className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                      onClick={async () => {
+                        setSmtpSaveConfirmOpen(false)
+                        await saveSettings({
+                          smtp_host: settings.smtp_host, smtp_port: settings.smtp_port,
+                          smtp_user: settings.smtp_user, smtp_pass: settings.smtp_pass,
+                          email_from: settings.email_from, email_enabled: settings.email_enabled,
+                        })
+                        setSmtpEditing(false)
+                      }}
+                    >{settingsSaving ? 'Saving...' : 'Save Changes'}</button>
+                  </div>
+                </div>
               </div>
             )
           ) : settingsTab === 'processes' ? (
             <EmailProcesses notify={notify} />
           ) : settingsTab === 'credentials' ? (
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              {credentialsLoading ? <p className="p-10 text-sm text-slate-500 text-center">Loading user accounts...</p> : (
-                <table className="w-full text-left text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-5 py-3 font-semibold text-slate-700">User</th>
-                      <th className="px-5 py-3 font-semibold text-slate-700">Role</th>
-                      <th className="px-5 py-3 font-semibold text-slate-700">Status</th>
-                      <th className="px-5 py-3 font-semibold text-slate-700 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {credentials.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="font-medium text-slate-900">{u.full_name}</div>
-                          <div className="text-xs text-slate-500">{u.email}</div>
-                          {u.matric_no && <div className="text-[10px] text-sky-600 font-bold mt-0.5">{u.matric_no}</div>}
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                            u.role === 'lecturer' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`flex items-center gap-1.5 ${u.is_active ? 'text-emerald-600' : 'text-slate-400'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${u.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                            {u.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const pass = window.prompt(`Enter new password for ${u.full_name}:`)
-                                if (pass) resetUserPassword(u.id, pass)
-                              }}
-                              className="text-xs font-semibold text-sky-600 hover:underline"
-                            >
-                              Reset Pass
-                            </button>
-                            {u.id !== user.id && (
-                              <button
-                                type="button"
-                                onClick={() => toggleUserActive(u.id)}
-                                className={`text-xs font-semibold hover:underline ${u.is_active ? 'text-red-500' : 'text-emerald-600'}`}
-                              >
-                                {u.is_active ? 'Deactivate' : 'Activate'}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="max-w-lg">
+              {!credentialFormOpen ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-center">
+                  <UserCog size={40} className="mx-auto text-slate-300 mb-3" />
+                  <p className="text-sm text-slate-500 mb-4">No student credentials have been created.</p>
+                  <button type="button" onClick={openCredentialForm}
+                    className="inline-flex items-center gap-1.5 bg-slate-900 text-white rounded-xl px-5 py-2 text-sm font-medium hover:bg-slate-800 transition-colors"
+                  ><Plus size={15} /> Add Credential</button>
+                </div>
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-slate-900">Create Student Credential</h3>
+                    <button type="button" onClick={() => setCredentialFormOpen(false)} className="text-sm text-slate-500 hover:text-slate-900">Cancel</button>
+                  </div>
+                  <label className="text-sm text-slate-600 block">
+                    Student
+                    <div className="relative mt-1">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm" placeholder="Search students..." value={credentialStudentSearch}
+                        onChange={(e) => setCredentialStudentSearch(e.target.value)} />
+                    </div>
+                    <select className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={credentialStudentId || ''}
+                      onChange={(e) => {
+                        const id = e.target.value ? Number(e.target.value) : null
+                        setCredentialStudentId(id)
+                        const s = credentialAllStudents.find((st) => st.id === id)
+                        setCredentialUsername(s?.email || '')
+                      }}
+                    >
+                      <option value="">Select a student...</option>
+                      {credentialAllStudents.filter((s) =>
+                        !credentialStudentSearch ||
+                        s.full_name?.toLowerCase().includes(credentialStudentSearch.toLowerCase()) ||
+                        s.email?.toLowerCase().includes(credentialStudentSearch.toLowerCase())
+                      ).map((s) => (
+                        <option key={s.id} value={s.id}>{s.full_name} ({s.email})</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Username
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={credentialUsername} readOnly
+                      placeholder="Auto-populated from email" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm text-slate-600 block">
+                      Password
+                      <div className="flex gap-2 mt-1">
+                        <input type="password" className="flex-1 border rounded-lg px-3 py-2 text-sm" value={credentialPassword}
+                          onChange={(e) => setCredentialPassword(e.target.value)} placeholder="Enter password" />
+                      </div>
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      Confirm Password
+                      <input type="password" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={credentialPasswordConfirm}
+                        onChange={(e) => setCredentialPasswordConfirm(e.target.value)}
+                        placeholder="Confirm password" />
+                    </label>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button type="button" onClick={generateCredentialPassword}
+                      className="text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg hover:bg-slate-100"
+                    >Generate Password</button>
+                    <button type="button" disabled={credentialSaving} onClick={saveCredential}
+                      className="bg-slate-900 text-white rounded-xl px-5 py-2 text-sm font-medium disabled:opacity-50"
+                    >{credentialSaving ? 'Saving...' : 'Save Credential'}</button>
+                  </div>
+                </div>
               )}
             </div>
           ) : null}
