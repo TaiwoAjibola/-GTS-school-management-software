@@ -158,7 +158,12 @@ export const previewWithStudent = async (req, res, next) => {
 
     const [procResult, studentResult] = await Promise.all([
       query('SELECT * FROM email_processes WHERE id = $1', [id]),
-      query('SELECT * FROM students WHERE id = $1', [studentId]),
+      query(
+        `SELECT s.*, u.full_name, u.email
+         FROM students s JOIN users u ON u.id = s.user_id
+         WHERE s.id = $1`,
+        [studentId]
+      ),
     ])
     if (!procResult.rows.length) throw httpError(404, 'Template not found')
     if (!studentResult.rows.length) throw httpError(404, 'Student not found')
@@ -211,7 +216,10 @@ export const sendTemplate = async (req, res, next) => {
 
     // Fetch recipients
     const students = await query(
-      'SELECT id, full_name, email, phone, status, matric_no FROM students WHERE id = ANY($1::int[])',
+      `SELECT s.id, u.full_name, u.email, s.phone, s.status, s.matric_no
+       FROM students s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.id = ANY($1::int[])`,
       [recipientIds]
     )
     if (!students.rows.length) throw httpError(404, 'No recipients found')
@@ -248,23 +256,27 @@ export const sendTemplate = async (req, res, next) => {
     }
 
     // Log the communication
-    await query(
-      `INSERT INTO communication_log
-        (process_id, recipient_type, recipient_count, recipient_preview,
-         sender_id, subject_text, body_text, channel, status, error_message, sent_at)
-       VALUES ($1, 'student', $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-      [
-        process.id,
-        students.rows.length,
-        students.rows.map((r) => r.email).join(', '),
-        req.user.id,
-        process.subject_template,
-        process.body_template,
-        process.channel,
-        errors.length === 0 ? 'sent' : sentCount > 0 ? 'partial' : 'failed',
-        errors.length ? errors.join('; ') : null,
-      ]
-    )
+    try {
+      await query(
+        `INSERT INTO communication_log
+          (process_id, recipient_type, recipient_count, recipient_preview,
+           sender_id, subject_text, body_text, channel, status, error_message, sent_at)
+         VALUES ($1, 'student', $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        [
+          process.id,
+          students.rows.length,
+          students.rows.map((r) => r.email).join(', '),
+          req.user.id,
+          process.subject_template,
+          process.body_template,
+          process.channel,
+          errors.length === 0 ? 'sent' : sentCount > 0 ? 'partial' : 'failed',
+          errors.length ? errors.join('; ') : null,
+        ]
+      )
+    } catch (logErr) {
+      console.error('[sendTemplate] Failed to insert communication_log:', logErr.message)
+    }
 
     res.json({
       message: `Sent to ${sentCount}/${students.rows.length} recipients`,
