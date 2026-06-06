@@ -30,6 +30,7 @@ export default function EmailProcesses({ notify }) {
   const [sending, setSending] = useState(false)
   const [sendPreview, setSendPreview] = useState(null)
   const [sendStep, setSendStep] = useState('recipients')
+  const [sendResult, setSendResult] = useState(null)
 
   const bodyRef = useRef(null)
   const subjectRef = useRef(null)
@@ -234,17 +235,23 @@ export default function EmailProcesses({ notify }) {
   const handleSend = async () => {
     if (!selectedRecipients.length) return
     setSending(true)
+    setSendResult(null)
     try {
       const res = await apiClient.post(`/email-processes/${selectedId}/send`, {
         recipientIds: selectedRecipients,
       })
-      const msg = res.data.errors?.length
-        ? `${res.data.message}\nErrors: ${res.data.errors.join('; ')}`
-        : res.data.message
-      notify(msg)
-      setSendOpen(false)
+      const errors = res.data.errors || []
+      const lines = [res.data.message]
+      if (errors.length) {
+        lines.push('', '── Errors ──')
+        errors.forEach((e) => lines.push(e))
+      }
+      setSendResult({ type: errors.length === 0 ? 'success' : 'partial', text: lines.join('\n') })
+      notify(res.data.message)
     } catch (err) {
-      notify(err?.response?.data?.message || 'Send failed')
+      const detail = err.response?.data?.message || err.message || 'Send failed'
+      setSendResult({ type: 'error', text: detail })
+      notify(detail)
     } finally { setSending(false) }
   }
 
@@ -652,19 +659,35 @@ export default function EmailProcesses({ notify }) {
                   <p className="text-sm text-slate-400 text-center py-8">Generating preview...</p>
                 )}
 
+                {sendResult && (
+                  <div className={`rounded-xl p-3 text-xs whitespace-pre-wrap ${
+                    sendResult.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+                    sendResult.type === 'partial' ? 'bg-amber-50 border border-amber-200 text-amber-800' :
+                    'bg-red-50 border border-red-200 text-red-800'
+                  }`}>{sendResult.text}</div>
+                )}
+
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                  <button type="button" onClick={() => setSendStep('recipients')}
-                    className="text-sm text-slate-500 hover:text-slate-900"
-                  >← Back to recipients</button>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setSendOpen(false)}
-                      className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
-                    >Cancel</button>
-                    <button type="button" disabled={!selectedRecipients.length || sending} onClick={handleSend}
-                      className="px-6 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50 flex items-center gap-1.5"
-                    >{sending ? 'Sending…' : <Send size={14} />}
-                      {sending ? 'Sending…' : `Send to ${selectedRecipients.length}`}</button>
-                  </div>
+                  {sendResult ? (
+                    <button type="button" onClick={() => { setSendOpen(false); setSendResult(null) }}
+                      className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white ml-auto"
+                    >Close</button>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => setSendStep('recipients')}
+                        className="text-sm text-slate-500 hover:text-slate-900"
+                      >← Back to recipients</button>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setSendOpen(false)}
+                          className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                        >Cancel</button>
+                        <button type="button" disabled={!selectedRecipients.length || sending} onClick={handleSend}
+                          className="px-6 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50 flex items-center gap-1.5"
+                        >{sending ? 'Sending…' : <Send size={14} />}
+                          {sending ? 'Sending…' : `Send to ${selectedRecipients.length}`}</button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
