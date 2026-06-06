@@ -168,10 +168,7 @@ const LecturerDashboard = () => {
   const [timelinePlanItems, setTimelinePlanItems] = useState([])
   const [timelinePlanLoading, setTimelinePlanLoading] = useState(false)
   const [notice, setNotice] = useState('')
-  const [settings, setSettings] = useState({})
-  const [settingsLoading, setSettingsLoading] = useState(false)
-  const [settingsTab, setSettingsTab] = useState('email')
-  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsTab, setSettingsTab] = useState('processes')
   const [forms, setForms] = useState([])
   const [formsLoading, setFormsLoading] = useState(false)
   const [editingForm, setEditingForm] = useState(null)
@@ -187,10 +184,6 @@ const LecturerDashboard = () => {
   const [pendingStatus, setPendingStatus] = useState(null)
   const [statusSaving, setStatusSaving] = useState(false)
   const [copiedFormId, setCopiedFormId] = useState(null)
-
-  const [smtpEditing, setSmtpEditing] = useState(false)
-  const [smtpEditConfirmOpen, setSmtpEditConfirmOpen] = useState(false)
-  const [smtpSaveConfirmOpen, setSmtpSaveConfirmOpen] = useState(false)
 
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
@@ -208,35 +201,6 @@ const LecturerDashboard = () => {
   const notify = (message) => {
     setNotice(message)
     setTimeout(() => setNotice(''), 3500)
-  }
-
-  const loadSettings = async () => {
-    setSettingsLoading(true)
-    try {
-      const res = await apiClient.get('/settings')
-      const flat = {}
-      for (const [key, val] of Object.entries(res.data)) {
-        flat[key] = val.value || ''
-      }
-      setSettings(flat)
-    } catch {
-      notify('Failed to load settings')
-    } finally {
-      setSettingsLoading(false)
-    }
-  }
-
-  const saveSettings = async (updates) => {
-    setSettingsSaving(true)
-    try {
-      await apiClient.patch('/settings', { settings: updates })
-      setSettings((prev) => ({ ...prev, ...updates }))
-      notify('Settings saved')
-    } catch (err) {
-      notify(err?.response?.data?.message || 'Failed to save settings')
-    } finally {
-      setSettingsSaving(false)
-    }
   }
 
   const loadForms = async () => {
@@ -710,9 +674,6 @@ const LecturerDashboard = () => {
   }, [courseResults, selectedResultType])
 
   useEffect(() => {
-    if (section === 'settings') {
-      loadSettings()
-    }
     if (section === 'forms') {
       loadForms()
       apiClient.get('/batches').then(res => setBatches(res.data)).catch(() => {})
@@ -3616,7 +3577,6 @@ const LecturerDashboard = () => {
             {[
               { key: 'processes', label: 'Email Processes' },
               user?.role === 'admin' && { key: 'credentials', label: 'Credentials' },
-              { key: 'email', label: 'SMTP Configuration' },
             ].filter(Boolean).map(({ key, label }) => (
               <button
                 key={key}
@@ -3631,136 +3591,7 @@ const LecturerDashboard = () => {
             ))}
           </div>
 
-           {settingsTab === 'email' ? (
-              settingsLoading ? <p className="text-sm text-slate-500">Loading SMTP settings...</p> : (<>
-                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
-                  <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">SMTP Configuration</h3>
-                    <p className="text-sm text-slate-500">Configure your email server for sending notifications to students.</p>
-                  </div>
-                  {!smtpEditing && (
-                    <button type="button" onClick={() => setSmtpEditConfirmOpen(true)}
-                      className="text-sm font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 transition-colors"
-                    >Edit SMTP Configuration</button>
-                  )}
-                </div>
-
-                {smtpEditing ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <label className="text-sm text-slate-600 block">
-                        SMTP Host
-                        <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_host || ''}
-                          onChange={(e) => setSettings((p) => ({ ...p, smtp_host: e.target.value }))} placeholder="smtp.gmail.com" />
-                      </label>
-                      <label className="text-sm text-slate-600 block">
-                        SMTP Port
-                        <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_port || ''}
-                          onChange={(e) => setSettings((p) => ({ ...p, smtp_port: e.target.value }))} placeholder="587" />
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <label className="text-sm text-slate-600 block">
-                        SMTP User
-                        <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_user || ''}
-                          onChange={(e) => setSettings((p) => ({ ...p, smtp_user: e.target.value }))} placeholder="your@email.com" />
-                      </label>
-                      <label className="text-sm text-slate-600 block">
-                        SMTP Password
-                        <input type="password" className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.smtp_pass || ''}
-                          onChange={(e) => setSettings((p) => ({ ...p, smtp_pass: e.target.value }))} placeholder="App password" />
-                      </label>
-                    </div>
-                    <label className="text-sm text-slate-600 block">
-                      From Address
-                      <input className="mt-1 w-full border rounded-lg px-3 py-2" value={settings.email_from || ''}
-                        onChange={(e) => setSettings((p) => ({ ...p, email_from: e.target.value }))} placeholder='"School Name" <noreply@school.com>' />
-                    </label>
-                    <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                      <input type="checkbox" className="w-4 h-4 rounded" checked={settings.email_enabled === 'true'}
-                        onChange={(e) => setSettings((p) => ({ ...p, email_enabled: e.target.checked ? 'true' : 'false' }))} />
-                      Enable Email Sending
-                    </label>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setSmtpEditing(false); loadSettings() }}
-                        className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200">Cancel</button>
-                      <button type="button" onClick={() => setSmtpSaveConfirmOpen(true)} disabled={settingsSaving}
-                        className="px-6 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50">
-                        {settingsSaving ? 'Saving...' : 'Save Changes'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 rounded-lg px-4 py-3">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP Host</p>
-                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_host || '—'}</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg px-4 py-3">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP Port</p>
-                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_port || '—'}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 rounded-lg px-4 py-3">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP User</p>
-                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_user || '—'}</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg px-4 py-3">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">SMTP Password</p>
-                        <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.smtp_pass ? '••••••••' : '—'}</p>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg px-4 py-3">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">From Address</p>
-                      <p className="text-sm font-medium text-slate-900 mt-0.5">{settings.email_from || '—'}</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
-                      <span className={`w-2 h-2 rounded-full ${settings.email_enabled === 'true' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                      {settings.email_enabled === 'true' ? 'Email sending is enabled' : 'Email sending is disabled'}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {smtpEditConfirmOpen && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSmtpEditConfirmOpen(false)}>
-                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="font-semibold text-slate-900 mb-2">Edit SMTP Configuration</h3>
-                  <p className="text-sm text-slate-600">SMTP settings control the application's email delivery system. Are you sure you want to modify these settings?</p>
-                  <div className="flex gap-2 justify-end mt-4">
-                    <button type="button" className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200" onClick={() => setSmtpEditConfirmOpen(false)}>Cancel</button>
-                    <button type="button" className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white" onClick={() => { setSmtpEditConfirmOpen(false); setSmtpEditing(true) }}>Continue</button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {smtpSaveConfirmOpen && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSmtpSaveConfirmOpen(false)}>
-                <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="font-semibold text-slate-900 mb-2">Save SMTP Changes</h3>
-                  <p className="text-sm text-slate-600">You are about to change SMTP settings. Incorrect values may prevent all system emails from being delivered. Do you want to continue?</p>
-                  <div className="flex gap-2 justify-end mt-4">
-                    <button type="button" className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200" onClick={() => setSmtpSaveConfirmOpen(false)}>Cancel</button>
-                    <button type="button" disabled={settingsSaving} className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
-                      onClick={async () => {
-                        setSmtpSaveConfirmOpen(false)
-                        await saveSettings({
-                          smtp_host: settings.smtp_host, smtp_port: settings.smtp_port,
-                          smtp_user: settings.smtp_user, smtp_pass: settings.smtp_pass,
-                          email_from: settings.email_from, email_enabled: settings.email_enabled,
-                        })
-                        setSmtpEditing(false)
-                      }}
-                    >{settingsSaving ? 'Saving...' : 'Save Changes'}</button>
-                  </div>
-                </div>
-              </div>
-            )}
-            </>
-          )
-          ) : settingsTab === 'processes' ? (
+          {settingsTab === 'processes' ? (
             <EmailProcesses notify={notify} />
           ) : settingsTab === 'credentials' ? (
             <div className="max-w-lg">

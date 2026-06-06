@@ -1,7 +1,5 @@
 import { query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
-import { clearTransporterCache } from '../services/emailService.js'
-import { clearSettingsCache } from '../services/settingsService.js'
 
 export const getAllSettings = async (req, res, next) => {
   try {
@@ -62,14 +60,6 @@ export const updateSettingsBulk = async (req, res, next) => {
       if (result.rows.length) {
         results.push(result.rows[0])
       }
-    }
-
-    // Clear SMTP transporter cache if SMTP settings changed
-    const smtpKeys = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'email_from', 'email_enabled']
-    const changedSmtp = Object.keys(settings).some((k) => smtpKeys.includes(k))
-    if (changedSmtp) {
-      clearTransporterCache()
-      clearSettingsCache()
     }
 
     res.json({ updated: results.length, settings: results })
