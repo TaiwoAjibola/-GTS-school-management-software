@@ -26,8 +26,8 @@ export const updateSetting = async (req, res, next) => {
     }
 
     const result = await query(
-      `INSERT INTO settings (key, value, description, updated_at)
-       VALUES ($1, $2, (SELECT description FROM settings WHERE key = $1), NOW())
+      `INSERT INTO settings (key, value, updated_at)
+       VALUES ($1, $2, NOW())
        ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
        RETURNING key, value, description`,
       [key, value || '']
@@ -44,7 +44,6 @@ export const updateSetting = async (req, res, next) => {
 }
 
 export const updateSettingsBulk = async (req, res, next) => {
-  const client = await query('SELECT 1').then(() => null).catch(() => null)
   try {
     const { settings } = req.body
     if (!settings || typeof settings !== 'object') {
@@ -54,8 +53,8 @@ export const updateSettingsBulk = async (req, res, next) => {
     const results = []
     for (const [key, value] of Object.entries(settings)) {
       const result = await query(
-        `INSERT INTO settings (key, value, description, updated_at)
-         VALUES ($1, $2, (SELECT description FROM settings WHERE key = $1), NOW())
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ($1, $2, NOW())
          ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
          RETURNING key, value, description`,
         [key, value || '']

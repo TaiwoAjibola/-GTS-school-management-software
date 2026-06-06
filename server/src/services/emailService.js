@@ -1,34 +1,23 @@
 import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
-import { getSetting } from './settingsService.js'
-import { query } from '../db/pool.js'
-
 let transporter = null
 
-const buildTransporter = async () => {
-  const emailEnabled = await getSetting('email_enabled', 'true')
-  if (emailEnabled !== 'true') throw new Error('Email sending is disabled')
-
-  const smtpHost = await getSetting('smtp_host', env.smtpHost)
-  const smtpPort = Number(await getSetting('smtp_port', String(env.smtpPort)))
-  const smtpUser = await getSetting('smtp_user', env.smtpUser)
-  const smtpPass = await getSetting('smtp_pass', env.smtpPass)
-
-  if (!smtpHost) throw new Error('SMTP host is not configured')
-  if (!smtpUser) throw new Error('SMTP username is not configured')
-  if (!smtpPass) throw new Error('SMTP password is not configured')
+const buildTransporter = () => {
+  if (!env.smtpHost) throw new Error('SMTP host is not configured')
+  if (!env.smtpUser) throw new Error('SMTP username is not configured')
+  if (!env.smtpPass) throw new Error('SMTP password is not configured')
 
   return nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: { user: smtpUser, pass: smtpPass },
+    host: env.smtpHost,
+    port: env.smtpPort,
+    secure: env.smtpPort === 465,
+    auth: { user: env.smtpUser, pass: env.smtpPass },
   })
 }
 
-const getTransporter = async () => {
+const getTransporter = () => {
   if (transporter) return transporter
-  transporter = await buildTransporter()
+  transporter = buildTransporter()
   return transporter
 }
 
@@ -36,8 +25,8 @@ export const clearTransporterCache = () => {
   transporter = null
 }
 
-const getEmailFrom = async () => {
-  return await getSetting('email_from', env.emailFrom)
+const getEmailFrom = () => {
+  return env.emailFrom
 }
 
 const renderTemplate = (template, variables) => {
@@ -53,8 +42,8 @@ const renderTemplate = (template, variables) => {
 
 // ── Direct send (for admin-created templates) ──────────────────────
 export const sendRawEmail = async ({ to, subject, html }) => {
-  const tx = await getTransporter()
-  const from = await getEmailFrom()
+  const tx = getTransporter()
+  const from = getEmailFrom()
   const text = html ? html.replace(/<[^>]*>/g, '') : ''
   await tx.sendMail({ from, to, subject, text, html })
   return true
@@ -62,8 +51,8 @@ export const sendRawEmail = async ({ to, subject, html }) => {
 
 // ── Legacy email functions ─────────────────────────────────────────
 const send = async (mailOptions) => {
-  const tx = await getTransporter()
-  const from = await getEmailFrom()
+  const tx = getTransporter()
+  const from = getEmailFrom()
   await tx.sendMail({ from, ...mailOptions })
   return true
 }
