@@ -37,6 +37,16 @@ const getEmailFrom = () => {
   return env.emailFrom
 }
 
+export const testSmtpConnection = async () => {
+  const tx = getTransporter()
+  return new Promise((resolve) => {
+    tx.verify((err) => {
+      if (err) resolve({ ok: false, error: err.message })
+      else resolve({ ok: true })
+    })
+  })
+}
+
 const renderTemplate = (template, variables) => {
   let result = template
   for (const [key, value] of Object.entries(variables)) {

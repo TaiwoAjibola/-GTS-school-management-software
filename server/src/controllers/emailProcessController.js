@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
+import { createSendJob, getSendJobStatus } from '../services/emailQueue.js'
 
 // ── List all templates (no hard-coded, no filters) ─────────────────
 export const listProcesses = async (req, res, next) => {
@@ -199,7 +200,7 @@ export const previewWithStudent = async (req, res, next) => {
   }
 }
 
-// ── Send template to recipients ────────────────────────────────────
+// ── Send template to recipients (non-blocking) ─────────────────────
 export const sendTemplate = async (req, res, next) => {
   try {
     const { id } = req.params
@@ -214,21 +215,15 @@ export const sendTemplate = async (req, res, next) => {
 
     const process = procResult.rows[0]
 
-    // Fetch recipients
     const students = await query(
       `SELECT s.id, u.full_name, u.email, s.phone, s.status, s.matric_no
-       FROM students s
-       JOIN users u ON u.id = s.user_id
+       FROM students s JOIN users u ON u.id = s.user_id
        WHERE s.id = ANY($1::int[])`,
       [recipientIds]
     )
     if (!students.rows.length) throw httpError(404, 'No recipients found')
 
-    const { sendRawEmail } = await import('../services/emailService.js')
-    let sentCount = 0
-    const errors = []
-
-    for (const s of students.rows) {
+    const recipients = students.rows.map((s) => {
       const values = {
         student_name: s.full_name,
         student_email: s.email,
@@ -237,53 +232,36 @@ export const sendTemplate = async (req, res, next) => {
         student_status: s.status || '',
         matric_no: s.matric_no || '',
       }
-
-      const render = (template) => {
-        if (!template) return ''
-        return template.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] || `{{${key}}}`)
+      const render = (tpl) => (tpl || '').replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] || `{{${key}}}`)
+      return {
+        email: s.email,
+        subject: render(process.subject_template),
+        body: render(process.body_template),
       }
-
-      const subject = render(process.subject_template)
-      const body = render(process.body_template)
-
-      try {
-        await sendRawEmail({ to: s.email, subject, html: body })
-        sentCount++
-      } catch (err) {
-        errors.push(`${s.email}: ${err.message}`)
-        console.error(`Email send failed for ${s.email}:`, err.message)
-      }
-    }
-
-    // Log the communication
-    try {
-      await query(
-        `INSERT INTO communication_log
-          (process_id, recipient_type, recipient_count, recipient_preview,
-           sender_id, subject_text, body_text, channel, status, error_message, sent_at)
-         VALUES ($1, 'student', $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-        [
-          process.id,
-          students.rows.length,
-          students.rows.map((r) => r.email).join(', '),
-          req.user.id,
-          process.subject_template,
-          process.body_template,
-          process.channel,
-          errors.length === 0 ? 'sent' : sentCount > 0 ? 'partial' : 'failed',
-          errors.length ? errors.join('; ') : null,
-        ]
-      )
-    } catch (logErr) {
-      console.error('[sendTemplate] Failed to insert communication_log:', logErr.message)
-    }
-
-    res.json({
-      message: `Sent to ${sentCount}/${students.rows.length} recipients`,
-      sentCount,
-      totalCount: students.rows.length,
-      errors: errors.length ? errors : undefined,
     })
+
+    const jobId = createSendJob({
+      recipients,
+      processId: process.id,
+      subjectTemplate: process.subject_template,
+      bodyTemplate: process.body_template,
+      channel: process.channel,
+      senderId: req.user.id,
+    })
+
+    res.json({ jobId, message: 'Send queued' })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ── Poll send status ───────────────────────────────────────────────
+export const getSendStatus = async (req, res, next) => {
+  try {
+    const { jobId } = req.params
+    const status = getSendJobStatus(jobId)
+    if (!status) throw httpError(404, 'Job not found or expired')
+    res.json(status)
   } catch (error) {
     next(error)
   }

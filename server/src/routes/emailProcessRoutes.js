@@ -9,6 +9,7 @@ import {
   previewProcess,
   previewWithStudent,
   sendTemplate,
+  getSendStatus,
   listGlobalVariables,
   listVariableCategories,
   listCommunicationLog,
@@ -33,6 +34,7 @@ router.post('/:id/duplicate', authorize('admin'), duplicateProcess)
 router.get('/:id/preview', authorize('admin', 'lecturer'), previewProcess)
 router.get('/:id/preview/:studentId', authorize('admin', 'lecturer'), previewWithStudent)
 router.post('/:id/send', authorize('admin'), sendTemplate)
+router.get('/send-status/:jobId', authorize('admin', 'lecturer'), getSendStatus)
 
 // Global variable library
 router.get('/variables/all', authorize('admin', 'lecturer'), listGlobalVariables)

@@ -3,6 +3,8 @@ import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, B
 import apiClient from '../api/client'
 
 export default function EmailProcesses({ notify }) {
+  const pollRef = useRef(null)
+  useEffect(() => () => clearTimeout(pollRef.current), [])
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState(null)
@@ -240,19 +242,39 @@ export default function EmailProcesses({ notify }) {
       const res = await apiClient.post(`/email-processes/${selectedId}/send`, {
         recipientIds: selectedRecipients,
       })
-      const errors = res.data.errors || []
-      const lines = [res.data.message]
-      if (errors.length) {
-        lines.push('', '── Errors ──')
-        errors.forEach((e) => lines.push(e))
+      const jobId = res.data.jobId
+      setSendResult({ type: 'progress', text: 'Queued…' })
+
+      const poll = async () => {
+        try {
+          const statusRes = await apiClient.get(`/email-processes/send-status/${jobId}`)
+          const s = statusRes.data
+          if (s.status === 'completed') {
+            const errors = s.errors || []
+            const lines = [s.message]
+            if (errors.length) {
+              lines.push('', '── Errors ──')
+              errors.forEach((e) => lines.push(e))
+            }
+            setSendResult({ type: errors.length === 0 ? 'success' : 'partial', text: lines.join('\n') })
+            notify(s.message)
+            setSending(false)
+            return
+          }
+          setSendResult({ type: 'progress', text: s.message || 'Sending…' })
+          pollRef.current = setTimeout(poll, 2000)
+        } catch {
+          setSendResult({ type: 'error', text: 'Failed to check send status' })
+          setSending(false)
+        }
       }
-      setSendResult({ type: errors.length === 0 ? 'success' : 'partial', text: lines.join('\n') })
-      notify(res.data.message)
+      pollRef.current = setTimeout(poll, 1500)
     } catch (err) {
       const detail = err.response?.data?.message || err.message || 'Send failed'
       setSendResult({ type: 'error', text: detail })
       notify(detail)
-    } finally { setSending(false) }
+      setSending(false)
+    }
   }
 
   const filteredVars = variables.filter((v) => {
@@ -660,15 +682,24 @@ export default function EmailProcesses({ notify }) {
                 )}
 
                 {sendResult && (
-                  <div className={`rounded-xl p-3 text-xs whitespace-pre-wrap ${
+                  <div className={`rounded-xl p-3 text-xs whitespace-pre-wrap flex items-center gap-2 ${
                     sendResult.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+                    sendResult.type === 'progress' ? 'bg-blue-50 border border-blue-200 text-blue-800' :
                     sendResult.type === 'partial' ? 'bg-amber-50 border border-amber-200 text-amber-800' :
                     'bg-red-50 border border-red-200 text-red-800'
-                  }`}>{sendResult.text}</div>
+                  }`}>
+                    {sendResult.type === 'progress' && (
+                      <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    )}
+                    <span>{sendResult.text}</span>
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                  {sendResult ? (
+                  {sendResult && sendResult.type !== 'progress' ? (
                     <button type="button" onClick={() => { setSendOpen(false); setSendResult(null) }}
                       className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white ml-auto"
                     >Close</button>
