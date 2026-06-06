@@ -1,18 +1,20 @@
+import { promises as dns } from 'dns'
 import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
 let transporter = null
 
-const buildTransporter = () => {
+const buildTransporter = async () => {
   if (!env.smtpHost) throw new Error('SMTP host is not configured')
   if (!env.smtpUser) throw new Error('SMTP username is not configured')
   if (!env.smtpPass) throw new Error('SMTP password is not configured')
 
+  const host = await dns.resolve4(env.smtpHost).then(addrs => addrs[0]).catch(() => env.smtpHost)
+
   return nodemailer.createTransport({
-    host: env.smtpHost,
+    host,
     port: env.smtpPort,
     secure: env.smtpPort === 465,
     auth: { user: env.smtpUser, pass: env.smtpPass },
-    family: 4,
     requireTLS: true,
     connectionTimeout: 10000,
     greetingTimeout: 10000,
@@ -20,9 +22,9 @@ const buildTransporter = () => {
   })
 }
 
-const getTransporter = () => {
+const getTransporter = async () => {
   if (transporter) return transporter
-  transporter = buildTransporter()
+  transporter = await buildTransporter()
   return transporter
 }
 
@@ -47,7 +49,7 @@ const renderTemplate = (template, variables) => {
 
 // ── Direct send (for admin-created templates) ──────────────────────
 export const sendRawEmail = async ({ to, subject, html }) => {
-  const tx = getTransporter()
+  const tx = await getTransporter()
   const from = getEmailFrom()
   const text = html ? html.replace(/<[^>]*>/g, '') : ''
   await tx.sendMail({ from, to, subject, text, html })
@@ -56,7 +58,7 @@ export const sendRawEmail = async ({ to, subject, html }) => {
 
 // ── Legacy email functions ─────────────────────────────────────────
 const send = async (mailOptions) => {
-  const tx = getTransporter()
+  const tx = await getTransporter()
   const from = getEmailFrom()
   await tx.sendMail({ from, ...mailOptions })
   return true
