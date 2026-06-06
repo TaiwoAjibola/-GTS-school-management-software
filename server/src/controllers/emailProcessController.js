@@ -1,6 +1,8 @@
 import { query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 import { createSendJob, getSendJobStatus } from '../services/emailQueue.js'
+import { env } from '../config/env.js'
+import { testSmtpConnection } from '../services/emailService.js'
 
 // ── List all templates (no hard-coded, no filters) ─────────────────
 export const listProcesses = async (req, res, next) => {
@@ -313,5 +315,34 @@ export const listCommunicationLog = async (req, res, next) => {
     res.json(result.rows)
   } catch (error) {
     next(error)
+  }
+}
+
+// ── SMTP Diagnostics ────────────────────────────────────────────────
+export const diagnoseSmtp = async (req, res, next) => {
+  try {
+    const config = {
+      host: env.smtpHost || '(not set)',
+      port: env.smtpPort,
+      secure: env.smtpPort === 465,
+      user: env.smtpUser || '(not set)',
+      passSet: !!env.smtpPass,
+      from: env.emailFrom,
+    }
+
+    const result = await testSmtpConnection()
+
+    res.json({ config, test: result })
+  } catch (error) {
+    res.json({
+      config: {
+        host: env.smtpHost || '(not set)',
+        port: env.smtpPort,
+        user: env.smtpUser || '(not set)',
+        passSet: !!env.smtpPass,
+        from: env.emailFrom,
+      },
+      test: { ok: false, error: error.message },
+    })
   }
 }

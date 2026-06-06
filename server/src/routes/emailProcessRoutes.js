@@ -10,6 +10,7 @@ import {
   previewWithStudent,
   sendTemplate,
   getSendStatus,
+  diagnoseSmtp,
   listGlobalVariables,
   listVariableCategories,
   listCommunicationLog,
@@ -35,6 +36,7 @@ router.get('/:id/preview', authorize('admin', 'lecturer'), previewProcess)
 router.get('/:id/preview/:studentId', authorize('admin', 'lecturer'), previewWithStudent)
 router.post('/:id/send', authorize('admin'), sendTemplate)
 router.get('/send-status/:jobId', authorize('admin', 'lecturer'), getSendStatus)
+router.get('/diagnose-smtp', authorize('admin'), diagnoseSmtp)
 
 // Global variable library
 router.get('/variables/all', authorize('admin', 'lecturer'), listGlobalVariables)
