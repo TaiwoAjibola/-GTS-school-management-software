@@ -1,29 +1,31 @@
-import { promises as dns } from 'dns'
+import dns from 'dns'
 import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
+
+dns.setDefaultResultOrder('ipv4first')
+
 let transporter = null
 
-const buildTransporter = async () => {
+const buildTransporter = () => {
   if (!env.smtpHost) throw new Error('SMTP host is not configured')
   if (!env.smtpUser) throw new Error('SMTP username is not configured')
   if (!env.smtpPass) throw new Error('SMTP password is not configured')
 
-  const host = await dns.resolve4(env.smtpHost).then(addrs => addrs[0]).catch(() => env.smtpHost)
-
   return nodemailer.createTransport({
-    host,
+    host: env.smtpHost,
     port: env.smtpPort,
     secure: env.smtpPort === 465,
     auth: { user: env.smtpUser, pass: env.smtpPass },
+    family: 4,
     connectionTimeout: 30000,
     greetingTimeout: 30000,
     socketTimeout: 30000,
   })
 }
 
-const getTransporter = async () => {
+const getTransporter = () => {
   if (transporter) return transporter
-  transporter = await buildTransporter()
+  transporter = buildTransporter()
   return transporter
 }
 
