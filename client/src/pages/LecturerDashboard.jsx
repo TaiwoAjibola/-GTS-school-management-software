@@ -94,6 +94,7 @@ const LecturerDashboard = () => {
   })
   const [studentUploadFile, setStudentUploadFile] = useState(null)
   const [courseUploadFile, setCourseUploadFile] = useState(null)
+  const [courseSearch, setCourseSearch] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [studentEditForm, setStudentEditForm] = useState(null)
@@ -1403,73 +1404,133 @@ const LecturerDashboard = () => {
           </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-            {/* View toggle */}
-            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <h3 className="font-semibold text-slate-900">Course List</h3>
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between gap-3 p-5 pb-3">
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-slate-900 text-base">Course List</h3>
+                <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
+              </div>
+              <div className="relative w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search courses..."
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-slate-50 focus:bg-white focus:border-slate-300 transition-colors outline-none"
+                />
+              </div>
             </div>
 
-            {/* LIST VIEW */}
-            <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Code</th>
-                    <th className="pb-2">Title</th>
-                    <th>Lecturer</th>
-                    <th>Schedule</th>
-                    <th>Date Range</th>
-                    <th>Weeks</th>
-                    <th>Required Attendance</th>
-                    <th>Active</th>
-                    <th />
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-y border-slate-100 bg-slate-50/50">
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Code</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Course Title</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Lecturer</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Schedule</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Duration</th>
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Attendance</th>
+                    <th className="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
+                    <th className="text-right px-4 py-3" />
                   </tr>
                 </thead>
-                <tbody>
-                  {courses.map((course) => (
-                    <tr key={course.id} className={`border-t border-slate-200 ${course.is_current ? 'bg-amber-50' : ''}`}>
-                      <td className="py-3">{course.course_code || '-'}</td>
-                      <td className="py-3">
-                        <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:underline">
+                <tbody className="divide-y divide-slate-50">
+                  {courses.filter((c) => {
+                    if (!courseSearch) return true
+                    const q = courseSearch.toLowerCase()
+                    return c.title?.toLowerCase().includes(q) || c.course_code?.toLowerCase().includes(q) || c.lecturer_name?.toLowerCase().includes(q)
+                  }).map((course) => (
+                    <tr key={course.id} className={`group hover:bg-slate-50 transition-colors ${course.is_current ? 'bg-amber-50/40' : ''}`}>
+                      <td className="px-4 py-3.5">
+                        <span className="font-mono text-xs font-medium text-slate-500 bg-slate-100 rounded-md px-2 py-0.5">{course.course_code || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-cyan-700 transition-colors">
                           {course.title}
                         </Link>
-                        {course.is_current ? (
-                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">Current</span>
-                        ) : null}
+                        {course.is_current && (
+                          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            Current
+                          </span>
+                        )}
                       </td>
-                      <td>{course.lecturer_name || course.assigned_lecturer || '-'}</td>
-                      <td>{course.class_day || '-'} {course.class_time || ''}</td>
-                      <td>{fmtDateRange(course.start_date, course.end_date)}</td>
-                      <td>{course.duration_weeks}</td>
-                      <td>{course.min_attendance_required}</td>
-                      <td>
+                      <td className="px-4 py-3.5 text-slate-600">{course.lecturer_name || course.assigned_lecturer || <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-3.5">
+                        {course.class_day || course.class_time ? (
+                          <div className="flex flex-col">
+                            {course.class_day && <span className="text-slate-700 font-medium">{course.class_day}</span>}
+                            {course.class_time && <span className="text-xs text-slate-400">{course.class_time}</span>}
+                          </div>
+                        ) : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-col">
+                          <span className="text-slate-700 text-xs">{fmtDateRange(course.start_date, course.end_date)}</span>
+                          <span className="text-[11px] text-slate-400">{course.duration_weeks} week{course.duration_weeks !== 1 ? 's' : ''}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {course.min_attendance_required ? (
+                          <span className="text-slate-700">{course.min_attendance_required}%</span>
+                        ) : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
                         {course.is_current ? (
-                          <span className="text-xs text-amber-700 font-medium">Active</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Active
+                          </span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => setCourseAsCurrent(course.id)}
-                            className="rounded-lg px-2 py-1 text-xs bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            className="rounded-lg px-2.5 py-1 text-[11px] font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
                           >
                             Set active
                           </button>
                         )}
                       </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => deleteCourse(course.id, course.title)}
-                          className="text-xs text-red-500 hover:underline"
-                        >
-                          Delete
-                        </button>
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Link
+                            to={`/lecturer/courses/${course.id}`}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                            title="View course"
+                          >
+                            <BookOpen size={15} />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => deleteCourse(course.id, course.title)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                            title="Delete course"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
-                  {!courses.length ? (
-                    <tr><td colSpan={9} className="py-8 text-center text-slate-400">No courses yet. Create one using the form.</td></tr>
+                  {!courses.filter((c) => {
+                    if (!courseSearch) return true
+                    const q = courseSearch.toLowerCase()
+                    return c.title?.toLowerCase().includes(q) || c.course_code?.toLowerCase().includes(q) || c.lecturer_name?.toLowerCase().includes(q)
+                  }).length ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center">
+                        <BookOpen size={32} className="mx-auto text-slate-200 mb-2" />
+                        <p className="text-sm text-slate-400">
+                          {courseSearch ? 'No courses match your search.' : 'No courses yet. Create one using the form.'}
+                        </p>
+                      </td>
+                    </tr>
                   ) : null}
                 </tbody>
               </table>
+            </div>
           </div>
         </div>
       ) : null}
