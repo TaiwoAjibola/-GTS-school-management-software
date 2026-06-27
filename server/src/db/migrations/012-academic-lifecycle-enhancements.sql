@@ -248,3 +248,10 @@ INSERT INTO book_ministry_settings (key, value, description) VALUES
   ('max_requests_per_student', '5', 'Maximum number of active book requests per student'),
   ('notification_email', '', 'Email address for book request notifications')
 ON CONFLICT (key) DO NOTHING;
+
+-- 10. Fix unique constraint: allow one active enrollment per student PER COURSE,
+--     not one active enrollment per student across ALL courses.
+DROP INDEX IF EXISTS unique_active_enrollment_per_student;
+CREATE UNIQUE INDEX IF NOT EXISTS unique_active_enrollment_per_student_course
+  ON enrollments(student_id, course_id)
+  WHERE status = 'active';
