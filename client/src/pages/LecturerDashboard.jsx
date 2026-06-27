@@ -99,6 +99,7 @@ const LecturerDashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [studentEditForm, setStudentEditForm] = useState(null)
   const [studentHistory, setStudentHistory] = useState({ enrollments: [], activities: [] })
+  const [studentTimeline, setStudentTimeline] = useState([])
   const [enrollmentNotesEdits, setEnrollmentNotesEdits] = useState({})
   const [loadingStudentHistory, setLoadingStudentHistory] = useState(false)
   const [newStatusInput, setNewStatusInput] = useState('')
@@ -185,6 +186,12 @@ const LecturerDashboard = () => {
   const [pendingStatus, setPendingStatus] = useState(null)
   const [statusSaving, setStatusSaving] = useState(false)
   const [copiedFormId, setCopiedFormId] = useState(null)
+  const [quickStatusStudent, setQuickStatusStudent] = useState(null)
+  const [quickStatusOptions, setQuickStatusOptions] = useState([])
+  const [quickSelectedStatus, setQuickSelectedStatus] = useState(null)
+  const [quickStatusReason, setQuickStatusReason] = useState('')
+  const [quickStatusSaving, setQuickStatusSaving] = useState(false)
+  const [showQuickStatus, setShowQuickStatus] = useState(false)
 
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
@@ -929,10 +936,12 @@ const LecturerDashboard = () => {
     setStudentEditForm({ ...student })
     setNewStatusInput('')
     setStatusTransitionReason('')
+    setStudentTimeline([])
     setLoadingStudentHistory(true)
     try {
-      const [historyRes, nextStatusesRes, statusHistoryRes] = await Promise.allSettled([
+      const [historyRes, timelineRes, nextStatusesRes, statusHistoryRes] = await Promise.allSettled([
         apiClient.get(`/enrollments/student/${student.id}/history`),
+        apiClient.get(`/enrollments/student/${student.id}/timeline`),
         apiClient.get(`/students/${student.id}/next-statuses`),
         apiClient.get(`/students/${student.id}/status-history`),
       ])
@@ -943,6 +952,9 @@ const LecturerDashboard = () => {
           notesMap[enrollment.id] = enrollment.notes || ''
         }
         setEnrollmentNotesEdits(notesMap)
+      }
+      if (timelineRes.status === 'fulfilled') {
+        setStudentTimeline(timelineRes.value.data.timeline || [])
       }
       if (nextStatusesRes.status === 'fulfilled') {
         setValidNextStatuses(nextStatusesRes.value.data.nextStatuses || [])
@@ -959,6 +971,7 @@ const LecturerDashboard = () => {
     setSelectedStudent(null)
     setStudentEditForm(null)
     setStudentHistory({ enrollments: [], activities: [] })
+    setStudentTimeline([])
     setEnrollmentNotesEdits({})
     setNewStatusInput('')
     setValidNextStatuses([])
@@ -2238,7 +2251,21 @@ const LecturerDashboard = () => {
                     <td className="py-3 px-3 whitespace-nowrap">{student.matric_no || <span className="text-slate-400 text-xs italic">pending</span>}</td>
                     <td className="py-3 px-3 whitespace-nowrap">{student.phone || '—'}</td>
                     <td className="py-3 px-3 whitespace-nowrap">{student.email}</td>
-                    <td className="py-3 px-3 whitespace-nowrap">{student.status}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      <button
+                        type="button"
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'}`}
+                        onClick={() => {
+                          setQuickStatusStudent(student)
+                          setQuickSelectedStatus(null)
+                          setQuickStatusReason('')
+                          apiClient.get(`/students/${student.id}/next-statuses`).then((r) => setQuickStatusOptions(r.data.nextStatuses || [])).catch(() => setQuickStatusOptions([]))
+                          setShowQuickStatus(true)
+                        }}
+                      >
+                        {student.status}
+                      </button>
+                    </td>
                     <td className="py-3 px-3 whitespace-nowrap">{student.cohort_name || <span className="text-slate-400">—</span>}</td>
                     <td className="py-3 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -2562,6 +2589,48 @@ const LecturerDashboard = () => {
                     ))}
                     {!studentHistory.activities.length ? <p className="text-sm text-slate-500">No activity yet.</p> : null}
                   </div>
+
+                  {/* Unified Timeline */}
+                  {studentTimeline.length > 0 ? (
+                    <div className="pt-3 border-t border-slate-200">
+                      <h4 className="font-semibold text-slate-900 mb-3">Timeline</h4>
+                      <div className="space-y-2 max-h-60 overflow-auto">
+                        {studentTimeline.slice(0, 30).map((event) => (
+                          <div key={event.id} className="flex items-start gap-2.5 rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-slate-400" />
+                            <div className="min-w-0 flex-1">
+                              {event.type === 'status_transition' ? (
+                                <p className="text-xs text-slate-700">
+                                  Status: <span className="text-slate-500">{event.from_status}</span> →{' '}
+                                  <span className="font-medium text-slate-800">{event.to_status}</span>
+                                  {event.reason ? <span className="text-slate-400 italic"> ({event.reason})</span> : null}
+                                </p>
+                              ) : event.type === 'enrollment' ? (
+                                <p className="text-xs text-slate-700">
+                                  {event.auto_enrolled ? 'Auto-enrolled' : 'Enrolled'} in{' '}
+                                  <span className="font-medium text-slate-800">{event.course_title}</span>
+                                  {event.course_code ? <span className="text-slate-400"> ({event.course_code})</span> : null}
+                                  {event.result_status ? (
+                                    <span className={`ml-1 font-medium ${event.result_status === 'Pass' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                      · {event.result_status}
+                                    </span>
+                                  ) : null}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-700">
+                                  <span className="font-medium">{event.action?.replace(/_/g, ' ')}</span>
+                                </p>
+                              )}
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {new Date(event.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                {event.actor ? <span> · by {event.actor}</span> : null}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </form>
             </div>
@@ -2900,6 +2969,103 @@ const LecturerDashboard = () => {
                 </div>
               )
             })()}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Quick Status Change Modal */}
+      {showQuickStatus && quickStatusStudent ? (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowQuickStatus(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-semibold text-slate-900 mb-1">Change Status</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              <strong>{quickStatusStudent.full_name}</strong> ({quickStatusStudent.status})
+            </p>
+
+            {!quickSelectedStatus ? (
+              <>
+                <p className="text-xs font-medium text-slate-600 mb-2">Select new status:</p>
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {quickStatusOptions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:ring-2 hover:ring-slate-400 ${STATUS_COLORS[s] || 'bg-slate-100 text-slate-700'}`}
+                      onClick={() => setQuickSelectedStatus(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  {quickStatusOptions.length === 0 && (
+                    <p className="text-xs text-slate-400">No valid next statuses available.</p>
+                  )}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                    onClick={() => setShowQuickStatus(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-600 mb-4">
+                  Move from <strong>{quickStatusStudent.status}</strong> →{' '}
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[quickSelectedStatus] || 'bg-slate-100 text-slate-700'}`}>{quickSelectedStatus}</span>
+                </p>
+                <label className="text-sm text-slate-600 block mb-4">
+                  Reason for change
+                  <input
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                    placeholder="e.g. Completed orientation"
+                    value={quickStatusReason}
+                    onChange={(e) => setQuickStatusReason(e.target.value)}
+                    autoFocus
+                  />
+                </label>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                    onClick={() => setQuickSelectedStatus(null)}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    disabled={quickStatusSaving}
+                    className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                    onClick={async () => {
+                      setQuickStatusSaving(true)
+                      try {
+                        await apiClient.patch(`/students/${quickStatusStudent.id}/lifecycle-status`, {
+                          status: quickSelectedStatus,
+                          reason: quickStatusReason || null,
+                        })
+                        await Promise.all([loadAllStudents(), loadGraduationMatrix()])
+                        setShowQuickStatus(false)
+                        notify(`Status changed to ${quickSelectedStatus}`)
+                      } catch (err) {
+                        notify(err?.response?.data?.message || 'Failed to update status')
+                      } finally {
+                        setQuickStatusSaving(false)
+                      }
+                    }}
+                  >
+                    {quickStatusSaving ? 'Saving…' : 'Confirm'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

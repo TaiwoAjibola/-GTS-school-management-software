@@ -135,10 +135,13 @@ export const getStudentHistory = async (req, res, next) => {
               e.enrolled_at,
               e.completed_at,
               e.course_id,
+              e.auto_enrolled,
               c.title AS course_title,
               c.course_code,
               co.id AS cohort_id,
               co.name AS cohort_name,
+              cpi.start_date AS plan_start_date,
+              cpi.end_date AS plan_end_date,
               rr.status AS result_status,
               rr.score,
               rr.result_type
@@ -146,6 +149,7 @@ export const getStudentHistory = async (req, res, next) => {
        JOIN courses c ON c.id = e.course_id
        LEFT JOIN students st ON st.id = e.student_id
        LEFT JOIN cohorts co ON co.id = st.cohort_id
+       LEFT JOIN course_plan_items cpi ON cpi.course_id = e.course_id
        LEFT JOIN LATERAL (
          SELECT r.status, r.score, r.result_type
          FROM results r
@@ -405,5 +409,126 @@ export const bulkEnrollStudents = async (req, res, next) => {
     next(error)
   } finally {
     client.release()
+  }
+}
+
+export const getStudentTimeline = async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.studentId)
+    if (!studentId) throw httpError(400, 'Valid studentId is required')
+
+    const [transitions, enrollments, activities] = await Promise.all([
+      query(
+        `SELECT sst.*, u.full_name AS changed_by_name
+         FROM student_status_transitions sst
+         LEFT JOIN users u ON u.id = sst.changed_by
+         WHERE sst.student_id = $1
+         ORDER BY sst.changed_at DESC`,
+        [studentId]
+      ),
+      query(
+        `SELECT e.id, e.course_id, e.status, e.auto_enrolled, e.notes,
+                e.enrolled_at, e.completed_at, e.withdrawn_reason,
+                c.title AS course_title, c.course_code,
+                cpi.start_date AS plan_start_date, cpi.end_date AS plan_end_date,
+                co.name AS cohort_name,
+                rr.status AS result_status, rr.score
+         FROM enrollments e
+         JOIN courses c ON c.id = e.course_id
+         LEFT JOIN course_plan_items cpi ON cpi.course_id = e.course_id
+         LEFT JOIN cohorts co ON co.id = e.batch_id
+         LEFT JOIN LATERAL (
+           SELECT r.status, r.score
+           FROM results r
+           WHERE r.course_id = e.course_id AND r.student_id = e.student_id
+           ORDER BY r.uploaded_at DESC
+           LIMIT 1
+         ) rr ON TRUE
+         WHERE e.student_id = $1
+         ORDER BY e.enrolled_at DESC`,
+        [studentId]
+      ),
+      query(
+        `SELECT sal.*, u.full_name AS actor_name
+         FROM student_activity_logs sal
+         LEFT JOIN users u ON u.id = sal.actor_user_id
+         WHERE sal.student_id = $1
+         ORDER BY sal.created_at DESC`,
+        [studentId]
+      ),
+    ])
+
+    // Merge all events into a single unified timeline
+    const timeline = [
+      ...transitions.rows.map((t) => ({
+        type: 'status_transition',
+        id: `st-${t.id}`,
+        from_status: t.from_status,
+        to_status: t.to_status,
+        reason: t.reason,
+        actor: t.changed_by_name,
+        timestamp: t.changed_at,
+      })),
+      ...enrollments.rows.map((e) => ({
+        type: 'enrollment',
+        id: `enr-${e.id}`,
+        course_title: e.course_title,
+        course_code: e.course_code,
+        status: e.status,
+        auto_enrolled: e.auto_enrolled,
+        plan_start_date: e.plan_start_date,
+        plan_end_date: e.plan_end_date,
+        cohort_name: e.cohort_name,
+        result_status: e.result_status,
+        score: e.score,
+        notes: e.notes,
+        withdrawn_reason: e.withdrawn_reason,
+        timestamp: e.enrolled_at,
+        completed_at: e.completed_at,
+      })),
+      ...activities.rows.map((a) => ({
+        type: 'activity',
+        id: `act-${a.id}`,
+        action: a.action,
+        details: a.details,
+        actor: a.actor_name,
+        timestamp: a.created_at,
+      })),
+    ]
+
+    timeline.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+
+    res.json({
+      timeline,
+      enrollments: enrollments.rows,
+      transitions: transitions.rows,
+      activities: activities.rows,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const autoCompleteEnrollments = async (req, res, next) => {
+  try {
+    const result = await query('SELECT * FROM auto_complete_enrollments()')
+    res.json({
+      completed: result.rows.length,
+      details: result.rows,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const autoEnrollStudents = async (req, res, next) => {
+  try {
+    const result = await query('SELECT * FROM auto_enroll_students()')
+    res.json({
+      enrolled: result.rows.length,
+      details: result.rows,
+    })
+  } catch (error) {
+    next(error)
   }
 }

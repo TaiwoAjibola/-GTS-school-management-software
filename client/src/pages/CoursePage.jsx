@@ -54,6 +54,7 @@ export default function CoursePage() {
   const [editLecturerNotes, setEditLecturerNotes] = useState('')
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [planDates, setPlanDates] = useState(null)
 
   const notify = (msg) => {
     setNotice(msg)
@@ -76,12 +77,13 @@ export default function CoursePage() {
         return
       }
 
-      const [batchesRes, enrollmentsRes, assignmentsRes, materialsRes, studentsRes] = await Promise.allSettled([
+      const [batchesRes, enrollmentsRes, assignmentsRes, materialsRes, studentsRes, activePlanRes] = await Promise.allSettled([
         apiClient.get(`/batches?courseId=${courseId}`),
         apiClient.get(`/courses/${courseId}/enrollments`),
         apiClient.get(`/assignments/course/${courseId}`),
         apiClient.get(`/courses/${courseId}/materials`),
         apiClient.get('/students'),
+        apiClient.get('/course-plans/active'),
       ])
 
       setCourse(courseRes.data)
@@ -108,6 +110,19 @@ export default function CoursePage() {
       setAssignments(nextAssignments)
       setMaterials(nextMaterials)
       if (studentsRes.status === 'fulfilled') setAllStudents(studentsRes.value.data)
+
+      // Extract plan dates for this course from the active Year Plan
+      if (activePlanRes.status === 'fulfilled' && activePlanRes.value.data) {
+        const activePlan = activePlanRes.value.data
+        const planItem = (activePlan.items || []).find((item) => Number(item.course_id) === Number(courseId))
+        if (planItem && (planItem.start_date || planItem.end_date)) {
+          setPlanDates({ start_date: planItem.start_date, end_date: planItem.end_date, planName: activePlan.name })
+        } else {
+          setPlanDates(null)
+        }
+      } else {
+        setPlanDates(null)
+      }
 
       if (nextBatches.length) {
         setSelectedBatchId((prev) => {
@@ -337,11 +352,20 @@ export default function CoursePage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Date Range</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Course Date Range</p>
               <p className="text-sm font-medium text-slate-800 mt-1">
                 {fmtDateRange(course.start_date, course.end_date)}
               </p>
             </div>
+            {planDates ? (
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Year Plan Dates</p>
+                <p className="text-sm font-medium text-slate-800 mt-1">
+                  {fmtDateRange(planDates.start_date, planDates.end_date)}
+                  <span className="ml-1.5 text-[10px] text-sky-500 font-normal">({planDates.planName})</span>
+                </p>
+              </div>
+            ) : null}
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wide">Min. Attendance</p>
               <p className="text-sm font-medium text-slate-800 mt-1">{course.min_attendance_required} classes</p>
@@ -377,6 +401,21 @@ export default function CoursePage() {
           </div>
         </div>
       </div>
+
+      {/* Plan dates banner */}
+      {planDates && !currentBatch ? (
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-sky-800">
+              Scheduled in Year Plan: {fmtDateRange(planDates.start_date, planDates.end_date)}
+            </p>
+            <p className="text-xs text-sky-600 mt-0.5">
+              {planDates.planName}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Current session banner */}
       {currentBatch ? (

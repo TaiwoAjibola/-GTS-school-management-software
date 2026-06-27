@@ -4,6 +4,9 @@ import {
   enrollStudentToCourse,
   bulkEnrollStudents,
   getStudentHistory,
+  getStudentTimeline,
+  autoCompleteEnrollments,
+  autoEnrollStudents,
   listEnrollmentCandidates,
   listEnrollmentsByBatch,
   listEnrollmentsByCourse,
@@ -21,6 +24,9 @@ router.get('/candidates', authorize('admin', 'lecturer'), listEnrollmentCandidat
 router.get('/course/:courseId', authorize('admin', 'lecturer'), listEnrollmentsByCourse)
 router.get('/batch/:batchId', authorize('admin', 'lecturer'), listEnrollmentsByBatch)
 router.get('/student/:studentId/history', authorize('admin', 'lecturer'), getStudentHistory)
+router.get('/student/:studentId/timeline', authorize('admin', 'lecturer'), getStudentTimeline)
+router.post('/auto-complete', authorize('admin'), autoCompleteEnrollments)
+router.post('/auto-enroll', authorize('admin'), autoEnrollStudents)
 router.patch('/:enrollmentId/notes', authorize('admin', 'lecturer'), updateEnrollmentNotes)
 
 export default router

@@ -68,6 +68,8 @@ export default function StudentProfilePage() {
   const [cohortSaving, setCohortSaving] = useState(false)
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
+  const [timeline, setTimeline] = useState([])
+  const [timelineLoading, setTimelineLoading] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false)
   const [pendingStatus, setPendingStatus] = useState(null)
@@ -92,12 +94,13 @@ export default function StudentProfilePage() {
           return
         }
 
-        const [historyRes, coursesRes, cohortRes, nextStatusesRes, statusHistoryRes] = await Promise.allSettled([
+        const [historyRes, coursesRes, cohortRes, nextStatusesRes, statusHistoryRes, timelineRes] = await Promise.allSettled([
           apiClient.get(`/enrollments/student/${studentId}/history`),
           apiClient.get('/courses'),
           apiClient.get('/cohorts'),
           apiClient.get(`/students/${studentId}/next-statuses`),
           apiClient.get(`/students/${studentId}/status-history`),
+          apiClient.get(`/enrollments/student/${studentId}/timeline`),
         ])
 
         setStudent(studentRes.data)
@@ -124,6 +127,12 @@ export default function StudentProfilePage() {
 
         if (statusHistoryRes.status === 'fulfilled') {
           setStatusHistory(statusHistoryRes.value.data || [])
+        }
+
+        if (timelineRes.status === 'fulfilled') {
+          setTimeline(timelineRes.value.data.timeline || [])
+        } else {
+          setTimeline([])
         }
 
         if (historyRes.status === 'rejected' || coursesRes.status === 'rejected') {
@@ -468,6 +477,7 @@ export default function StudentProfilePage() {
         {[
           { key: 'path', label: 'Graduation Path' },
           { key: 'history', label: 'Enrollment History' },
+          { key: 'timeline', label: 'Timeline' },
           { key: 'activity', label: 'Activity Log' },
         ].map(({ key, label }) => (
           <button
@@ -657,6 +667,61 @@ export default function StudentProfilePage() {
       })() : null}
 
 
+
+      {/* Timeline */}
+      {activeTab === 'timeline' ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="font-semibold text-slate-900 mb-4">Activity Timeline</h3>
+          <div className="space-y-2 max-h-150 overflow-auto">
+            {timeline.map((event) => (
+              <div key={event.id} className="flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3">
+                <div className="flex flex-col items-center shrink-0">
+                  <div className={`w-2.5 h-2.5 rounded-full ${
+                    event.type === 'status_transition' ? 'bg-blue-400' :
+                    event.type === 'enrollment' ? 'bg-emerald-400' : 'bg-slate-400'
+                  }`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  {event.type === 'status_transition' ? (
+                    <p className="text-sm text-slate-700">
+                      Status changed: <span className="text-slate-500">{event.from_status}</span>
+                      <span className="mx-1 text-slate-300">→</span>
+                      <span className="font-medium text-slate-800">{event.to_status}</span>
+                      {event.reason ? <span className="text-slate-400 italic ml-1">({event.reason})</span> : null}
+                    </p>
+                  ) : event.type === 'enrollment' ? (
+                    <p className="text-sm text-slate-700">
+                      {event.auto_enrolled ? <span className="text-sky-500 text-xs font-medium mr-1">⚡</span> : null}
+                      {event.status === 'active' ? 'Enrolled in' : event.status === 'completed' ? 'Completed' : event.status === 'failed' ? 'Failed' : event.status === 'withdrawn' ? 'Withdrawn from' : 'Enrolled in'}{' '}
+                      <span className="font-medium text-slate-800">{event.course_title}</span>
+                      {event.course_code ? <span className="text-slate-400"> ({event.course_code})</span> : null}
+                      {event.result_status === 'Pass' ? <span className="ml-1 text-emerald-600 font-medium">✓ Pass</span> : null}
+                      {event.result_status === 'Fail' ? <span className="ml-1 text-red-500 font-medium">✗ Fail</span> : null}
+                      {event.score != null ? <span className="text-slate-400 ml-1">({event.score})</span> : null}
+                      {event.plan_start_date || event.plan_end_date ? (
+                        <span className="text-slate-400 text-xs ml-1">
+                          {event.plan_start_date ? new Date(event.plan_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '?'} – {event.plan_end_date ? new Date(event.plan_end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '?'}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-700">
+                      <span className="font-medium capitalize">{event.action?.replace(/_/g, ' ')}</span>
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {new Date(event.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {event.actor ? <span> · by {event.actor}</span> : null}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {!timeline.length ? (
+              <p className="text-sm text-slate-400 text-center py-8">No activity recorded yet.</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* Activity log */}
       {activeTab === 'activity' ? (
