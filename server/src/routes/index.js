@@ -17,6 +17,7 @@ import formRoutes from './formRoutes.js'
 import emailProcessRoutes from './emailProcessRoutes.js'
 import credentialRoutes from './credentialRoutes.js'
 import reportRoutes from './reportRoutes.js'
+import bookMinistryRoutes from './bookMinistryRoutes.js'
 
 const router = Router()
 
@@ -42,5 +43,6 @@ router.use('/forms', formRoutes)
 router.use('/email-processes', emailProcessRoutes)
 router.use('/credentials', credentialRoutes)
 router.use('/reports', reportRoutes)
+router.use('/book-ministry', bookMinistryRoutes)
 
 export default router

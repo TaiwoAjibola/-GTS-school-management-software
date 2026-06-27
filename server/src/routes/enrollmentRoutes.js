@@ -3,6 +3,7 @@ import {
   enrollStudentToBatch,
   enrollStudentToCourse,
   bulkEnrollStudents,
+  copyEnrollmentsFromCourse,
   getStudentHistory,
   getStudentTimeline,
   autoCompleteEnrollments,
@@ -20,6 +21,7 @@ router.use(authenticate)
 router.post('/', authorize('admin', 'lecturer'), enrollStudentToBatch)
 router.post('/enroll', authorize('admin', 'lecturer'), enrollStudentToCourse)
 router.post('/enroll-bulk', authorize('admin', 'lecturer'), bulkEnrollStudents)
+router.post('/copy-from-course', authorize('admin', 'lecturer'), copyEnrollmentsFromCourse)
 router.get('/candidates', authorize('admin', 'lecturer'), listEnrollmentCandidates)
 router.get('/course/:courseId', authorize('admin', 'lecturer'), listEnrollmentsByCourse)
 router.get('/batch/:batchId', authorize('admin', 'lecturer'), listEnrollmentsByBatch)

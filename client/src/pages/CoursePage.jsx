@@ -55,6 +55,9 @@ export default function CoursePage() {
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [planDates, setPlanDates] = useState(null)
+  const [allCourses, setAllCourses] = useState([])
+  const [copySourceCourseId, setCopySourceCourseId] = useState('')
+  const [copying, setCopying] = useState(false)
 
   const notify = (msg) => {
     setNotice(msg)
@@ -145,6 +148,7 @@ export default function CoursePage() {
   useEffect(() => {
     loadAll()
     apiClient.get('/lecturers').then((r) => setLecturers(r.data)).catch(() => {})
+    apiClient.get('/courses').then((r) => setAllCourses(r.data)).catch(() => {})
   }, [courseId])
 
   useEffect(() => {
@@ -266,6 +270,11 @@ export default function CoursePage() {
           (s.matric_no || '').toLowerCase().includes(search))
     )
   }, [allStudents, enrolledStudentIds, enrollSearch, enrollCohortFilter])
+
+  const otherCourses = useMemo(
+    () => allCourses.filter((c) => Number(c.id) !== Number(courseId)),
+    [allCourses, courseId]
+  )
 
   const enrollCohorts = useMemo(() => {
     const map = new Map()
@@ -521,6 +530,54 @@ export default function CoursePage() {
           {/* Enroll students */}
           <div className="border-t border-slate-100 mt-5 pt-5">
             <h4 className="font-semibold text-slate-900 text-sm mb-3">Enroll Students</h4>
+
+            {/* Copy from another course */}
+            {otherCourses.length > 0 ? (
+              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                  Quick Copy — Use Students From Another Course
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
+                    value={copySourceCourseId}
+                    onChange={(e) => setCopySourceCourseId(e.target.value)}
+                  >
+                    <option value="">Select a course…</option>
+                    {otherCourses
+                      .filter((c) => Number(c.total_enrolled_students) > 0)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title} ({c.total_enrolled_students} students)
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!copySourceCourseId || copying}
+                    onClick={async () => {
+                      setCopying(true)
+                      try {
+                        const res = await apiClient.post('/enrollments/copy-from-course', {
+                          targetCourseId: Number(courseId),
+                          sourceCourseId: Number(copySourceCourseId),
+                        })
+                        await loadAll()
+                        setCopySourceCourseId('')
+                        notify(`Copied ${res.data.copied} student${res.data.copied !== 1 ? 's' : ''}${res.data.skipped ? ` (${res.data.skipped} already enrolled)` : ''}`)
+                      } catch (err) {
+                        notify(err?.response?.data?.message || 'Copy failed')
+                      } finally {
+                        setCopying(false)
+                      }
+                    }}
+                    className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50 shrink-0"
+                  >
+                    {copying ? 'Copying…' : 'Copy Students'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {/* Filters */}
             <div className="flex flex-wrap gap-2 mb-3">

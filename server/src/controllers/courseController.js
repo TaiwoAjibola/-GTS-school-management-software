@@ -104,6 +104,7 @@ export const listCourses = async (req, res, next) => {
               u.full_name AS assigned_lecturer,
               u2.full_name AS secondary_lecturer_full_name,
           COALESCE(COUNT(e.id) FILTER (WHERE e.status = 'active'), 0)::int AS enrolled_students,
+          COALESCE(COUNT(e.id), 0)::int AS total_enrolled_students,
               c.created_at
        FROM courses c
        LEFT JOIN users u ON u.id = c.lecturer_id

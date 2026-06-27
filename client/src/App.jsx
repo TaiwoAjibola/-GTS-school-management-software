@@ -7,6 +7,7 @@ import CoursePage from './pages/CoursePage'
 import StudentProfilePage from './pages/StudentProfilePage'
 import StudentDashboard from './pages/StudentDashboard'
 import EnrollmentPage from './pages/EnrollmentPage'
+import BookMinistryPage from './pages/BookMinistryPage'
 import PublicFormPage from './pages/PublicFormPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -46,6 +47,14 @@ function App() {
         element={
           <ProtectedRoute roles={['lecturer', 'admin']}>
             <StudentProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lecturer/book-ministry"
+        element={
+          <ProtectedRoute roles={['lecturer', 'admin']}>
+            <BookMinistryPage />
           </ProtectedRoute>
         }
       />

@@ -274,12 +274,12 @@ export const bulkUploadResults = async (req, res, next) => {
 
         const enrollmentCheck = await query(
           `SELECT id FROM enrollments
-           WHERE course_id = $1 AND student_id = $2 AND status = 'active'
+           WHERE course_id = $1 AND student_id = $2 AND status IN ('active', 'completed', 'failed')
            LIMIT 1`,
           [Number(courseId), studentId]
         )
         if (!enrollmentCheck.rows.length) {
-          errors.push({ row: r, error: `Student ${r.matricNo} not actively enrolled in selected course` })
+          errors.push({ row: r, error: `Student ${r.matricNo} not enrolled in selected course` })
           continue
         }
 

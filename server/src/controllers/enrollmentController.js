@@ -212,6 +212,7 @@ export const listEnrollmentCandidates = async (req, res, next) => {
   try {
     const courseId = Number(req.query.courseId || 0)
     const cohortId = Number(req.query.cohortId || 0)
+    const allStatuses = req.query.allStatuses === 'true'
     if (!courseId) {
       throw httpError(400, 'courseId is required')
     }
@@ -248,7 +249,7 @@ export const listEnrollmentCandidates = async (req, res, next) => {
          ORDER BY e.enrolled_at DESC
          LIMIT 1
        ) latest ON TRUE
-       WHERE s.status IN ('Active', 'Graduating')
+       WHERE ${allStatuses ? 'TRUE' : "s.status IN ('Active', 'Graduating')"}
          AND ($2 = 0 OR s.cohort_id = $2)
          AND NOT EXISTS (
            SELECT 1
@@ -530,5 +531,72 @@ export const autoEnrollStudents = async (req, res, next) => {
     })
   } catch (error) {
     next(error)
+  }
+}
+
+export const copyEnrollmentsFromCourse = async (req, res, next) => {
+  const client = await pool.connect()
+  try {
+    const { targetCourseId, sourceCourseId } = req.body
+    if (!targetCourseId || !sourceCourseId) {
+      throw httpError(400, 'targetCourseId and sourceCourseId are required')
+    }
+    if (Number(targetCourseId) === Number(sourceCourseId)) {
+      throw httpError(400, 'Source and target courses must be different')
+    }
+
+    await client.query('BEGIN')
+
+    const courseCheck = await client.query(
+      'SELECT id FROM courses WHERE id IN ($1, $2)',
+      [targetCourseId, sourceCourseId]
+    )
+    if (courseCheck.rows.length < 2) {
+      throw httpError(404, 'One or both courses not found')
+    }
+
+    const sourceStudents = await client.query(
+      `SELECT DISTINCT student_id FROM enrollments WHERE course_id = $1`,
+      [sourceCourseId]
+    )
+
+    let copied = 0
+    let skipped = 0
+
+    for (const { student_id } of sourceStudents.rows) {
+      const existing = await client.query(
+        `SELECT id FROM enrollments WHERE student_id = $1 AND course_id = $2 AND status = 'active' LIMIT 1`,
+        [student_id, targetCourseId]
+      )
+      if (existing.rows.length) { skipped++; continue }
+
+      try {
+        await client.query(
+          `INSERT INTO enrollments (course_id, batch_id, student_id, status)
+           VALUES ($1, NULL, $2, 'active')`,
+          [targetCourseId, student_id]
+        )
+        await client.query(
+          `INSERT INTO student_activity_logs (student_id, action, details, actor_user_id)
+           VALUES ($1, 'enrolled_from_course_copy', $2::jsonb, $3)`,
+          [student_id, JSON.stringify({ sourceCourseId, targetCourseId }), req.user.userId]
+        )
+        copied++
+      } catch (err) {
+        if (err.code === '23505') {
+          skipped++
+        } else {
+          throw err
+        }
+      }
+    }
+
+    await client.query('COMMIT')
+    res.status(201).json({ copied, skipped })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    next(error)
+  } finally {
+    client.release()
   }
 }
