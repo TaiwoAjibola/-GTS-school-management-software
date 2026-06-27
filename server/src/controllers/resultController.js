@@ -379,6 +379,75 @@ export const bulkUploadResultsFromFile = async (req, res, next) => {
 
 // GET /results/plan-grid?planId=X&cohortId=Y
 // Returns the plan courses x cohort students grid with existing results
+// GET /results/plan-course-grid?planId=X&courseId=Y
+// Returns students enrolled in a course (from a plan) with their results
+export const getPlanCourseGrid = async (req, res, next) => {
+  try {
+    const planId = Number(req.query.planId || 0)
+    const courseId = Number(req.query.courseId || 0)
+    if (!planId || !courseId) throw httpError(400, 'planId and courseId are required')
+
+    const [planRes, courseRes] = await Promise.all([
+      query(`SELECT id, name, year FROM course_plans WHERE id = $1`, [planId]),
+      query(`SELECT id, title, course_code, has_assignment, has_exam FROM courses WHERE id = $1`, [courseId]),
+    ])
+    if (!planRes.rows.length) throw httpError(404, 'Plan not found')
+    if (!courseRes.rows.length) throw httpError(404, 'Course not found')
+
+    const studentsRes = await query(
+      `SELECT DISTINCT s.id AS student_id, u.full_name, s.matric_no
+       FROM enrollments e
+       JOIN students s ON s.id = e.student_id
+       JOIN users u ON u.id = s.user_id
+       WHERE e.course_id = $1
+       ORDER BY u.full_name ASC`,
+      [courseId]
+    )
+    const students = studentsRes.rows
+
+    if (!students.length) {
+      return res.json({
+        plan: planRes.rows[0],
+        course: courseRes.rows[0],
+        students: [],
+      })
+    }
+
+    const studentIds = students.map((s) => s.student_id)
+
+    const resultsRes = await query(
+      `SELECT r.student_id, r.course_id, r.id, r.result_type, r.score, r.status, r.uploaded_at
+       FROM results r
+       WHERE r.course_id = $1 AND r.student_id = ANY($2)`,
+      [courseId, studentIds]
+    )
+
+    const resultMap = {}
+    for (const r of resultsRes.rows) {
+      if (!resultMap[r.student_id]) resultMap[r.student_id] = {}
+      resultMap[r.student_id][r.result_type] = {
+        id: r.id,
+        score: r.score,
+        status: r.status,
+        uploaded_at: r.uploaded_at,
+      }
+    }
+
+    const studentsWithResults = students.map((s) => ({
+      ...s,
+      results: resultMap[s.student_id] || {},
+    }))
+
+    res.json({
+      plan: planRes.rows[0],
+      course: courseRes.rows[0],
+      students: studentsWithResults,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const getPlanGrid = async (req, res, next) => {
   try {
     const planId = Number(req.query.planId || 0)

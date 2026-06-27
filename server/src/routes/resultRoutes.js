@@ -7,6 +7,7 @@ import {
 	exportBatchCourseResultsTemplate,
 	getBatchResults,
 	getCourseResults,
+	getPlanCourseGrid,
 	getPlanGrid,
 	getResultsHistory,
 	getStudentResults,
@@ -23,6 +24,7 @@ router.post('/bulk', authorize('lecturer', 'admin'), bulkUploadResults)
 router.post('/bulk-plan', authorize('lecturer', 'admin'), bulkSavePlanResults)
 router.post('/bulk-upload', authorize('lecturer', 'admin'), upload.single('file'), bulkUploadResultsFromFile)
 router.get('/plan-grid', authorize('lecturer', 'admin'), getPlanGrid)
+router.get('/plan-course-grid', authorize('lecturer', 'admin'), getPlanCourseGrid)
 router.get('/template', authorize('lecturer', 'admin'), exportBatchCourseResultsTemplate)
 router.get('/history', authorize('lecturer', 'admin'), getResultsHistory)
 router.get('/course/:courseId', authorize('lecturer', 'admin'), getCourseResults)

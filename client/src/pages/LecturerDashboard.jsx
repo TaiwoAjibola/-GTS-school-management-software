@@ -128,7 +128,8 @@ const LecturerDashboard = () => {
   const [resultsHistoryLoading, setResultsHistoryLoading] = useState(false)
   const [historyOpenCohort, setHistoryOpenCohort] = useState(null)
   const [resultPlanId, setResultPlanId] = useState('')
-  const [resultCohortId, setResultCohortId] = useState('')
+  const [resultCourseId, setResultCourseId] = useState('')
+  const [planCourses, setPlanCourses] = useState([])
   const [planGrid, setPlanGrid] = useState(null)
   const [planGridLoading, setPlanGridLoading] = useState(false)
   const [planGridEdits, setPlanGridEdits] = useState({})
@@ -3219,13 +3220,21 @@ const LecturerDashboard = () => {
           } catch { /* ignore */ }
         }
 
+        const loadPlanCourses = async (planId) => {
+          if (!planId) { setPlanCourses([]); return }
+          try {
+            const res = await apiClient.get(`/course-plans/${planId}`)
+            setPlanCourses(res.data.items || [])
+          } catch { setPlanCourses([]) }
+        }
+
         const loadPlanGrid = async () => {
-          if (!resultPlanId || !resultCohortId) return
+          if (!resultPlanId || !resultCourseId) return
           setPlanGridLoading(true)
           setPlanGrid(null)
           setPlanGridEdits({})
           try {
-            const res = await apiClient.get(`/results/plan-grid?planId=${resultPlanId}&cohortId=${resultCohortId}`)
+            const res = await apiClient.get(`/results/plan-course-grid?planId=${resultPlanId}&courseId=${resultCourseId}`)
             setPlanGrid(res.data)
           } catch (err) { notify(err.response?.data?.message || 'Failed to load grid') }
           finally { setPlanGridLoading(false) }
@@ -3234,10 +3243,10 @@ const LecturerDashboard = () => {
         const saveAllEdits = async () => {
           const entries = Object.entries(planGridEdits)
             .map(([key, edit]) => {
-              const [studentId, courseId] = key.split('_')
+              const [studentId] = key.split('_')
               return {
                 studentId: Number(studentId),
-                courseId: Number(courseId),
+                courseId: Number(resultCourseId),
                 resultType: planGridResultType,
                 score: edit.score !== '' && edit.score !== undefined ? Number(edit.score) : undefined,
                 status: edit.status,
@@ -3279,7 +3288,7 @@ const LecturerDashboard = () => {
                     className="mt-1 w-full border rounded-lg px-3 py-2"
                     value={resultPlanId}
                     onClick={ensurePlans}
-                    onChange={(e) => { setResultPlanId(e.target.value); setPlanGrid(null); setPlanGridEdits({}) }}
+                    onChange={(e) => { setResultPlanId(e.target.value); setResultCourseId(''); setPlanCourses([]); setPlanGrid(null); setPlanGridEdits({}); loadPlanCourses(e.target.value) }}
                   >
                     <option value="">Select plan</option>
                     {plans.map((p) => (
@@ -3288,15 +3297,15 @@ const LecturerDashboard = () => {
                   </select>
                 </label>
                 <label className="text-sm text-slate-600 block flex-1 min-w-[200px]">
-                  Cohort
+                  Course
                   <select
                     className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={resultCohortId}
-                    onChange={(e) => { setResultCohortId(e.target.value); setPlanGrid(null); setPlanGridEdits({}) }}
+                    value={resultCourseId}
+                    onChange={(e) => { setResultCourseId(e.target.value); setPlanGrid(null); setPlanGridEdits({}) }}
                   >
-                    <option value="">Select cohort</option>
-                    {cohorts.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    <option value="">Select course</option>
+                    {planCourses.map((c) => (
+                      <option key={c.course_id} value={c.course_id}>{c.course_code ? `${c.course_code} — ` : ''}{c.course_title}</option>
                     ))}
                   </select>
                 </label>
@@ -3317,7 +3326,7 @@ const LecturerDashboard = () => {
                 <button
                   type="button"
                   onClick={loadPlanGrid}
-                  disabled={!resultPlanId || !resultCohortId || planGridLoading}
+                  disabled={!resultPlanId || !resultCourseId || planGridLoading}
                   className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
                 >
                   {planGridLoading ? 'Loading...' : 'Load Grid'}
@@ -3325,14 +3334,14 @@ const LecturerDashboard = () => {
               </div>
             </div>
 
-            {/* Input grid */}
+            {/* Input grid tab */}
             {resultsTab === 'input' ? (
               planGrid ? (
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
                   <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                     <div>
-                      <h3 className="font-semibold text-slate-900">{planGrid.plan.name} — {planGrid.cohort.name}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5">{planGrid.students.length} students · {planGrid.courses.length} courses · {planGridResultType}</p>
+                      <h3 className="font-semibold text-slate-900">{planGrid.plan.name} — {planGrid.course.title}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">{planGrid.students.length} students · {planGridResultType}</p>
                     </div>
                     <button
                       type="button"
@@ -3343,71 +3352,64 @@ const LecturerDashboard = () => {
                       Save Changes {Object.keys(planGridEdits).length > 0 ? `(${Object.keys(planGridEdits).length})` : ''}
                     </button>
                   </div>
-                  {planGrid.courses.length === 0 ? (
-                    <p className="text-sm text-slate-400">No courses in this plan.</p>
-                  ) : planGrid.students.length === 0 ? (
-                    <p className="text-sm text-slate-400">No students in this cohort.</p>
+                  {planGrid.students.length === 0 ? (
+                    <p className="text-sm text-slate-400">No students enrolled in this course.</p>
                   ) : (
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
                           <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
-                          {planGrid.courses.map((c) => (
-                            <th key={c.id} className="py-2 px-3 text-left text-slate-500 font-medium text-xs whitespace-nowrap">
-                              {c.course_code || c.title}
-                            </th>
-                          ))}
+                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Score</th>
+                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {planGrid.students.map((student) => (
-                          <tr key={student.student_id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
-                            <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
-                            {planGrid.courses.map((course) => {
-                              const editKey = `${student.student_id}_${course.id}`
-                              const edit = planGridEdits[editKey]
-                              const existing = student.results?.[course.id]
-                              const displayScore = edit?.score !== undefined ? edit.score : (existing?.score != null ? String(existing.score) : '')
-                              const displayStatus = edit?.status !== undefined ? edit.status : (existing?.status || 'Pass')
-                              const isEdited = !!edit
-                              return (
-                                <td key={course.id} className="py-2 px-3">
-                                  <div className="flex flex-col gap-1 min-w-[110px]">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      placeholder="Score"
-                                      className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
-                                      value={displayScore}
-                                      onChange={(e) => {
-                                        const val = e.target.value
-                                        const autoStatus = val !== '' ? (Number(val) >= 50 ? 'Pass' : 'Fail') : (edit?.status || existing?.status || 'Pass')
-                                        setPlanGridEdits((prev) => ({
-                                          ...prev,
-                                          [editKey]: { ...(prev[editKey] || {}), score: val, status: autoStatus },
-                                        }))
-                                      }}
-                                    />
-                                    <select
-                                      className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
-                                      value={displayStatus}
-                                      onChange={(e) => setPlanGridEdits((prev) => ({
-                                        ...prev,
-                                        [editKey]: { ...(prev[editKey] || { score: displayScore }), status: e.target.value },
-                                      }))}
-                                    >
-                                      <option value="Pass">Pass</option>
-                                      <option value="Fail">Fail</option>
-                                    </select>
-                                  </div>
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
+                        {planGrid.students.map((student) => {
+                          const editKey = `${student.student_id}_${planGrid.course.id}`
+                          const edit = planGridEdits[editKey]
+                          const existing = student.results?.[planGridResultType]
+                          const displayScore = edit?.score !== undefined ? edit.score : (existing?.score != null ? String(existing.score) : '')
+                          const displayStatus = edit?.status !== undefined ? edit.status : (existing?.status || 'Pass')
+                          const isEdited = !!edit
+                          return (
+                            <tr key={student.student_id} className="border-b border-slate-100 hover:bg-slate-50">
+                              <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
+                              <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  placeholder="Score"
+                                  className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                                  value={displayScore}
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    const autoStatus = val !== '' ? (Number(val) >= 50 ? 'Pass' : 'Fail') : (edit?.status || existing?.status || 'Pass')
+                                    setPlanGridEdits((prev) => ({
+                                      ...prev,
+                                      [editKey]: { ...(prev[editKey] || {}), score: val, status: autoStatus },
+                                    }))
+                                  }}
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <select
+                                  className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                                  value={displayStatus}
+                                  onChange={(e) => setPlanGridEdits((prev) => ({
+                                    ...prev,
+                                    [editKey]: { ...(prev[editKey] || { score: displayScore }), status: e.target.value },
+                                  }))}
+                                >
+                                  <option value="Pass">Pass</option>
+                                  <option value="Fail">Fail</option>
+                                </select>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   )}
@@ -3415,56 +3417,48 @@ const LecturerDashboard = () => {
               ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                   <p className="text-sm text-slate-400 text-center py-6">
-                    Select a plan and cohort, then click "Load Grid" to enter results.
+                    Select a plan and course, then click "Load Grid" to enter results.
                   </p>
                 </div>
               )
             ) : null}
 
-            {/* History grid (read-only) */}
+            {/* History grid tab */}
             {resultsTab === 'history' ? (
               planGrid ? (
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-                  <h3 className="font-semibold text-slate-900 mb-1">{planGrid.plan.name} — {planGrid.cohort.name}</h3>
-                  <p className="text-xs text-slate-400 mb-4">{planGrid.students.length} students · {planGrid.courses.length} courses</p>
-                  {planGrid.courses.length === 0 ? (
-                    <p className="text-sm text-slate-400">No courses in this plan.</p>
-                  ) : planGrid.students.length === 0 ? (
-                    <p className="text-sm text-slate-400">No students in this cohort.</p>
+                  <h3 className="font-semibold text-slate-900 mb-1">{planGrid.plan.name} — {planGrid.course.title}</h3>
+                  <p className="text-xs text-slate-400 mb-4">{planGrid.students.length} students</p>
+                  {planGrid.students.length === 0 ? (
+                    <p className="text-sm text-slate-400">No students enrolled in this course.</p>
                   ) : (
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
                           <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
-                          {planGrid.courses.map((c) => (
-                            <th key={c.id} className="py-2 px-3 text-left text-slate-500 font-medium text-xs whitespace-nowrap">
-                              {c.course_code || c.title}
-                            </th>
-                          ))}
+                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Result</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {planGrid.students.map((student) => (
-                          <tr key={student.student_id} className="border-b border-slate-100">
-                            <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
-                            <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
-                            {planGrid.courses.map((course) => {
-                              const result = student.results?.[course.id]
-                              return (
-                                <td key={course.id} className="py-2 px-3">
-                                  {result ? (
-                                    <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${result.status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                      {result.status}{result.score != null ? ` (${result.score})` : ''}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-300 text-xs">—</span>
-                                  )}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
+                        {planGrid.students.map((student) => {
+                          const result = student.results?.[planGridResultType]
+                          return (
+                            <tr key={student.student_id} className="border-b border-slate-100">
+                              <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
+                              <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
+                              <td className="py-2 px-3">
+                                {result ? (
+                                  <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${result.status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                    {result.status}{result.score != null ? ` (${result.score})` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 text-xs">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   )}
@@ -3472,7 +3466,7 @@ const LecturerDashboard = () => {
               ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                   <p className="text-sm text-slate-400 text-center py-6">
-                    Select a plan and cohort, then click "Load Grid" to view results history.
+                    Select a plan and course, then click "Load Grid" to view results history.
                   </p>
                 </div>
               )
