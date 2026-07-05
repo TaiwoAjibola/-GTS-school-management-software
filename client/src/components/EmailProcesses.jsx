@@ -249,7 +249,7 @@ export default function EmailProcesses({ notify }) {
         try {
           const statusRes = await apiClient.get(`/email-processes/send-status/${jobId}`)
           const s = statusRes.data
-          if (s.status === 'completed') {
+          if (s.status === 'completed' || s.status === 'failed') {
             const errors = s.errors || []
             const lines = [s.message]
             if (errors.length) {

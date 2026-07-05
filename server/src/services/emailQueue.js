@@ -29,11 +29,12 @@ export const createSendJob = (jobData) => {
   }
   jobs.set(id, job)
 
-  setImmediate(() => runJob(job).catch((err) => {
-    console.error('[emailQueue] runJob crashed:', err)
-    job.status = 'failed'
-    job.message = err.message
-  }))
+setImmediate(() => runJob(job).catch((err) => {
+  console.error('[emailQueue] runJob crashed:', err)
+  job.status = 'failed'
+  job.message = err.message
+  setTimeout(() => jobs.delete(job.id), 10 * 60 * 1000)
+}))
 
   return id
 }

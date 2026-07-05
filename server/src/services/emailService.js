@@ -60,11 +60,16 @@ const renderTemplate = (template, variables) => {
 
 // ── Direct send (for admin-created templates) ──────────────────────
 export const sendRawEmail = async ({ to, subject, html }) => {
-  const tx = await getTransporter()
-  const from = getEmailFrom()
-  const text = html ? html.replace(/<[^>]*>/g, '') : ''
-  await tx.sendMail({ from, to, subject, text, html })
-  return true
+  try {
+    const tx = getTransporter()
+    const from = getEmailFrom()
+    const text = html ? html.replace(/<[^>]*>/g, '') : ''
+    await tx.sendMail({ from, to, subject, text, html })
+    return true
+  } catch (err) {
+    clearTransporterCache()
+    throw err
+  }
 }
 
 // ── Legacy email functions ─────────────────────────────────────────

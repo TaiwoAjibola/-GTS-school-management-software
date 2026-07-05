@@ -379,12 +379,14 @@ export const bulkUploadResultsFromFile = async (req, res, next) => {
 
 // GET /results/plan-grid?planId=X&cohortId=Y
 // Returns the plan courses x cohort students grid with existing results
-// GET /results/plan-course-grid?planId=X&courseId=Y
-// Returns students enrolled in a course (from a plan) with their results
+// GET /results/plan-course-grid?planId=X&courseId=Y[&includeAllStudents=true]
+// Returns students enrolled in a course (from a plan) with their results.
+// When includeAllStudents=true, also includes Active/Graduating students not yet enrolled.
 export const getPlanCourseGrid = async (req, res, next) => {
   try {
     const planId = Number(req.query.planId || 0)
     const courseId = Number(req.query.courseId || 0)
+    const includeAll = req.query.includeAllStudents === 'true'
     if (!planId || !courseId) throw httpError(400, 'planId and courseId are required')
 
     const [planRes, courseRes] = await Promise.all([
@@ -394,16 +396,40 @@ export const getPlanCourseGrid = async (req, res, next) => {
     if (!planRes.rows.length) throw httpError(404, 'Plan not found')
     if (!courseRes.rows.length) throw httpError(404, 'Course not found')
 
-    const studentsRes = await query(
-      `SELECT DISTINCT s.id AS student_id, u.full_name, s.matric_no
+    const enrolledRes = await query(
+      `SELECT DISTINCT e.student_id
        FROM enrollments e
-       JOIN students s ON s.id = e.student_id
-       JOIN users u ON u.id = s.user_id
-       WHERE e.course_id = $1
-       ORDER BY u.full_name ASC`,
+       WHERE e.course_id = $1`,
       [courseId]
     )
-    const students = studentsRes.rows
+    const enrolledIds = new Set(enrolledRes.rows.map((r) => r.student_id))
+
+    let students = []
+
+    if (enrolledIds.size > 0) {
+      const enrolledStudents = await query(
+        `SELECT s.id AS student_id, u.full_name, s.matric_no
+         FROM students s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.id = ANY($1)
+         ORDER BY u.full_name ASC`,
+        [Array.from(enrolledIds)]
+      )
+      students = enrolledStudents.rows.map((s) => ({ ...s, is_enrolled: true }))
+    }
+
+    if (includeAll) {
+      const unenrolledRes = await query(
+        `SELECT s.id AS student_id, u.full_name, s.matric_no
+         FROM students s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.status IN ('Active', 'Graduating')
+           AND NOT (s.id = ANY($1))
+         ORDER BY u.full_name ASC`,
+        [Array.from(enrolledIds.size > 0 ? enrolledIds : [0])]
+      )
+      students = [...students, ...unenrolledRes.rows.map((s) => ({ ...s, is_enrolled: false }))]
+    }
 
     if (!students.length) {
       return res.json({

@@ -134,6 +134,8 @@ const LecturerDashboard = () => {
   const [planGridLoading, setPlanGridLoading] = useState(false)
   const [planGridEdits, setPlanGridEdits] = useState({})
   const [planGridResultType, setPlanGridResultType] = useState('Final')
+  const [includeAllStudents, setIncludeAllStudents] = useState(false)
+  const [historySearch, setHistorySearch] = useState('')
 
   const [reportStats, setReportStats] = useState(null)
   const [attendanceReport, setAttendanceReport] = useState(null)
@@ -3220,6 +3222,15 @@ const LecturerDashboard = () => {
           } catch { /* ignore */ }
         }
 
+        const loadResultsHistory = async () => {
+          setResultsHistoryLoading(true)
+          try {
+            const res = await apiClient.get('/results/history')
+            setResultsHistory(res.data)
+          } catch { /* ignore */ }
+          finally { setResultsHistoryLoading(false) }
+        }
+
         const loadPlanCourses = async (planId) => {
           if (!planId) { setPlanCourses([]); return }
           try {
@@ -3234,7 +3245,7 @@ const LecturerDashboard = () => {
           setPlanGrid(null)
           setPlanGridEdits({})
           try {
-            const res = await apiClient.get(`/results/plan-course-grid?planId=${resultPlanId}&courseId=${resultCourseId}`)
+            const res = await apiClient.get(`/results/plan-course-grid?planId=${resultPlanId}&courseId=${resultCourseId}&includeAllStudents=${includeAllStudents}`)
             setPlanGrid(res.data)
           } catch (err) { notify(err.response?.data?.message || 'Failed to load grid') }
           finally { setPlanGridLoading(false) }
@@ -3271,7 +3282,7 @@ const LecturerDashboard = () => {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => { setResultsTab(key); ensurePlans() }}
+                  onClick={() => { setResultsTab(key); if (key === 'history') loadResultsHistory(); else ensurePlans() }}
                   className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${resultsTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   {label}
@@ -3323,6 +3334,17 @@ const LecturerDashboard = () => {
                     </select>
                   </label>
                 ) : null}
+                {resultsTab === 'input' ? (
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer pb-1">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded"
+                      checked={includeAllStudents}
+                      onChange={(e) => setIncludeAllStudents(e.target.checked)}
+                    />
+                    Include unenrolled students
+                  </label>
+                ) : null}
                 <button
                   type="button"
                   onClick={loadPlanGrid}
@@ -3353,15 +3375,16 @@ const LecturerDashboard = () => {
                     </button>
                   </div>
                   {planGrid.students.length === 0 ? (
-                    <p className="text-sm text-slate-400">No students enrolled in this course.</p>
+                    <p className="text-sm text-slate-400">No students found for this course. Toggle "Include unenrolled students" and reload.</p>
                   ) : (
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
                           <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
+                          <th className="py-2 pr-3 text-left text-slate-500 font-medium text-xs w-20">Status</th>
                           <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Score</th>
-                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Status</th>
+                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Result</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3373,9 +3396,21 @@ const LecturerDashboard = () => {
                           const displayStatus = edit?.status !== undefined ? edit.status : (existing?.status || 'Pass')
                           const isEdited = !!edit
                           return (
-                            <tr key={student.student_id} className="border-b border-slate-100 hover:bg-slate-50">
-                              <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
+                            <tr key={student.student_id} className={`border-b border-slate-100 hover:bg-slate-50 ${!student.is_enrolled ? 'bg-amber-50/50' : ''}`}>
+                              <td className="py-2.5 pr-4 font-medium text-slate-800 flex items-center gap-2">
+                                {student.full_name}
+                                {!student.is_enrolled ? (
+                                  <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 font-medium">not enrolled</span>
+                                ) : null}
+                              </td>
                               <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
+                              <td className="py-2.5 pr-3 text-xs">
+                                {student.is_enrolled ? (
+                                  <span className="text-emerald-600">Enrolled</span>
+                                ) : (
+                                  <span className="text-amber-600">Not enrolled</span>
+                                )}
+                              </td>
                               <td className="py-2 px-3">
                                 <input
                                   type="number"
@@ -3423,53 +3458,99 @@ const LecturerDashboard = () => {
               )
             ) : null}
 
-            {/* History grid tab */}
+            {/* History tab — auto-loads all results */}
             {resultsTab === 'history' ? (
-              planGrid ? (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-                  <h3 className="font-semibold text-slate-900 mb-1">{planGrid.plan.name} — {planGrid.course.title}</h3>
-                  <p className="text-xs text-slate-400 mb-4">{planGrid.students.length} students</p>
-                  {planGrid.students.length === 0 ? (
-                    <p className="text-sm text-slate-400">No students enrolled in this course.</p>
+              <div className="space-y-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+                    <h3 className="font-semibold text-slate-900">All Saved Results</h3>
+                    <input
+                      className="border rounded-lg px-3 py-2 text-sm w-64"
+                      placeholder="Search by student or course..."
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">
+                    {resultsHistoryLoading ? 'Loading...' : `${resultsHistory.reduce((sum, c) => sum + c.courses.reduce((s, co) => s + co.students.length, 0), 0)} results across ${resultsHistory.length} cohorts`}
+                  </p>
+
+                  {resultsHistoryLoading ? (
+                    <p className="text-sm text-slate-400 py-6 text-center">Loading results...</p>
+                  ) : resultsHistory.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-6 text-center">No results saved yet.</p>
                   ) : (
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200">
-                          <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
-                          <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
-                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Result</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {planGrid.students.map((student) => {
-                          const result = student.results?.[planGridResultType]
-                          return (
-                            <tr key={student.student_id} className="border-b border-slate-100">
-                              <td className="py-2.5 pr-4 font-medium text-slate-800">{student.full_name}</td>
-                              <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
-                              <td className="py-2 px-3">
-                                {result ? (
-                                  <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${result.status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                    {result.status}{result.score != null ? ` (${result.score})` : ''}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-300 text-xs">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                    <div className="space-y-6">
+                      {resultsHistory.map((cohort) => {
+                        const filteredCourses = cohort.courses
+                          .map((course) => ({
+                            ...course,
+                            filteredStudents: course.students.filter((s) =>
+                              !historySearch ||
+                              s.full_name.toLowerCase().includes(historySearch.toLowerCase()) ||
+                              course.course_title.toLowerCase().includes(historySearch.toLowerCase())
+                            ),
+                          }))
+                          .filter((c) => c.filteredStudents.length > 0)
+
+                        if (!filteredCourses.length) return null
+
+                        return (
+                          <div key={cohort.cohort_id}>
+                            <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                              <span className="rounded-full bg-indigo-100 text-indigo-700 px-3 py-0.5 text-xs">{cohort.cohort_name}</span>
+                            </h4>
+                            <div className="space-y-3">
+                              {filteredCourses.map((course) => (
+                                <div key={course.course_id} className="border border-slate-200 rounded-xl overflow-hidden">
+                                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-slate-800">{course.course_title}{course.course_code ? ` (${course.course_code})` : ''}</span>
+                                    <span className="text-xs text-slate-400">{course.filteredStudents.length} students</span>
+                                  </div>
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="border-b border-slate-100">
+                                          <th className="py-2 px-4 text-left text-slate-500 font-medium">Student</th>
+                                          <th className="py-2 px-3 text-left text-slate-500 font-medium">Matric</th>
+                                          <th className="py-2 px-3 text-left text-slate-500 font-medium">Result Type</th>
+                                          <th className="py-2 px-3 text-left text-slate-500 font-medium">Score</th>
+                                          <th className="py-2 px-3 text-left text-slate-500 font-medium">Status</th>
+                                          <th className="py-2 px-3 text-left text-slate-500 font-medium">Date</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {course.filteredStudents.map((s) => (
+                                          <tr key={s.result_id || `${s.student_id}-${course.course_id}`} className="border-b border-slate-100 hover:bg-slate-50">
+                                            <td className="py-2 px-4 font-medium text-slate-800">{s.full_name}</td>
+                                            <td className="py-2 px-3 text-slate-500">{s.matric_no || '—'}</td>
+                                            <td className="py-2 px-3 text-slate-500 text-xs">{s.result_type || '—'}</td>
+                                            <td className="py-2 px-3">{s.score != null ? s.score : '—'}</td>
+                                            <td className="py-2 px-3">
+                                              {s.result_status ? (
+                                                <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${s.result_status === 'Pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                  {s.result_status}
+                                                </span>
+                                              ) : (
+                                                <span className="text-slate-300">—</span>
+                                              )}
+                                            </td>
+                                            <td className="py-2 px-3 text-xs text-slate-400 whitespace-nowrap">{s.uploaded_at ? fmtDate(s.uploaded_at) : '—'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
-              ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                  <p className="text-sm text-slate-400 text-center py-6">
-                    Select a plan and course, then click "Load Grid" to view results history.
-                  </p>
-                </div>
-              )
+              </div>
             ) : null}
           </div>
         )
