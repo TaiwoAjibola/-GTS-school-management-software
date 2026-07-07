@@ -58,6 +58,9 @@ export default function CoursePage() {
   const [allCourses, setAllCourses] = useState([])
   const [copySourceCourseId, setCopySourceCourseId] = useState('')
   const [copying, setCopying] = useState(false)
+  const [withdrawTarget, setWithdrawTarget] = useState(null)
+  const [withdrawReason, setWithdrawReason] = useState('')
+  const [withdrawing, setWithdrawing] = useState(false)
 
   const notify = (msg) => {
     setNotice(msg)
@@ -488,44 +491,54 @@ export default function CoursePage() {
             <h3 className="font-semibold text-slate-900">Active Students</h3>
             <span className="text-sm text-slate-500">{enrolledStudentIds.size} enrolled</span>
           </div>
-          <table className="w-full text-sm">
-            <thead className="text-left text-slate-500">
-              <tr>
-                <th className="pb-2">Student</th>
-                <th>Matric</th>
-                <th>Batch</th>
-                <th>Result</th>
-                <th>Score</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allEnrollments.filter((e) => e.enrollment_status === 'active').map((e) => (
-                <tr key={e.enrollment_id} className="border-t border-slate-200">
-                  <td className="py-3">
-                    <Link
-                      to={`/lecturer/students/${e.student_id}`}
-                      className="font-medium text-slate-900 hover:underline"
-                    >
-                      {e.full_name}
-                    </Link>
-                  </td>
-                  <td>{e.matric_no || <span className="italic text-slate-400">pending</span>}</td>
-                  <td>{e.cohort_name || <span className="text-slate-300">—</span>}</td>
-                  <td>{resultCell({ result_status: e.result_status, enrollment_status: e.enrollment_status })}</td>
-                  <td>{e.score ?? '—'}</td>
-                  <td className="max-w-50 truncate text-slate-500">{e.notes || '—'}</td>
-                </tr>
-              ))}
-              {enrolledStudentIds.size === 0 ? (
+            <table className="w-full text-sm">
+              <thead className="text-left text-slate-500">
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
-                    No students currently enrolled in this course.
-                  </td>
+                  <th className="pb-2">Student</th>
+                  <th>Matric</th>
+                  <th>Batch</th>
+                  <th>Result</th>
+                  <th>Score</th>
+                  <th>Notes</th>
+                  <th className="w-20">Action</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {allEnrollments.filter((e) => e.enrollment_status === 'active').map((e) => (
+                  <tr key={e.enrollment_id} className="border-t border-slate-200">
+                    <td className="py-3">
+                      <Link
+                        to={`/lecturer/students/${e.student_id}`}
+                        className="font-medium text-slate-900 hover:underline"
+                      >
+                        {e.full_name}
+                      </Link>
+                    </td>
+                    <td>{e.matric_no || <span className="italic text-slate-400">pending</span>}</td>
+                    <td>{e.cohort_name || <span className="text-slate-300">—</span>}</td>
+                    <td>{resultCell({ result_status: e.result_status, enrollment_status: e.enrollment_status })}</td>
+                    <td>{e.score ?? '—'}</td>
+                    <td className="max-w-50 truncate text-slate-500">{e.notes || '—'}</td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setWithdrawTarget(e)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Withdraw
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {enrolledStudentIds.size === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                      No students currently enrolled in this course.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
 
           {/* Enroll students */}
           <div className="border-t border-slate-100 mt-5 pt-5">
@@ -970,6 +983,57 @@ export default function CoursePage() {
       ) : null}
 
       {/* Edit panel */}
+      {/* Withdraw modal */}
+      {withdrawTarget ? (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setWithdrawTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-900 mb-1">Withdraw Student</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Remove <strong>{withdrawTarget.full_name}</strong> from this course? Their enrollment will be marked as withdrawn.
+            </p>
+            <label className="text-sm text-slate-600 block mb-4">
+              Reason (optional)
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. Student requested withdrawal, transferred, etc."
+                value={withdrawReason}
+                onChange={(e) => setWithdrawReason(e.target.value)}
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setWithdrawTarget(null); setWithdrawReason('') }}
+                className="bg-slate-100 text-slate-700 rounded-lg px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={withdrawing}
+                onClick={async () => {
+                  setWithdrawing(true)
+                  try {
+                    await apiClient.post(`/enrollments/${withdrawTarget.enrollment_id}/withdraw`, { reason: withdrawReason || null })
+                    await loadAll()
+                    setWithdrawTarget(null)
+                    setWithdrawReason('')
+                    notify('Student withdrawn from course')
+                  } catch (err) {
+                    notify(err?.response?.data?.message || 'Withdrawal failed')
+                  } finally {
+                    setWithdrawing(false)
+                  }
+                }}
+                className="bg-red-500 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+              >
+                {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {editing && editForm ? (
         <div className="fixed right-0 top-0 h-full w-105 bg-white border-l border-slate-200 shadow-2xl z-50 overflow-y-auto">
           <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between">

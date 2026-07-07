@@ -208,6 +208,41 @@ export const updateEnrollmentNotes = async (req, res, next) => {
   }
 }
 
+export const withdrawEnrollment = async (req, res, next) => {
+  try {
+    const enrollmentId = Number(req.params.enrollmentId)
+    const { reason } = req.body
+
+    if (!enrollmentId) {
+      throw httpError(400, 'Valid enrollmentId is required')
+    }
+
+    const existing = await query('SELECT id, student_id, course_id, status FROM enrollments WHERE id = $1', [enrollmentId])
+    const row = existing.rows[0]
+    if (!row) {
+      throw httpError(404, 'Enrollment not found')
+    }
+
+    if (row.status !== 'active') {
+      throw httpError(400, `Cannot withdraw enrollment with status '${row.status}'`)
+    }
+
+    await query(
+      `UPDATE enrollments SET status = 'withdrawn', withdrawn_reason = $1, completed_at = NOW() WHERE id = $2`,
+      [reason || null, enrollmentId]
+    )
+    await query(
+      `INSERT INTO student_activity_logs (student_id, action, details, actor_user_id)
+       VALUES ($1, 'enrollment_withdrawn', $2::jsonb, $3)`,
+      [row.student_id, JSON.stringify({ enrollmentId, courseId: row.course_id, reason }), req.user.userId]
+    )
+
+    res.json({ message: 'Enrollment withdrawn', enrollmentId })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const listEnrollmentCandidates = async (req, res, next) => {
   try {
     const courseId = Number(req.query.courseId || 0)

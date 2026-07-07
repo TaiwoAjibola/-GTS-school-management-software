@@ -12,6 +12,7 @@ import {
   listEnrollmentsByBatch,
   listEnrollmentsByCourse,
   updateEnrollmentNotes,
+  withdrawEnrollment,
 } from '../controllers/enrollmentController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
@@ -30,5 +31,6 @@ router.get('/student/:studentId/timeline', authorize('admin', 'lecturer'), getSt
 router.post('/auto-complete', authorize('admin'), autoCompleteEnrollments)
 router.post('/auto-enroll', authorize('admin'), autoEnrollStudents)
 router.patch('/:enrollmentId/notes', authorize('admin', 'lecturer'), updateEnrollmentNotes)
+router.post('/:enrollmentId/withdraw', authorize('admin', 'lecturer'), withdrawEnrollment)
 
 export default router
