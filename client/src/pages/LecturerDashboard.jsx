@@ -2507,7 +2507,7 @@ const LecturerDashboard = () => {
                           if (!selectedStudent) return
                           setStatusSaving(true)
                           try {
-                            await apiClient.patch(`/students/${selectedStudent.id}/status`, {
+                            await apiClient.patch(`/students/${selectedStudent.id}/lifecycle-status`, {
                               status: pendingStatus,
                               reason: statusTransitionReason,
                             })

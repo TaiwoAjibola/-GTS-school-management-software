@@ -401,7 +401,7 @@ export default function StudentProfilePage() {
                 onClick={async () => {
                   setStatusSaving(true)
                   try {
-                    await apiClient.patch(`/students/${studentId}/status`, {
+                    await apiClient.patch(`/students/${studentId}/lifecycle-status`, {
                       status: pendingStatus,
                       reason: statusTransitionReason,
                     })
