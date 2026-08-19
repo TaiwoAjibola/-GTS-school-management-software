@@ -75,6 +75,10 @@ export default function StudentProfilePage() {
   const [pendingStatus, setPendingStatus] = useState(null)
   const [statusTransitionReason, setStatusTransitionReason] = useState('')
   const [statusSaving, setStatusSaving] = useState(false)
+  const [resultPanelCourseId, setResultPanelCourseId] = useState(null)
+  const [resultFormScore, setResultFormScore] = useState('')
+  const [resultFormStatus, setResultFormStatus] = useState('Pass')
+  const [resultSaving, setResultSaving] = useState(false)
 
 
   useEffect(() => {
@@ -157,6 +161,31 @@ export default function StudentProfilePage() {
     }
     return map
   }, [history.enrollments])
+
+  const saveStudentResult = async (courseId) => {
+    setResultSaving(true)
+    try {
+      const score = resultFormScore.trim()
+      let status = resultFormStatus
+      if (score !== '' && !Number.isNaN(Number(score))) {
+        status = Number(score) >= 50 ? 'Pass' : 'Fail'
+      }
+      await apiClient.post('/results', {
+        courseId: Number(courseId),
+        studentId: Number(studentId),
+        score: score !== '' ? Number(score) : null,
+        status,
+        resultType: 'Final',
+      })
+      const res = await apiClient.get(`/enrollments/student/${studentId}/history`)
+      setHistory(res.data)
+      setResultPanelCourseId(null)
+      setResultFormScore('')
+      setResultFormStatus('Pass')
+    } finally {
+      setResultSaving(false)
+    }
+  }
 
   const passedCourses = useMemo(
     () => allCourses.filter((c) => courseMap[c.id]?.result_status === 'Pass').length,
@@ -606,6 +635,46 @@ export default function StudentProfilePage() {
               ) : (
                 <span className="text-xs rounded-full px-2.5 py-1 bg-sky-100 text-sky-700">In Progress</span>
               )}
+              {!e.result_status ? (
+                <button
+                  type="button"
+                  onClick={() => setResultPanelCourseId((prev) => (prev === e.course_id ? null : e.course_id))}
+                  className="mt-1.5 text-xs font-medium text-sky-600 hover:text-sky-800"
+                >
+                  {resultPanelCourseId === e.course_id ? 'Cancel' : '+ Add result'}
+                </button>
+              ) : null}
+              {resultPanelCourseId === e.course_id ? (
+                <div className="mt-2 flex flex-col gap-2 items-end">
+                  <label className="flex items-center gap-2 text-xs text-slate-500">
+                    Score (0–100)
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={resultFormScore}
+                      onChange={(ev) => setResultFormScore(ev.target.value)}
+                      className="w-24 border rounded-lg px-2 py-1 text-sm"
+                    />
+                  </label>
+                  <select
+                    value={resultFormStatus}
+                    onChange={(ev) => setResultFormStatus(ev.target.value)}
+                    className="border rounded-lg px-2 py-1 text-xs"
+                  >
+                    <option value="Pass">Pass</option>
+                    <option value="Fail">Fail</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={resultSaving}
+                    onClick={() => saveStudentResult(e.course_id)}
+                    className="text-xs font-semibold rounded-lg bg-sky-600 text-white px-3 py-1.5 disabled:opacity-50"
+                  >
+                    {resultSaving ? 'Saving…' : 'Save result'}
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         )

@@ -285,7 +285,7 @@ export const updateStudentLifecycleStatus = async (req, res, next) => {
   const client = await pool.connect()
   try {
     const studentId = Number(req.params.studentId)
-    const { status, reason } = req.body
+    const { status, reason, courseIds } = req.body
 
     if (!studentId || !status) {
       throw httpError(400, 'studentId and status are required')
@@ -355,6 +355,27 @@ export const updateStudentLifecycleStatus = async (req, res, next) => {
         req.user.userId,
       ]
     )
+
+    // When moving a student through graduation, mark each confirmed course as passed.
+    if ((status === 'Graduating' || status === 'Graduated') && Array.isArray(courseIds) && courseIds.length) {
+      for (const courseId of courseIds) {
+        const numericId = Number(courseId)
+        if (!numericId) continue
+        await client.query(
+          `INSERT INTO results (course_id, student_id, result_type, status, uploaded_by, score)
+           VALUES ($1, $2, 'Final', 'Pass', $3,
+             (SELECT r.score FROM results r WHERE r.course_id = $1 AND r.student_id = $2 ORDER BY r.id DESC LIMIT 1))
+           ON CONFLICT (course_id, student_id, result_type)
+           DO UPDATE SET status = 'Pass'`,
+          [numericId, studentId, req.user.userId]
+        )
+        await client.query(
+          `UPDATE enrollments SET status = 'completed', completed_at = COALESCE(completed_at, NOW())
+           WHERE student_id = $1 AND course_id = $2`,
+          [studentId, numericId]
+        )
+      }
+    }
 
     await client.query('COMMIT')
 

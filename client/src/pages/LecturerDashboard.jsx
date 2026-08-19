@@ -111,7 +111,7 @@ const LecturerDashboard = () => {
   const [examsTab, setExamsTab] = useState('assignments')
   const [exams, setExams] = useState([])
   const [examsLoading, setExamsLoading] = useState(false)
-  const [examForm, setExamForm] = useState({ title: '', description: '', dueDate: '', questions: [{ text: '' }] })
+  const [examForm, setExamForm] = useState({ title: '', description: '', dueDate: '', examType: 'essay', quizUrl: '', questions: [{ text: '' }] })
   const [examEligible, setExamEligible] = useState([])
   const [examSelected, setExamSelected] = useState({})
   const [examSendTarget, setExamSendTarget] = useState(null)
@@ -207,6 +207,7 @@ const LecturerDashboard = () => {
   const [quickStatusReason, setQuickStatusReason] = useState('')
   const [quickStatusSaving, setQuickStatusSaving] = useState(false)
   const [showQuickStatus, setShowQuickStatus] = useState(false)
+  const [panelStatusOpen, setPanelStatusOpen] = useState(false)
   const [gradVetting, setGradVetting] = useState(null) // { student, targetStatus }
   const [gradVettingConfirm, setGradVettingConfirm] = useState({})
   const [gradVettingReason, setGradVettingReason] = useState('')
@@ -291,6 +292,17 @@ const LecturerDashboard = () => {
       await loadForms()
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to delete form')
+    }
+  }
+
+  const toggleFormStatus = async (form) => {
+    const nextStatus = form.status === 'active' ? 'closed' : 'active'
+    try {
+      await apiClient.patch(`/forms/${form.id}`, { status: nextStatus })
+      notify(`Form ${nextStatus === 'active' ? 'opened' : 'closed'}`)
+      await loadForms()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to update form status')
     }
   }
 
@@ -972,6 +984,7 @@ const LecturerDashboard = () => {
     setStudentEditForm({ ...student })
     setNewStatusInput('')
     setStatusTransitionReason('')
+    setPanelStatusOpen(false)
     setStudentTimeline([])
     setLoadingStudentHistory(true)
     try {
@@ -1013,6 +1026,7 @@ const LecturerDashboard = () => {
     setValidNextStatuses([])
     setStatusHistory([])
     setStatusTransitionReason('')
+    setPanelStatusOpen(false)
   }
 
   const saveStudentEdit = async (event) => {
@@ -1311,7 +1325,11 @@ const LecturerDashboard = () => {
     event.preventDefault()
     const questions = examForm.questions.filter((q) => q.text.trim())
     if (!examForm.title.trim()) { notify('Exam title is required'); return }
-    if (!questions.length) { notify('Add at least one exam question'); return }
+    if (examForm.examType === 'mcq') {
+      if (!examForm.quizUrl.trim()) { notify('A quiz URL is required for MCQ exams'); return }
+    } else if (!questions.length) {
+      notify('Add at least one exam question'); return
+    }
 
     try {
       await apiClient.post('/exams', {
@@ -1319,9 +1337,11 @@ const LecturerDashboard = () => {
         title: examForm.title.trim(),
         description: examForm.description.trim(),
         dueDate: examForm.dueDate || null,
+        examType: examForm.examType,
+        quizUrl: examForm.quizUrl.trim() || null,
         questions,
       })
-      setExamForm({ title: '', description: '', dueDate: '', questions: [{ text: '' }] })
+      setExamForm({ title: '', description: '', dueDate: '', examType: 'essay', quizUrl: '', questions: [{ text: '' }] })
       await loadExams(selectedCourseId)
       notify('Exam saved')
     } catch (err) {
@@ -1410,6 +1430,7 @@ const LecturerDashboard = () => {
       await apiClient.patch(`/students/${gradVetting.student.id}/lifecycle-status`, {
         status: gradVetting.targetStatus,
         reason: gradVettingReason || null,
+        courseIds: graduationMatrix.courses.map((course) => course.id),
       })
       await Promise.all([loadAllStudents(), loadGraduationMatrix()])
       setGradVetting(null)
@@ -2510,15 +2531,19 @@ const LecturerDashboard = () => {
                 {/* Status Pipeline */}
                 <div>
                   <p className="text-sm font-medium text-slate-700 mb-2">Student Status</p>
-                  <div className="relative group mb-2">
-                    <span
-                      className={`inline-block rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${
+                  <div className="relative mb-2">
+                    <button
+                      type="button"
+                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${
                         STATUS_COLORS[studentEditForm.status] || 'bg-slate-100 text-slate-700'
                       }`}
+                      onClick={() => setPanelStatusOpen((open) => !open)}
                     >
                       {studentEditForm.status} <span className="text-[10px] ml-0.5 opacity-50">▼</span>
-                    </span>
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all py-1 max-h-64 overflow-y-auto">
+                    </button>
+                    <div className={`absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 min-w-[180px] transition-all py-1 max-h-64 overflow-y-auto ${
+                        panelStatusOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
+                      }`}>
                       {ALL_STATUSES.map((s) => {
                         const isCurrent = studentEditForm.status === s
                         return (
@@ -2532,6 +2557,7 @@ const LecturerDashboard = () => {
                             }`}
                             onClick={() => {
                               if (!isCurrent) {
+                                setPanelStatusOpen(false)
                                 setPendingStatus(s)
                                 setStatusTransitionReason('')
                                 setStatusConfirmOpen(true)
@@ -4018,53 +4044,92 @@ const LecturerDashboard = () => {
           ) : (
             <div className="grid xl:grid-cols-[390px_1fr] gap-6">
               <form onSubmit={createExam} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 self-start">
-                <h3 className="font-semibold text-slate-900">Create Essay Exam</h3>
+                <h3 className="font-semibold text-slate-900">Create Exam</h3>
                 <p className="text-sm text-slate-500">Exams are saved per course, then emailed to selected or eligible students when it's time.</p>
+
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-1.5">Exam Type</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'essay', label: 'Essay', hint: 'Questions emailed to students' },
+                      { key: 'mcq', label: 'MCQ', hint: 'Quiz link + access ID emailed' },
+                    ].map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setExamForm((prev) => ({ ...prev, examType: t.key }))}
+                        className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                          examForm.examType === t.key ? 'border-sky-500 bg-sky-50' : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold text-slate-900">{t.label}</span>
+                        <span className="block text-xs text-slate-500 mt-0.5">{t.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <input className="w-full border rounded-lg px-3 py-2" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
                 <textarea className="w-full min-h-24 border rounded-lg px-3 py-2" placeholder="Instructions / description" value={examForm.description} onChange={(event) => setExamForm((prev) => ({ ...prev, description: event.target.value }))} />
                 <input className="w-full border rounded-lg px-3 py-2" type="date" value={examForm.dueDate} onChange={(event) => setExamForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-slate-700">Questions</p>
-                    <button
-                      type="button"
-                      onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, { text: '' }] }))}
-                      className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
-                    >
-                      <Plus size={14} /> Add question
-                    </button>
+                {examForm.examType === 'mcq' ? (
+                  <div>
+                    <label className="text-sm text-slate-600 block">
+                      Quiz URL
+                      <input
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        placeholder="https://quiz.example.com/exam-123"
+                        value={examForm.quizUrl}
+                        onChange={(event) => setExamForm((prev) => ({ ...prev, quizUrl: event.target.value }))}
+                        required
+                      />
+                    </label>
+                    <p className="text-xs text-slate-400 mt-1">Each student receives this link plus a unique access ID when the exam is sent.</p>
                   </div>
-                  <div className="space-y-2">
-                    {examForm.questions.map((q, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <span className="text-xs font-bold text-slate-400 pt-2.5">Q{idx + 1}</span>
-                        <textarea
-                          className="w-full border rounded-lg px-3 py-2 text-sm"
-                          rows={2}
-                          placeholder="Question text"
-                          value={q.text}
-                          onChange={(event) => setExamForm((prev) => ({
-                            ...prev,
-                            questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
-                          }))}
-                        />
-                        {examForm.questions.length > 1 ? (
-                          <button
-                            type="button"
-                            onClick={() => setExamForm((prev) => ({
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-slate-700">Questions</p>
+                      <button
+                        type="button"
+                        onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, { text: '' }] }))}
+                        className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
+                      >
+                        <Plus size={14} /> Add question
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {examForm.questions.map((q, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <span className="text-xs font-bold text-slate-400 pt-2.5">Q{idx + 1}</span>
+                          <textarea
+                            className="w-full border rounded-lg px-3 py-2 text-sm"
+                            rows={2}
+                            placeholder="Question text"
+                            value={q.text}
+                            onChange={(event) => setExamForm((prev) => ({
                               ...prev,
-                              questions: prev.questions.filter((_, i) => i !== idx),
+                              questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
                             }))}
-                            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                          >
-                            <X size={16} />
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
+                          />
+                          {examForm.questions.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => setExamForm((prev) => ({
+                                ...prev,
+                                questions: prev.questions.filter((_, i) => i !== idx),
+                              }))}
+                              className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            >
+                              <X size={16} />
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <button className="w-full bg-slate-900 text-white rounded-lg px-4 py-2">Save Exam</button>
               </form>
@@ -4081,9 +4146,17 @@ const LecturerDashboard = () => {
                       <div key={exam.id} className="border border-slate-200 rounded-xl p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900">{exam.title}</p>
+                            <p className="font-semibold text-slate-900">
+                              {exam.title}
+                              <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                                {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
+                              </span>
+                            </p>
                             <p className="text-xs text-slate-500 mt-0.5">
-                              {exam.question_count} question(s) • {exam.delivery_count} delivered
+                              {exam.exam_type === 'mcq'
+                                ? (exam.quiz_url ? <span className="break-all">{exam.quiz_url}</span> : 'No quiz URL set')
+                                : `${exam.question_count} question(s)`}
+                              {' • '}{exam.delivery_count} delivered
                               {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
                             </p>
                             {exam.description ? <p className="text-sm text-slate-600 mt-1">{exam.description}</p> : null}
@@ -4719,6 +4792,18 @@ const LecturerDashboard = () => {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
+                        onClick={() => toggleFormStatus(form)}
+                        className={`text-xs rounded-lg px-3 py-1.5 hover:brightness-95 ${
+                          form.status === 'active'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-emerald-600 text-white'
+                        }`}
+                        title={form.status === 'active' ? 'Stop accepting submissions' : 'Start accepting submissions'}
+                      >
+                        {form.status === 'active' ? 'Close' : 'Open'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => { setSelectedFormForSubmissions(form.id); loadFormSubmissions(form.id) }}
                         className="text-xs bg-slate-100 text-slate-700 rounded-lg px-3 py-1.5 hover:bg-slate-200"
                       >
@@ -5017,6 +5102,7 @@ const FIELD_TYPES = [
   { value: 'multiselect', label: 'Multi-Select' },
   { value: 'radio', label: 'Radio Buttons' },
   { value: 'checkbox', label: 'Checkbox' },
+  { value: 'availability', label: 'Availability Slots' },
 ]
 
 function FormBuilderDrawer({ form, onClose, onSave }) {
@@ -5120,6 +5206,17 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     setFields((prev) =>
       prev.map((f, i) =>
         i === fieldIndex ? { ...f, options: [...f.options, { label: '', value: '' }] } : f
+      )
+    )
+  }
+
+  const addSlot = (fieldIndex) => {
+    const idx = fields[fieldIndex]?.options?.length || 0
+    setFields((prev) =>
+      prev.map((f, i) =>
+        i === fieldIndex
+          ? { ...f, options: [...f.options, { label: '', value: `slot_${idx + 1}`, date: '', start: '', end: '', capacity: 1 }] }
+          : f
       )
     )
   }
@@ -5539,6 +5636,83 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                       ))}
                       {!field.options.length && (
                         <p className="text-xs text-slate-400">No options added yet.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Availability slot editor */}
+                  {field.fieldType === 'availability' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-700">Time Slots (Calendly-style)</span>
+                        <button type="button" onClick={() => addSlot(idx)} className="text-xs text-sky-600 hover:underline">
+                          + Add Slot
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Students pick one slot when they submit. Capacity stops a slot once it's fully booked.
+                      </p>
+                      {field.options.map((opt, optIdx) => (
+                        <div key={optIdx} className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="text-xs text-slate-600 block">
+                              Date
+                              <input
+                                type="date"
+                                className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                value={opt.date || ''}
+                                onChange={(e) => updateOption(idx, optIdx, { date: e.target.value })}
+                              />
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <label className="text-xs text-slate-600 block">
+                                Start
+                                <input
+                                  type="time"
+                                  className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                  value={opt.start || ''}
+                                  onChange={(e) => updateOption(idx, optIdx, { start: e.target.value })}
+                                />
+                              </label>
+                              <label className="text-xs text-slate-600 block">
+                                End
+                                <input
+                                  type="time"
+                                  className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                  value={opt.end || ''}
+                                  onChange={(e) => updateOption(idx, optIdx, { end: e.target.value })}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
+                            <label className="text-xs text-slate-600 block">
+                              Label (shown to students)
+                              <input
+                                className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                placeholder="e.g. Meeting with the Rector"
+                                value={opt.label}
+                                onChange={(e) => updateOption(idx, optIdx, { label: e.target.value })}
+                              />
+                            </label>
+                            <label className="text-xs text-slate-600 block w-20">
+                              Capacity
+                              <input
+                                type="number"
+                                min="1"
+                                className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                value={opt.capacity || 1}
+                                onChange={(e) => updateOption(idx, optIdx, { capacity: Number(e.target.value) || 1 })}
+                              />
+                            </label>
+                            <button type="button" onClick={() => removeOption(idx, optIdx)} className="text-xs text-red-500 pb-1.5">
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {!field.options.length && (
+                        <p className="text-xs text-slate-400">No time slots added yet.</p>
                       )}
                     </div>
                   )}

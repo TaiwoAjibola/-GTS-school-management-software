@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { pool, query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 import {
@@ -5,6 +6,9 @@ import {
   getEligibleStudentsForBatch,
 } from '../services/eligibilityService.js'
 import { sendExamEmail } from '../services/emailService.js'
+
+const generateAccessCode = () =>
+  randomBytes(5).toString('base64url').toUpperCase().slice(0, 8)
 
 const getExamById = async (id) => {
   const examResult = await query('SELECT * FROM exams WHERE id = $1', [id])
@@ -30,10 +34,18 @@ const getExamById = async (id) => {
 export const createExam = async (req, res, next) => {
   const client = await pool.connect()
   try {
-    const { courseId, batchId, planId, title, description, dueDate, questions } = req.body
+    const { courseId, batchId, planId, title, description, dueDate, questions, examType, quizUrl } = req.body
 
     if (!courseId || !title) {
       throw httpError(400, 'courseId and title are required')
+    }
+
+    const type = examType === 'mcq' ? 'mcq' : 'essay'
+    if (type === 'mcq' && !quizUrl) {
+      throw httpError(400, 'quizUrl is required for MCQ exams')
+    }
+    if (type === 'essay' && !(Array.isArray(questions) && questions.some((q) => String(q?.text || q?.questionText || '').trim()))) {
+      throw httpError(400, 'Add at least one exam question for essay exams')
     }
 
     const courseResult = await client.query('SELECT id FROM courses WHERE id = $1', [courseId])
@@ -42,10 +54,10 @@ export const createExam = async (req, res, next) => {
     await client.query('BEGIN')
 
     const examResult = await client.query(
-      `INSERT INTO exams (course_id, batch_id, plan_id, title, description, due_date, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO exams (course_id, batch_id, plan_id, title, description, due_date, exam_type, quiz_url, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [courseId, batchId || null, planId || null, title, description || null, dueDate || null, req.user.userId]
+      [courseId, batchId || null, planId || null, title, description || null, dueDate || null, type, quizUrl || null, req.user.userId]
     )
 
     const exam = examResult.rows[0]
@@ -169,9 +181,11 @@ export const sendExam = async (req, res, next) => {
     let sent = 0
     let failed = 0
     const errors = []
+    const isMcq = exam.exam_type === 'mcq'
 
     for (const student of students) {
       try {
+        const accessCode = isMcq ? generateAccessCode() : null
         await sendExamEmail({
           to: student.email,
           studentName: student.full_name,
@@ -179,12 +193,16 @@ export const sendExam = async (req, res, next) => {
           examTitle: exam.title,
           dueDate: exam.due_date,
           questions,
+          examType: exam.exam_type,
+          quizUrl: exam.quiz_url,
+          accessCode,
         })
         await client.query(
-          `INSERT INTO exam_deliveries (exam_id, student_id, delivered_at, email_sent)
-           VALUES ($1, $2, NOW(), TRUE)
-           ON CONFLICT (exam_id, student_id) DO UPDATE SET delivered_at = NOW(), email_sent = TRUE`,
-          [examId, student.id]
+          `INSERT INTO exam_deliveries (exam_id, student_id, delivered_at, email_sent, access_code)
+           VALUES ($1, $2, NOW(), TRUE, $3)
+           ON CONFLICT (exam_id, student_id)
+           DO UPDATE SET delivered_at = NOW(), email_sent = TRUE, access_code = EXCLUDED.access_code`,
+          [examId, student.id, accessCode]
         )
         sent++
       } catch (err) {
@@ -211,10 +229,13 @@ export const getStudentExams = async (req, res, next) => {
     const result = await query(
       `SELECT d.id AS delivery_id,
               d.delivered_at,
+              d.access_code,
               ex.id AS exam_id,
               ex.title,
               ex.description,
               ex.due_date,
+              ex.exam_type,
+              ex.quiz_url,
               c.title AS course_title,
               COALESCE(
                 json_agg(

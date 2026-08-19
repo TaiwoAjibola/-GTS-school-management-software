@@ -15,6 +15,7 @@ const PublicFormPage = () => {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState({})
+  const [availability, setAvailability] = useState({})
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -27,6 +28,9 @@ const PublicFormPage = () => {
           initial[f.id] = f.field_type === 'checkbox' ? false : ''
         })
         setFormData(initial)
+        if (res.data.fields.some(f => f.field_type === 'availability')) {
+          apiClient.get(`/forms/public/${slug}/availability`).then(avRes => setAvailability(avRes.data)).catch(() => {})
+        }
       } catch (err) {
         setError(err?.response?.data?.message || 'Form not found or closed')
       } finally {
@@ -181,7 +185,65 @@ const PublicFormPage = () => {
                         {field.required && <span className="text-red-500">*</span>}
                       </label>
 
-                      {field.field_type === 'textarea' ? (
+                      {field.field_type === 'availability' ? (
+                        <div className="space-y-3">
+                          <div className="border border-sky-100 bg-sky-50 rounded-xl px-4 py-3 text-sm text-sky-800">
+                            Pick a time slot below. Each slot holds a limited number of bookings.
+                          </div>
+                          {(() => {
+                            const info = availability[field.id] || {}
+                            const options = field.options || []
+                            const bookedMap = info.booked || {}
+                            const byDate = {}
+                            for (const opt of options) {
+                              const key = opt.date || 'No date'
+                              if (!byDate[key]) byDate[key] = []
+                              byDate[key].push(opt)
+                            }
+                            return Object.entries(byDate).map(([dateLabel, slots]) => (
+                              <div key={dateLabel} className="space-y-2">
+                                <p className="text-sm font-semibold text-slate-800 capitalize">
+                                  {dateLabel === 'No date' ? dateLabel : new Date(dateLabel).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                                </p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {slots.map((opt) => {
+                                    const booked = Number(bookedMap[opt.value] || 0)
+                                    const capacity = Number(opt.capacity || 1)
+                                    const full = booked >= capacity
+                                    const selected = formData[field.id] === opt.value
+                                    const timeLabel = `${opt.start || '—'} – ${opt.end || '—'}`
+                                    return (
+                                      <button
+                                        key={opt.value}
+                                        type="button"
+                                        disabled={full}
+                                        onClick={() => handleChange(field.id, opt.value)}
+                                        className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
+                                          selected
+                                            ? 'border-sky-600 bg-sky-600 text-white shadow-sm'
+                                            : full
+                                            ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                            : 'border-slate-200 bg-white hover:border-sky-400'
+                                        }`}
+                                      >
+                                        <span className="block font-semibold">{timeLabel}</span>
+                                        {opt.label ? (
+                                          <span className={`block text-xs mt-0.5 ${selected ? 'text-sky-100' : full ? 'text-slate-300' : 'text-slate-500'}`}>
+                                            {opt.label}
+                                          </span>
+                                        ) : null}
+                                        <span className={`block text-xs mt-0.5 ${selected ? 'text-sky-100' : full ? 'text-slate-300' : 'text-slate-500'}`}>
+                                          {full ? 'Fully booked' : `${capacity - booked} remaining`}
+                                        </span>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ))
+                          })()}
+                        </div>
+                      ) : field.field_type === 'textarea' ? (
                         <textarea
                           required={field.required}
                           placeholder={field.placeholder}

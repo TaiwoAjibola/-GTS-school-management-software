@@ -187,16 +187,48 @@ const StudentDashboard = () => {
             <div className="space-y-3">
               {exams.map((exam) => (
                 <div key={exam.exam_id} className="border border-slate-200 rounded-lg p-3">
-                  <p className="font-medium">{exam.title}</p>
-                  <p className="text-slate-500">{exam.course_title}{exam.due_date ? ` • Due ${exam.due_date}` : ''}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">
+                        {exam.title}
+                        <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                          {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
+                        </span>
+                      </p>
+                      <p className="text-slate-500">{exam.course_title}{exam.due_date ? ` • Due ${exam.due_date}` : ''}</p>
+                    </div>
+                  </div>
                   {exam.description ? <p className="text-slate-500 mt-1">{exam.description}</p> : null}
-                  <ol className="mt-3 space-y-2">
-                    {exam.questions.map((q, i) => (
-                      <li key={q.id} className="text-sm text-slate-700">
-                        <strong>Q{i + 1}.</strong> {q.question_text}
-                      </li>
-                    ))}
-                  </ol>
+                  {exam.exam_type === 'mcq' ? (
+                    <div className="mt-3 rounded-xl bg-sky-50 border border-sky-200 p-3">
+                      {exam.quiz_url ? (
+                        <a
+                          href={exam.quiz_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-sm font-semibold text-white bg-sky-600 rounded-lg px-4 py-2 hover:bg-sky-700"
+                        >
+                          Open Quiz
+                        </a>
+                      ) : (
+                        <p className="text-xs text-slate-500">Check your email for the quiz link.</p>
+                      )}
+                      {exam.access_code ? (
+                        <p className="mt-2 text-xs text-slate-500">
+                          Your access ID:{' '}
+                          <span className="font-mono font-bold text-sky-800 tracking-widest">{exam.access_code}</span>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <ol className="mt-3 space-y-2">
+                      {exam.questions.map((q, i) => (
+                        <li key={q.id} className="text-sm text-slate-700">
+                          <strong>Q{i + 1}.</strong> {q.question_text}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                 </div>
               ))}
               {exams.length === 0 ? <p className="text-slate-400">No exam papers sent to you yet.</p> : null}

@@ -105,7 +105,7 @@ export const sendAssignmentEmail = async ({ to, studentName, courseTitle, assign
   return sendRawEmail({ to, subject: `New Assignment: ${assignmentTitle}`, html: `<p>Dear ${studentName}, new assignment in ${courseTitle}: ${assignmentTitle}. Due: ${dueDate}</p>` })
 }
 
-export const sendExamEmail = async ({ to, studentName, courseTitle, examTitle, dueDate, questions }) => {
+export const sendExamEmail = async ({ to, studentName, courseTitle, examTitle, dueDate, questions, examType, quizUrl, accessCode }) => {
   const escapeHtml = (value) =>
     String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -113,25 +113,46 @@ export const sendExamEmail = async ({ to, studentName, courseTitle, examTitle, d
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
 
-  const questionList = (questions || [])
-    .map(
-      (q, index) =>
-        `<li style="margin-bottom:14px;line-height:1.6">
-           <strong>Q${index + 1}.</strong> ${escapeHtml(q.question_text)}
-         </li>`
-    )
-    .join('')
+  const dueLine = dueDate ? `<p style="margin:6px 0 0;color:#64748b">Please complete this by <strong>${escapeHtml(dueDate)}</strong>.</p>` : ''
 
-  const dueLine = dueDate ? `<p style="margin:6px 0 0;color:#64748b">Please submit your answers by <strong>${escapeHtml(dueDate)}</strong>.</p>` : ''
+  const isMcq = examType === 'mcq'
+
+  let bodyHtml
+  if (isMcq) {
+    const link = escapeHtml(quizUrl || '')
+    const code = escapeHtml(accessCode || '')
+    const codeBox = code
+      ? `<div style="margin:16px 0;padding:14px 18px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px">
+           <p style="margin:0;font-size:12px;color:#0e7490;font-weight:bold">YOUR ACCESS ID</p>
+           <p style="margin:4px 0 0;font-size:24px;letter-spacing:3px;font-weight:bold;color:#155e75">${code}</p>
+         </div>`
+      : ''
+    bodyHtml = `
+      <p style="color:#334155;margin:0 0 16px">Your online MCQ exam is ready below. Use the access ID provided to unlock and start the quiz. You can take it as many times as needed before the deadline.</p>
+      <a href="${link}" style="display:inline-block;background:#0891b2;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Open Quiz</a>
+      ${codeBox}
+      ${dueLine}`
+  } else {
+    const questionList = (questions || [])
+      .map(
+        (q, index) =>
+          `<li style="margin-bottom:14px;line-height:1.6">
+             <strong>Q${index + 1}.</strong> ${escapeHtml(q.question_text)}
+           </li>`
+      )
+      .join('')
+    bodyHtml = `
+      <p style="color:#334155;margin:0 0 16px">Your exam paper is listed below. Answer each question and submit your responses.</p>
+      <ol style="color:#0f172a;padding-left:20px;margin:0 0 16px">${questionList}</ol>
+      ${dueLine}`
+  }
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
       <h2 style="color:#0f172a;margin:0 0 4px">${escapeHtml(examTitle)}</h2>
       <p style="color:#475569;margin:0 0 16px">${escapeHtml(courseTitle || '')}</p>
       <p style="color:#0f172a;margin:0 0 16px">Dear ${escapeHtml(studentName)},</p>
-      <p style="color:#334155;margin:0 0 16px">Your exam paper is listed below. Answer each question and submit your responses.</p>
-      <ol style="color:#0f172a;padding-left:20px;margin:0 0 16px">${questionList}</ol>
-      ${dueLine}
+      ${bodyHtml}
       <p style="color:#475569;margin:16px 0 0;font-size:12px">Grace Theological Seminary (GTS)</p>
     </div>`
 

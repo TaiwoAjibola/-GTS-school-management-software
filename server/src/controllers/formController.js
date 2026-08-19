@@ -216,6 +216,28 @@ export const submitForm = async (req, res, next) => {
       throw httpError(400, errors.join(', '))
     }
 
+    // Enforce capacity for availability (booking) fields
+    for (const field of fieldsResult.rows) {
+      if (field.field_type !== 'availability') continue
+      const value = data[field.id]
+      if (value === undefined || value === null || value === '') continue
+      const options = field.options || []
+      const option = options.find((o) => String(o.value) === String(value))
+      if (!option) {
+        throw httpError(400, `${field.label}: unknown time slot selected`)
+      }
+      const capacity = Number(option.capacity || 1)
+      const bookedResult = await client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM form_submissions
+         WHERE form_id = $1 AND status <> 'rejected' AND data ->> $2 = $3`,
+        [resolvedFormId, String(field.id), value]
+      )
+      if (bookedResult.rows[0].count >= capacity) {
+        throw httpError(400, `${field.label}: that time slot is fully booked. Please pick another time.`)
+      }
+    }
+
     const submitterId = req.user?.userId || null
 
     const result = await client.query(
@@ -441,4 +463,39 @@ const getFormById = async (id) => {
   )
 
   return { ...form, fields: fieldsResult.rows }
+}
+
+export const getFormAvailability = async (req, res, next) => {
+  try {
+    const { slug } = req.params
+
+    const formResult = await query('SELECT id FROM forms WHERE slug = $1', [slug])
+    if (!formResult.rows.length) throw httpError(404, 'Form not found')
+    const formId = formResult.rows[0].id
+
+    const fieldsResult = await query(
+      `SELECT id, options FROM form_fields WHERE form_id = $1 AND field_type = 'availability'`,
+      [formId]
+    )
+
+    const result = {}
+    for (const field of fieldsResult.rows) {
+      const bookings = await query(
+        `SELECT data ->> $2 AS slot_value, COUNT(*)::int AS count
+         FROM form_submissions
+         WHERE form_id = $1 AND status <> 'rejected' AND data ->> $2 IS NOT NULL
+         GROUP BY data ->> $2`,
+        [formId, String(field.id)]
+      )
+      const counts = {}
+      for (const row of bookings.rows) {
+        counts[String(row.slot_value)] = row.count
+      }
+      result[field.id] = { fieldId: field.id, options: field.options || [], booked: counts }
+    }
+
+    res.json(result)
+  } catch (error) {
+    next(error)
+  }
 }

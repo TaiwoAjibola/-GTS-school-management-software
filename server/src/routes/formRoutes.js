@@ -12,12 +12,14 @@ import {
   reviewSubmission,
   deleteSubmission,
   getProspectiveStudents,
+  getFormAvailability,
 } from '../controllers/formController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
 const router = Router()
 
 // Public routes
+router.get('/public/:slug/availability', getFormAvailability)
 router.get('/public/:slug', getFormBySlug)
 router.post('/submit', submitForm)
 
