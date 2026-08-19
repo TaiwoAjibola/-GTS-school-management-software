@@ -108,6 +108,16 @@ const LecturerDashboard = () => {
 
   const [assignmentForm, setAssignmentForm] = useState({ title: '', description: '', dueDate: '', file: null })
 
+  const [examsTab, setExamsTab] = useState('assignments')
+  const [exams, setExams] = useState([])
+  const [examsLoading, setExamsLoading] = useState(false)
+  const [examForm, setExamForm] = useState({ title: '', description: '', dueDate: '', questions: [{ text: '' }] })
+  const [examEligible, setExamEligible] = useState([])
+  const [examSelected, setExamSelected] = useState({})
+  const [examSendTarget, setExamSendTarget] = useState(null)
+  const [examSending, setExamSending] = useState(false)
+  const [examSendResult, setExamSendResult] = useState(null)
+
   const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '', secondaryLecturerId: '', lecturerNotes: '' })
   const [editingSession, setEditingSession] = useState(null) // { session, roster }
   const [editSessionLoading, setEditSessionLoading] = useState(false)
@@ -162,10 +172,12 @@ const LecturerDashboard = () => {
   const [batchViewFilter, setBatchViewFilter] = useState('active')
   const [expandedCohortIds, setExpandedCohortIds] = useState(new Set())
   const [studentCohortFilter, setStudentCohortFilter] = useState('')
+  const [studentStatusFilter, setStudentStatusFilter] = useState('current')
   const [graduationSearch, setGraduationSearch] = useState('')
   const [graduationMatrix, setGraduationMatrix] = useState({ courses: [], students: [] })
   const [graduationSortBy, setGraduationSortBy] = useState('progress')
   const [graduationStatusFilter, setGraduationStatusFilter] = useState('all')
+  const [graduationCohortFilter, setGraduationCohortFilter] = useState('')
   const [lecturers, setLecturers] = useState([])
   const [lecturerForm, setLecturerForm] = useState({ name: '', email: '', phone: '' })
   const [editingLecturerId, setEditingLecturerId] = useState(null)
@@ -195,6 +207,10 @@ const LecturerDashboard = () => {
   const [quickStatusReason, setQuickStatusReason] = useState('')
   const [quickStatusSaving, setQuickStatusSaving] = useState(false)
   const [showQuickStatus, setShowQuickStatus] = useState(false)
+  const [gradVetting, setGradVetting] = useState(null) // { student, targetStatus }
+  const [gradVettingConfirm, setGradVettingConfirm] = useState({})
+  const [gradVettingReason, setGradVettingReason] = useState('')
+  const [gradVettingSaving, setGradVettingSaving] = useState(false)
 
   const [credentials, setCredentials] = useState([])
   const [credentialsLoading, setCredentialsLoading] = useState(false)
@@ -548,6 +564,12 @@ const LecturerDashboard = () => {
       result = result.filter((student) => String(student.cohort_id || '') === studentCohortFilter)
     }
 
+    if (studentStatusFilter === 'current') {
+      result = result.filter((student) => !['Graduated', 'Alumni'].includes(student.status))
+    } else if (studentStatusFilter !== 'all') {
+      result = result.filter((student) => student.status === studentStatusFilter)
+    }
+
     if (!studentSearch.trim()) return result
     const lower = studentSearch.toLowerCase()
     return result.filter(
@@ -556,7 +578,7 @@ const LecturerDashboard = () => {
         student.email.toLowerCase().includes(lower) ||
         student.matric_no.toLowerCase().includes(lower)
     )
-  }, [allStudents, studentSearch, studentCohortFilter])
+  }, [allStudents, studentSearch, studentCohortFilter, studentStatusFilter])
 
   const filteredGraduationStudents = useMemo(() => {
     const query = graduationSearch.trim().toLowerCase()
@@ -564,6 +586,10 @@ const LecturerDashboard = () => {
 
     if (graduationStatusFilter !== 'all') {
       rows = rows.filter((student) => student.status === graduationStatusFilter)
+    }
+
+    if (graduationCohortFilter) {
+      rows = rows.filter((student) => String(student.cohort_id || '') === graduationCohortFilter)
     }
 
     if (query) {
@@ -584,7 +610,7 @@ const LecturerDashboard = () => {
       sorted.sort((a, b) => b.completion_pct - a.completion_pct || a.full_name.localeCompare(b.full_name))
     }
     return sorted
-  }, [graduationMatrix.students, graduationSearch, graduationSortBy, graduationStatusFilter])
+  }, [graduationMatrix.students, graduationSearch, graduationSortBy, graduationStatusFilter, graduationCohortFilter])
 
   const graduationStatusCounts = useMemo(() => {
     const counts = { total: graduationMatrix.students?.length || 0, Graduating: 0, Graduated: 0, Alumni: 0 }
@@ -696,6 +722,13 @@ const LecturerDashboard = () => {
       loadReports()
     }
   }, [section, user?.role, reportFilters])
+
+  useEffect(() => {
+    if (section === 'assignments' && selectedCourseId) {
+      loadExams(selectedCourseId)
+      loadExamEligible(selectedCourseId)
+    }
+  }, [section, selectedCourseId])
 
   const createCourse = async (event) => {
     event.preventDefault()
@@ -1255,6 +1288,85 @@ const LecturerDashboard = () => {
     notify('Assignment sent to eligible students')
   }
 
+  const loadExams = async (courseId) => {
+    if (!courseId) { setExams([]); return }
+    try {
+      setExamsLoading(true)
+      const res = await apiClient.get(`/exams/course/${courseId}`)
+      setExams(res.data)
+    } catch { setExams([]) }
+    finally { setExamsLoading(false) }
+  }
+
+  const loadExamEligible = async (courseId) => {
+    if (!courseId) { setExamEligible([]); return }
+    try {
+      const res = await apiClient.get(`/exams/eligible/${courseId}`)
+      setExamEligible(res.data)
+      setExamSelected(Object.fromEntries(res.data.map((s) => [s.id, true])))
+    } catch { setExamEligible([]) }
+  }
+
+  const createExam = async (event) => {
+    event.preventDefault()
+    const questions = examForm.questions.filter((q) => q.text.trim())
+    if (!examForm.title.trim()) { notify('Exam title is required'); return }
+    if (!questions.length) { notify('Add at least one exam question'); return }
+
+    try {
+      await apiClient.post('/exams', {
+        courseId: Number(selectedCourseId),
+        title: examForm.title.trim(),
+        description: examForm.description.trim(),
+        dueDate: examForm.dueDate || null,
+        questions,
+      })
+      setExamForm({ title: '', description: '', dueDate: '', questions: [{ text: '' }] })
+      await loadExams(selectedCourseId)
+      notify('Exam saved')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to save exam')
+    }
+  }
+
+  const openExamSend = (exam) => {
+    setExamSendTarget(exam)
+    setExamSendResult(null)
+  }
+
+  const sendExamNow = async () => {
+    if (!examSendTarget) return
+    setExamSending(true)
+    setExamSendResult(null)
+    const ids = examEligible.filter((s) => examSelected[s.id]).map((s) => s.id)
+    if (!ids.length) {
+      setExamSending(false)
+      notify('Select at least one student to send to')
+      return
+    }
+    try {
+      const res = await apiClient.post(`/exams/${examSendTarget.id}/send`, { studentIds: ids })
+      setExamSendResult(res.data)
+      notify(`Exam sent to ${res.data.sent} of ${res.data.total} student(s)`)
+      await loadExams(selectedCourseId)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to send exam')
+    } finally {
+      setExamSending(false)
+    }
+  }
+
+  const deleteExamItem = async (examId) => {
+    if (!window.confirm('Delete this exam and its delivery records?')) return
+    try {
+      await apiClient.delete(`/exams/${examId}`)
+      await loadExams(selectedCourseId)
+      notify('Exam deleted')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to delete exam')
+    }
+  }
+
   const saveEnrollmentNote = async (enrollmentId) => {
     await apiClient.patch(`/enrollments/${enrollmentId}/notes`, {
       notes: enrollmentNotesEdits[enrollmentId] || '',
@@ -1271,6 +1383,42 @@ const LecturerDashboard = () => {
     await apiClient.put(`/students/${student.id}`, { status })
     await Promise.all([loadAllStudents(), loadGraduationMatrix()])
     notify(`Student moved to ${status}`)
+  }
+
+  const openGradVetting = (student, targetStatus) => {
+    const confirmations = {}
+    for (const course of graduationMatrix.courses) {
+      const info = student.courses?.[course.id]
+      confirmations[course.id] = Boolean(info && info.result_status === 'Pass')
+    }
+    setGradVetting({ student, targetStatus })
+    setGradVettingConfirm(confirmations)
+    setGradVettingReason('')
+    setGradVettingSaving(false)
+    setOpenGraduationActionFor(null)
+  }
+
+  const vettingAllConfirmed = useMemo(() => {
+    if (!gradVetting) return false
+    return graduationMatrix.courses.every((course) => gradVettingConfirm[course.id])
+  }, [gradVetting, gradVettingConfirm, graduationMatrix.courses])
+
+  const confirmGradVetting = async () => {
+    if (!gradVetting || !vettingAllConfirmed) return
+    setGradVettingSaving(true)
+    try {
+      await apiClient.patch(`/students/${gradVetting.student.id}/lifecycle-status`, {
+        status: gradVetting.targetStatus,
+        reason: gradVettingReason || null,
+      })
+      await Promise.all([loadAllStudents(), loadGraduationMatrix()])
+      setGradVetting(null)
+      notify(`Student moved to ${gradVetting.targetStatus}`)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to update status')
+    } finally {
+      setGradVettingSaving(false)
+    }
   }
 
   const sectionTitle = {
@@ -2203,6 +2351,19 @@ const LecturerDashboard = () => {
                     </option>
                   ))}
                 </select>
+                <select
+                  className="border rounded-lg px-3 py-2 text-sm"
+                  value={studentStatusFilter}
+                  onChange={(event) => setStudentStatusFilter(event.target.value)}
+                >
+                  <option value="current">Current students</option>
+                  <option value="all">All students</option>
+                  <option value="Active">Active</option>
+                  <option value="Prospective">Prospective</option>
+                  <option value="Graduating">Graduating</option>
+                  <option value="Graduated">Graduated</option>
+                  <option value="Alumni">Alumni</option>
+                </select>
                 <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Search name/email/matric" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} />
                 <button
                   type="button"
@@ -3073,6 +3234,101 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
 
+      {gradVetting ? (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setGradVetting(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <h3 className="font-semibold text-slate-900">Graduation Vetting</h3>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Confirm that <strong>{gradVetting.student.full_name}</strong> ({gradVetting.student.matric_no}) passed every course before moving to{' '}
+                  <span className="font-semibold text-slate-700">{gradVetting.targetStatus}</span>.
+                </p>
+              </div>
+              <button type="button" onClick={() => setGradVetting(null)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 mt-4">
+              <div className="px-4 py-2 grid grid-cols-[1fr_auto_auto] gap-3 items-center text-xs font-semibold text-slate-500">
+                <span>Course</span>
+                <span>Status</span>
+                <span>Passed?</span>
+              </div>
+              {graduationMatrix.courses.map((course) => {
+                const info = gradVetting.student.courses?.[course.id]
+                const isPass = info?.result_status === 'Pass'
+                const isFail = info?.result_status === 'Fail'
+                return (
+                  <div key={course.id} className="px-4 py-3 grid grid-cols-[1fr_auto_auto] gap-3 items-center">
+                    <span className="text-sm text-slate-900">{course.title}</span>
+                    <span className="text-xs font-medium">
+                      {isPass ? (
+                        <span className="rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1">Pass</span>
+                      ) : isFail ? (
+                        <span className="rounded-full bg-red-100 text-red-700 px-2.5 py-1">Fail</span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 text-slate-600 px-2.5 py-1">No result</span>
+                      )}
+                    </span>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded"
+                        checked={Boolean(gradVettingConfirm[course.id])}
+                        onChange={(e) => setGradVettingConfirm((prev) => ({ ...prev, [course.id]: e.target.checked }))}
+                      />
+                      <span className="text-xs font-medium text-slate-700">Yes</span>
+                    </label>
+                  </div>
+                )
+              })}
+            </div>
+
+            {!vettingAllConfirmed ? (
+              <p className="text-xs text-amber-600 mt-3">
+                Confirm each course below by ticking the “Passed?” box. All courses must be confirmed.
+              </p>
+            ) : null}
+
+            <label className="text-sm text-slate-600 block mt-4">
+              Reason
+              <input
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="e.g. Completed all courses for 2026 plan"
+                value={gradVettingReason}
+                onChange={(e) => setGradVettingReason(e.target.value)}
+              />
+            </label>
+
+            <div className="flex gap-2 justify-end mt-4">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                onClick={() => setGradVetting(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!vettingAllConfirmed || gradVettingSaving}
+                onClick={confirmGradVetting}
+                className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-40"
+              >
+                {gradVettingSaving ? 'Saving…' : `Move to ${gradVetting.targetStatus}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {section === 'attendance' ? (
         <div className="grid xl:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-6">
@@ -3588,6 +3844,18 @@ const LecturerDashboard = () => {
                   {value === 'all' ? 'All Statuses' : value}
                 </button>
               ))}
+              <select
+                className="rounded-full px-3 py-1 text-xs border bg-white text-slate-600"
+                value={graduationCohortFilter}
+                onChange={(event) => setGraduationCohortFilter(event.target.value)}
+              >
+                <option value="">All Batches</option>
+                {cohorts.map((cohort) => (
+                  <option key={cohort.id} value={String(cohort.id)}>
+                    {cohort.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <table className="w-full text-sm min-w-275">
@@ -3649,14 +3917,14 @@ const LecturerDashboard = () => {
                         </button>
                         {openGraduationActionFor === student.id ? (
                           <div className="absolute right-0 mt-2 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
-                            <button type="button" className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50" onClick={() => { updateStudentLifecycle(student, 'Graduating'); setOpenGraduationActionFor(null) }}>
+                            <button type="button" className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50" onClick={() => openGradVetting(student, 'Graduating')}>
                               Mark as Graduating
                             </button>
                             <button
                               type="button"
                               className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40"
                               disabled={student.remaining > 0 || student.failed > 0}
-                              onClick={() => { updateStudentLifecycle(student, 'Graduated'); setOpenGraduationActionFor(null) }}
+                              onClick={() => openGradVetting(student, 'Graduated')}
                             >
                               Mark as Graduated
                             </button>
@@ -3686,34 +3954,254 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'assignments' ? (
-        <div className="grid xl:grid-cols-[390px_1fr] gap-6">
-          <form onSubmit={createAssignment} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-slate-900">Create Assignment</h3>
-            <p className="text-sm text-slate-500">Assignments are sent only to students who are eligible from attendance.</p>
-            <input className="w-full border rounded-lg px-3 py-2" placeholder="Title" value={assignmentForm.title} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, title: event.target.value }))} required />
-            <textarea className="w-full min-h-36 border rounded-lg px-3 py-2" placeholder="Description" value={assignmentForm.description} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, description: event.target.value }))} required />
-            <input className="w-full border rounded-lg px-3 py-2" type="date" value={assignmentForm.dueDate} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
-            <input className="w-full border rounded-lg px-3 py-2" type="file" onChange={(event) => setAssignmentForm((prev) => ({ ...prev, file: event.target.files?.[0] || null }))} />
-            <button className="bg-slate-900 text-white rounded-lg px-4 py-2">Send Assignment</button>
-          </form>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-            <h3 className="font-semibold text-slate-900 mb-4">Eligible Students ({eligibleStudents.length})</h3>
-            <table className="w-full text-sm">
-              <thead className="text-left text-slate-500">
-                <tr><th className="pb-2">Name</th><th>Matric</th><th>Email</th><th>Attendance</th></tr>
-              </thead>
-              <tbody>
-                {eligibleStudents.map((student) => (
-                  <tr key={student.id} className="border-t border-slate-200">
-                    <td className="py-3">{student.full_name}</td>
-                    <td>{student.matric_no}</td>
-                    <td>{student.email}</td>
-                    <td>{student.attendance_count}/{student.min_attendance_required}</td>
-                  </tr>
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+              {['assignments', 'exams'].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setExamsTab(tab)}
+                  className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${examsTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {tab === 'assignments' ? 'Assignments' : 'Exams'}
+                </button>
+              ))}
+            </div>
+            <label className="text-sm text-slate-600 flex items-center gap-2">
+              Course
+              <select
+                className="border rounded-lg px-3 py-2 text-sm font-medium min-w-64 bg-white"
+                value={selectedCourseId || ''}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+              >
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.is_current ? '★ ' : ''}{course.course_code ? `${course.course_code} — ` : ''}{course.title}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </label>
+          </div>
+
+          {examsTab === 'assignments' ? (
+            <div className="grid xl:grid-cols-[390px_1fr] gap-6">
+              <form onSubmit={createAssignment} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+                <h3 className="font-semibold text-slate-900">Create Assignment</h3>
+                <p className="text-sm text-slate-500">Assignments are sent only to students who are eligible from attendance.</p>
+                <input className="w-full border rounded-lg px-3 py-2" placeholder="Title" value={assignmentForm.title} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                <textarea className="w-full min-h-36 border rounded-lg px-3 py-2" placeholder="Description" value={assignmentForm.description} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, description: event.target.value }))} required />
+                <input className="w-full border rounded-lg px-3 py-2" type="date" value={assignmentForm.dueDate} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
+                <input className="w-full border rounded-lg px-3 py-2" type="file" onChange={(event) => setAssignmentForm((prev) => ({ ...prev, file: event.target.files?.[0] || null }))} />
+                <button className="bg-slate-900 text-white rounded-lg px-4 py-2">Send Assignment</button>
+              </form>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+                <h3 className="font-semibold text-slate-900 mb-4">Eligible Students ({eligibleStudents.length})</h3>
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500">
+                    <tr><th className="pb-2">Name</th><th>Matric</th><th>Email</th><th>Attendance</th></tr>
+                  </thead>
+                  <tbody>
+                    {eligibleStudents.map((student) => (
+                      <tr key={student.id} className="border-t border-slate-200">
+                        <td className="py-3">{student.full_name}</td>
+                        <td>{student.matric_no}</td>
+                        <td>{student.email}</td>
+                        <td>{student.attendance_count}/{student.min_attendance_required}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="grid xl:grid-cols-[390px_1fr] gap-6">
+              <form onSubmit={createExam} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 self-start">
+                <h3 className="font-semibold text-slate-900">Create Essay Exam</h3>
+                <p className="text-sm text-slate-500">Exams are saved per course, then emailed to selected or eligible students when it's time.</p>
+                <input className="w-full border rounded-lg px-3 py-2" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                <textarea className="w-full min-h-24 border rounded-lg px-3 py-2" placeholder="Instructions / description" value={examForm.description} onChange={(event) => setExamForm((prev) => ({ ...prev, description: event.target.value }))} />
+                <input className="w-full border rounded-lg px-3 py-2" type="date" value={examForm.dueDate} onChange={(event) => setExamForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-slate-700">Questions</p>
+                    <button
+                      type="button"
+                      onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, { text: '' }] }))}
+                      className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
+                    >
+                      <Plus size={14} /> Add question
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {examForm.questions.map((q, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <span className="text-xs font-bold text-slate-400 pt-2.5">Q{idx + 1}</span>
+                        <textarea
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          rows={2}
+                          placeholder="Question text"
+                          value={q.text}
+                          onChange={(event) => setExamForm((prev) => ({
+                            ...prev,
+                            questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
+                          }))}
+                        />
+                        {examForm.questions.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => setExamForm((prev) => ({
+                              ...prev,
+                              questions: prev.questions.filter((_, i) => i !== idx),
+                            }))}
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          >
+                            <X size={16} />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button className="w-full bg-slate-900 text-white rounded-lg px-4 py-2">Save Exam</button>
+              </form>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+                <h3 className="font-semibold text-slate-900 mb-4">Saved Exams ({exams.length})</h3>
+                {examsLoading ? (
+                  <p className="text-sm text-slate-400 py-6 text-center">Loading exams…</p>
+                ) : exams.length === 0 ? (
+                  <p className="text-sm text-slate-400 py-6 text-center">No exams saved for this course yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {exams.map((exam) => (
+                      <div key={exam.id} className="border border-slate-200 rounded-xl p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-900">{exam.title}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {exam.question_count} question(s) • {exam.delivery_count} delivered
+                              {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
+                            </p>
+                            {exam.description ? <p className="text-sm text-slate-600 mt-1">{exam.description}</p> : null}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openExamSend(exam)}
+                              className="text-xs rounded-lg bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-700"
+                            >
+                              Send Exam
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteExamItem(exam.id)}
+                              className="text-xs rounded-lg bg-rose-50 text-rose-600 px-3 py-1.5 hover:bg-rose-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {examSendTarget ? (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setExamSendTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="font-semibold text-slate-900">Send Exam</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{examSendTarget.title}</p>
+              </div>
+              <button type="button" onClick={() => setExamSendTarget(null)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-slate-700">Recipients ({examEligible.filter((s) => examSelected[s.id]).length})</p>
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-100 px-2.5 py-1 hover:bg-slate-200"
+                  onClick={() => setExamSelected(Object.fromEntries(examEligible.map((s) => [s.id, true])))}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-100 px-2.5 py-1 hover:bg-slate-200"
+                  onClick={() => setExamSelected(Object.fromEntries(examEligible.map((s) => [s.id, false])))}
+                >
+                  None
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mb-3">Students listed are those eligible for this course (by attendance). Uncheck anyone you don't want to receive it.</p>
+
+            <div className="border border-slate-200 rounded-xl max-h-56 overflow-y-auto divide-y divide-slate-100">
+              {examEligible.map((student) => (
+                <label key={student.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded"
+                    checked={Boolean(examSelected[student.id])}
+                    onChange={(e) => setExamSelected((prev) => ({ ...prev, [student.id]: e.target.checked }))}
+                  />
+                  <span className="text-sm text-slate-900">{student.full_name}</span>
+                  <span className="text-xs text-slate-500 ml-auto">{student.matric_no}</span>
+                </label>
+              ))}
+              {examEligible.length === 0 ? (
+                <p className="text-sm text-slate-400 p-4 text-center">No eligible students for this course yet.</p>
+              ) : null}
+            </div>
+
+            {examSendResult ? (
+              <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm">
+                <p className="text-emerald-700 font-medium">Sent to {examSendResult.sent} of {examSendResult.total} student(s).</p>
+                {examSendResult.failed > 0 ? (
+                  <p className="text-rose-600 mt-1">{examSendResult.failed} failed (see errors):</p>
+                ) : null}
+                {examSendResult.errors?.slice(0, 5).map((err, i) => (
+                  <p key={i} className="text-xs text-slate-500 mt-1">{err.student}: {err.error}</p>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex gap-2 justify-end mt-4">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                onClick={() => setExamSendTarget(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                disabled={examSending}
+                onClick={sendExamNow}
+                className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+              >
+                {examSending ? 'Sending…' : 'Send Exam'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

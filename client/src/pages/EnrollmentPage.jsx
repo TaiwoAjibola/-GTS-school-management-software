@@ -189,15 +189,48 @@ export default function EnrollmentPage() {
       <div className="space-y-5">
         {selectedCourse ? (
           <>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Current Course: {selectedCourse.title}</h2>
-              <p className="text-sm text-slate-500">
-                {selectedCourse.class_day} • {selectedCourse.duration_weeks} weeks
-                {selectedCourse.start_date ? ` • Starts ${fmtDate(selectedCourse.start_date)}` : ''}
-              </p>
-              {!currentCourseId ? (
-                <p className="text-xs text-amber-600 mt-1">No course is marked as current yet.</p>
-              ) : null}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Enrollment Overview</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Select any course (past or current) to view and manage its enrollments.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-slate-600 flex items-center gap-2">
+                    Course
+                    <select
+                      className="border rounded-lg px-3 py-2 text-sm font-medium min-w-64 bg-white"
+                      value={selectedCourseId ?? ''}
+                      onChange={(e) => setSelectedCourseId(Number(e.target.value))}
+                    >
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.is_current ? '★ ' : ''}{course.course_code ? `${course.course_code} — ` : ''}{course.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                {selectedCourse.is_current ? (
+                  <span className="rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold">
+                    Current course
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-slate-100 text-slate-600 px-2.5 py-1 text-xs font-semibold">
+                    Past / completed
+                  </span>
+                )}
+                {selectedCourse.class_day ? <span className="text-slate-500">{selectedCourse.class_day}</span> : null}
+                <span className="text-slate-500">• {selectedCourse.duration_weeks} weeks</span>
+                {selectedCourse.start_date ? <span className="text-slate-500">• Starts {fmtDate(selectedCourse.start_date)}</span> : null}
+                {!currentCourseId ? (
+                  <span className="text-xs text-amber-600">No course is marked as current yet.</span>
+                ) : null}
+              </div>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-600">
@@ -386,7 +419,7 @@ export default function EnrollmentPage() {
           </>
         ) : (
           <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400">
-            Set a current course in Courses page to manage enrollments.
+            No courses available. Create a course in the Courses section first.
           </div>
         )}
       </div>

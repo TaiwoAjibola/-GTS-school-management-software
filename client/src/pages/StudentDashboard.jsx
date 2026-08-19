@@ -21,20 +21,23 @@ const StudentDashboard = () => {
 
   const [courses, setCourses] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [exams, setExams] = useState([])
   const [results, setResults] = useState([])
   const [attendanceStates, setAttendanceStates] = useState({})
   const [progress, setProgress] = useState({})
   const [markedSessions, setMarkedSessions] = useState({})
 
   const load = async () => {
-    const [courseRes, assignmentRes, resultRes] = await Promise.all([
+    const [courseRes, assignmentRes, examRes, resultRes] = await Promise.all([
       apiClient.get('/courses/my-courses'),
       apiClient.get('/assignments/my'),
+      apiClient.get('/exams/my').catch(() => ({ data: [] })),
       apiClient.get('/results/my'),
     ])
 
     setCourses(courseRes.data)
     setAssignments(assignmentRes.data)
+    setExams(examRes.data)
     setResults(resultRes.data)
 
     const statusEntries = await Promise.all(
@@ -96,9 +99,10 @@ const StudentDashboard = () => {
 
   return (
     <AppShell title={title} navItems={navItems}>
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid sm:grid-cols-4 gap-4 mb-6">
         <Card title="Enrolled Courses" value={courses.length} />
         <Card title="Assignments" value={assignments.length} />
+        <Card title="Exams" value={exams.length} />
         <Card title="Results" value={results.length} />
       </div>
 
@@ -158,22 +162,46 @@ const StudentDashboard = () => {
       ) : null}
 
       {section === 'assignments' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="font-semibold mb-3">Assignments</h3>
-          <ul className="space-y-2 text-sm">
-            {assignments.map((assignment) => (
-              <li key={assignment.id} className="border border-slate-200 rounded-lg p-3">
-                <p className="font-medium">{assignment.title}</p>
-                <p className="text-slate-500">{assignment.course_title}</p>
-                <p className="text-slate-500 mt-1">{assignment.description}</p>
-                {assignment.attachment_url ? (
-                  <a className="text-slate-900 underline mt-1 inline-block" href={`${apiBase}${assignment.attachment_url}`} target="_blank" rel="noreferrer">
-                    View Attachment
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+        <div className="space-y-5">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-3">Assignments</h3>
+            <ul className="space-y-2 text-sm">
+              {assignments.map((assignment) => (
+                <li key={assignment.id} className="border border-slate-200 rounded-lg p-3">
+                  <p className="font-medium">{assignment.title}</p>
+                  <p className="text-slate-500">{assignment.course_title}</p>
+                  <p className="text-slate-500 mt-1">{assignment.description}</p>
+                  {assignment.attachment_url ? (
+                    <a className="text-slate-900 underline mt-1 inline-block" href={`${apiBase}${assignment.attachment_url}`} target="_blank" rel="noreferrer">
+                      View Attachment
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+              {assignments.length === 0 ? <p className="text-slate-400">No assignments yet.</p> : null}
+            </ul>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-3">Exam Papers</h3>
+            <div className="space-y-3">
+              {exams.map((exam) => (
+                <div key={exam.exam_id} className="border border-slate-200 rounded-lg p-3">
+                  <p className="font-medium">{exam.title}</p>
+                  <p className="text-slate-500">{exam.course_title}{exam.due_date ? ` • Due ${exam.due_date}` : ''}</p>
+                  {exam.description ? <p className="text-slate-500 mt-1">{exam.description}</p> : null}
+                  <ol className="mt-3 space-y-2">
+                    {exam.questions.map((q, i) => (
+                      <li key={q.id} className="text-sm text-slate-700">
+                        <strong>Q{i + 1}.</strong> {q.question_text}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+              {exams.length === 0 ? <p className="text-slate-400">No exam papers sent to you yet.</p> : null}
+            </div>
+          </div>
         </div>
       ) : null}
 

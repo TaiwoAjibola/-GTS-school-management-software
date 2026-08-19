@@ -162,6 +162,12 @@ const PublicFormPage = () => {
 
           {/* Form Body */}
           <form onSubmit={handleSubmit} className="p-8">
+            {form.status !== 'active' && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 mb-6">
+                <AlertCircle className="w-4 h-4" />
+                This form is not accepting submissions right now. Please check back later.
+              </div>
+            )}
             {Object.entries(groupedFields).map(([sectionName, sectionFields]) => (
               <div key={sectionName} className={sectionName !== '__default' ? 'mb-8' : ''}>
                 {sectionName !== '__default' && (
@@ -274,10 +280,12 @@ const PublicFormPage = () => {
             <div className="pt-6">
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || form.status !== 'active'}
                 className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {submitting ? (
+                {form.status !== 'active'
+                  ? 'Submissions Closed'
+                  : submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Submitting...

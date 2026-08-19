@@ -778,6 +778,8 @@ export const getGraduationMatrix = async (req, res, next) => {
          u.email,
          s.matric_no,
          s.status AS student_status,
+         s.cohort_id,
+         co.name AS cohort_name,
          c.id AS course_id,
          rr.status AS result_status,
          rr.score,
@@ -785,6 +787,7 @@ export const getGraduationMatrix = async (req, res, next) => {
          e.status AS enrollment_status
        FROM students s
        JOIN users u ON u.id = s.user_id
+       LEFT JOIN cohorts co ON co.id = s.cohort_id
        CROSS JOIN courses c
        LEFT JOIN enrollments e ON e.student_id = s.id AND e.course_id = c.id
        LEFT JOIN LATERAL (
@@ -806,6 +809,8 @@ export const getGraduationMatrix = async (req, res, next) => {
           email: row.email,
           matric_no: row.matric_no,
           status: row.student_status,
+          cohort_id: row.cohort_id,
+          cohort_name: row.cohort_name,
           courses: {},
         }
       }

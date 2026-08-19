@@ -5,6 +5,7 @@ import studentRoutes from './studentRoutes.js'
 import courseRoutes from './courseRoutes.js'
 import attendanceRoutes from './attendanceRoutes.js'
 import assignmentRoutes from './assignmentRoutes.js'
+import examRoutes from './examRoutes.js'
 import resultRoutes from './resultRoutes.js'
 import dashboardRoutes from './dashboardRoutes.js'
 import batchRoutes from './batchRoutes.js'
@@ -31,6 +32,7 @@ router.use('/students', studentRoutes)
 router.use('/courses', courseRoutes)
 router.use('/attendance', attendanceRoutes)
 router.use('/assignments', assignmentRoutes)
+router.use('/exams', examRoutes)
 router.use('/results', resultRoutes)
 router.use('/dashboard', dashboardRoutes)
 router.use('/batches', batchRoutes)

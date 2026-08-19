@@ -7,19 +7,21 @@ const STUDENT_COLUMNS = ['full_name', 'email', 'phone', 'comments']
 export const createForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
-    const { title, description, slug, fields, mapsToStudent, cohortId, logoUrl } = req.body
+    const { title, description, slug, fields, mapsToStudent, cohortId, logoUrl, status } = req.body
 
     if (!title || !slug) {
       throw httpError(400, 'Title and slug are required')
     }
 
+    const formStatus = ['draft', 'active', 'closed'].includes(status) ? status : 'draft'
+
     await client.query('BEGIN')
 
     const formResult = await client.query(
       `INSERT INTO forms (title, description, slug, status, created_by, maps_to_student, cohort_id, logo_url)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [title, description || null, slug, req.user.userId, mapsToStudent || false, cohortId || null, logoUrl || null]
+      [title, description || null, slug, formStatus, req.user.userId, mapsToStudent || false, cohortId || null, logoUrl || null]
     )
 
     const form = formResult.rows[0]
