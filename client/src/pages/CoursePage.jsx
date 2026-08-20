@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, ClipboardList, Pencil, Users, X } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import apiClient from '../api/client'
-import { lecturerNavItems } from '../constants/lecturerNav'
+import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -291,7 +291,7 @@ export default function CoursePage() {
 
   if (loading) {
     return (
-      <AppShell title="Course" navItems={lecturerNavItems}>
+      <AppShell title="Course" groups={lecturerNavGroups}>
         <p className="text-slate-500 text-sm">Loading...</p>
       </AppShell>
     )
@@ -299,7 +299,7 @@ export default function CoursePage() {
 
   if (!course) {
     return (
-      <AppShell title="Course Not Found" navItems={lecturerNavItems}>
+      <AppShell title="Course Not Found" groups={lecturerNavGroups}>
         <p className="text-slate-500 text-sm">{loadError || 'Course not found.'}</p>
         <Link to="/lecturer/courses" className="text-slate-900 underline text-sm">
           Back to Courses
@@ -309,7 +309,7 @@ export default function CoursePage() {
   }
 
   return (
-    <AppShell title={course.title} navItems={lecturerNavItems}>
+    <AppShell title={course.title} groups={lecturerNavGroups}>
       {notice ? (
         <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div>
       ) : null}
@@ -339,8 +339,8 @@ export default function CoursePage() {
                 <p className="text-slate-500 mt-2 max-w-2xl">{course.description}</p>
               ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
-                {statusBadge('Assignment', course.has_assignment, 'bg-blue-100 text-blue-800')}
-                {statusBadge('Exam', course.has_exam, 'bg-purple-100 text-purple-800')}
+                {statusBadge('Assignment', course.has_assignment, 'bg-sky-100 text-sky-800')}
+                {statusBadge('Exam', course.has_exam, 'bg-gold-100 text-gold-800')}
               </div>
             </div>
             <button
@@ -443,13 +443,13 @@ export default function CoursePage() {
           </div>
         </div>
       ) : upcomingBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-400 shrink-0" />
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gold-200 bg-gold-50 px-5 py-3">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gold-500 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-blue-800">
+            <p className="text-sm font-semibold text-gold-800">
               Upcoming: {upcomingBatch.name || `Batch #${upcomingBatch.id}`}
             </p>
-            <p className="text-xs text-blue-600 mt-0.5">
+            <p className="text-xs text-gold-600 mt-0.5">
               Starts {fmtDate(upcomingBatch.start_date)}
             </p>
           </div>
@@ -897,7 +897,7 @@ export default function CoursePage() {
             return sections.map(({ cohortName, rows }) => (
               <div key={cohortName} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
                 <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <span className="rounded-full bg-indigo-100 text-indigo-700 px-3 py-0.5 text-xs">{cohortName}</span>
+                  <span className="rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs">{cohortName}</span>
                   <span className="text-slate-400 text-xs font-normal">{rows.length} student{rows.length !== 1 ? 's' : ''}</span>
                 </h4>
                 <table className="w-full text-sm">

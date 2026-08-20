@@ -192,22 +192,32 @@ const PublicFormPage = () => {
                           </div>
                           {(() => {
                             const info = availability[field.id] || {}
-                            const options = field.options || []
-                            const bookedMap = info.booked || {}
+                            const slotList = (info.slots && info.slots.length ? info.slots : (field.options || []).map((opt) => ({
+                              value: opt.value,
+                              label: opt.label || '',
+                              date: opt.date || null,
+                              start: opt.start || '',
+                              end: opt.end || '',
+                              capacity: Number(opt.capacity || 1),
+                              booked: Number((info.booked || {})[opt.value] || 0),
+                            })))
                             const byDate = {}
-                            for (const opt of options) {
-                              const key = opt.date || 'No date'
+                            for (const s of slotList) {
+                              const key = s.date || 'Other'
                               if (!byDate[key]) byDate[key] = []
-                              byDate[key].push(opt)
+                              byDate[key].push(s)
+                            }
+                            if (!slotList.length) {
+                              return <p className="text-xs text-slate-400">No time slots available for this form.</p>
                             }
                             return Object.entries(byDate).map(([dateLabel, slots]) => (
                               <div key={dateLabel} className="space-y-2">
                                 <p className="text-sm font-semibold text-slate-800 capitalize">
-                                  {dateLabel === 'No date' ? dateLabel : new Date(dateLabel).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                                  {dateLabel === 'Other' ? 'Other slots' : new Date(dateLabel).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
                                 </p>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {slots.map((opt) => {
-                                    const booked = Number(bookedMap[opt.value] || 0)
+                                    const booked = Number(opt.booked || 0)
                                     const capacity = Number(opt.capacity || 1)
                                     const full = booked >= capacity
                                     const selected = formData[field.id] === opt.value

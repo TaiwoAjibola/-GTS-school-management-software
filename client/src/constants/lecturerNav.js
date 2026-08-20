@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, UserPlus, Users, Layers, UserCog, Settings, FileText, BarChart3, UserCheck, Library } from 'lucide-react'
+import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, UserPlus, Users, Layers, UserCog, Settings, FileText, BarChart3, Mail, Library } from 'lucide-react'
 
 export const lecturerNavItems = [
   { to: '/lecturer/courses', label: 'Courses', icon: BookOpen },
@@ -10,9 +10,51 @@ export const lecturerNavItems = [
   { to: '/lecturer/graduation', label: 'Graduation', icon: GraduationCap },
   { to: '/lecturer/assignments', label: 'Assignments', icon: SquarePen },
   { to: '/lecturer/forms', label: 'Forms', icon: FileText },
-  { to: '/lecturer/prospective-students', label: 'Prospective', icon: UserCheck },
   { to: '/lecturer/reports', label: 'Reports', icon: BarChart3 },
   { to: '/lecturer/book-ministry', label: 'Book Ministry', icon: Library },
+  { to: '/lecturer/email-process', label: 'Email Process', icon: Mail },
   { to: '/lecturer/lecturers', label: 'Lecturers', icon: UserCog },
   { to: '/lecturer/settings', label: 'Settings', icon: Settings },
+]
+
+export const lecturerNavGroups = [
+  {
+    label: 'Overview',
+    items: [
+      { to: '/lecturer/courses', label: 'Courses', icon: BookOpen },
+      { to: '/lecturer/attendance', label: 'Attendance', icon: ClipboardCheck },
+      { to: '/lecturer/results', label: 'Results', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Students',
+    items: [
+      { to: '/lecturer/students', label: 'Students', icon: Users },
+      { to: '/lecturer/graduation', label: 'Graduation', icon: GraduationCap },
+      { to: '/lecturer/batches', label: 'Batches', icon: Layers },
+      { to: '/lecturer/enrollment', label: 'Enrollment', icon: UserPlus },
+    ],
+  },
+  {
+    label: 'Academics',
+    items: [
+      { to: '/lecturer/assignments', label: 'Assignments', icon: SquarePen },
+      { to: '/lecturer/forms', label: 'Forms', icon: FileText },
+    ],
+  },
+  {
+    label: 'Engagement',
+    items: [
+      { to: '/lecturer/book-ministry', label: 'Book Ministry', icon: Library },
+      { to: '/lecturer/reports', label: 'Reports', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/lecturer/email-process', label: 'Email Process', icon: Mail },
+      { to: '/lecturer/lecturers', label: 'Lecturers', icon: UserCog },
+      { to: '/lecturer/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ]

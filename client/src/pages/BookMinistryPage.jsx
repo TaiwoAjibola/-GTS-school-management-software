@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, BookmarkCheck, Library, RefreshCw, Link2, FileText, Shield, Settings, Sliders, ExternalLink } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import apiClient from '../api/client'
-import { lecturerNavItems } from '../constants/lecturerNav'
+import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate } from '../utils/formatDate'
 
 const tabs = [
@@ -104,7 +104,7 @@ export default function BookMinistryPage() {
   }, [readingRecords, readingStudentFilter])
 
   return (
-    <AppShell title="Book Ministry" navItems={lecturerNavItems}>
+    <AppShell title="Book Ministry" groups={lecturerNavGroups}>
       {notice ? (
         <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div>
       ) : null}
@@ -159,8 +159,8 @@ export default function BookMinistryPage() {
                   { label: 'Linked Accounts', value: stats.linkedAccounts, color: 'text-sky-600', bg: 'bg-sky-50' },
                   { label: 'Active Borrows', value: stats.activeBorrows, color: 'text-amber-600', bg: 'bg-amber-50' },
                   { label: 'Active Reading', value: stats.activeReading, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Active Permissions', value: stats.activePermissions, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                  { label: 'Pending Requests', value: stats.pendingRequests, color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { label: 'Active Permissions', value: stats.activePermissions, color: 'text-gold-600', bg: 'bg-gold-50' },
+                  { label: 'Pending Requests', value: stats.pendingRequests, color: 'text-gold-600', bg: 'bg-gold-50' },
                 ].map(({ label, value, color, bg }) => (
                   <div key={label} className={`rounded-xl border border-slate-200 p-4 ${bg}`}>
                     <p className="text-3xl font-bold ${color}">{value}</p>
@@ -217,7 +217,7 @@ export default function BookMinistryPage() {
                     <tr key={a.id} className="border-t border-slate-200">
                       <td className="py-3 font-medium text-slate-900">{a.full_name}</td>
                       <td>{a.matric_no || '—'}</td>
-                      <td>{statusBadge(a.student_status, { Active: 'bg-emerald-100 text-emerald-800', Graduating: 'bg-blue-100 text-blue-800', Graduated: 'bg-purple-100 text-purple-800' })}</td>
+                      <td>{statusBadge(a.student_status, { Active: 'bg-emerald-100 text-emerald-800', Graduating: 'bg-sky-100 text-sky-800', Graduated: 'bg-gold-100 text-gold-800' })}</td>
                       <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{a.external_account_id}</code></td>
                       <td>{a.external_system}</td>
                       <td className="whitespace-nowrap">{fmtDate(a.linked_at)}</td>
@@ -273,7 +273,7 @@ export default function BookMinistryPage() {
                       <td className="whitespace-nowrap">{fmtDate(b.borrowed_at)}</td>
                       <td className="whitespace-nowrap">{b.due_at ? fmtDate(b.due_at) : '—'}</td>
                       <td className="whitespace-nowrap">{b.returned_at ? fmtDate(b.returned_at) : '—'}</td>
-                      <td>{statusBadge(b.status, { borrowed: 'bg-blue-100 text-blue-800', returned: 'bg-emerald-100 text-emerald-800', overdue: 'bg-red-100 text-red-800', lost: 'bg-slate-200 text-slate-700' })}</td>
+                      <td>{statusBadge(b.status, { borrowed: 'bg-sky-100 text-sky-800', returned: 'bg-emerald-100 text-emerald-800', overdue: 'bg-red-100 text-red-800', lost: 'bg-slate-200 text-slate-700' })}</td>
                     </tr>
                   ))}
                   {!filteredBorrowing.length && (
@@ -333,7 +333,7 @@ export default function BookMinistryPage() {
                       </td>
                       <td className="whitespace-nowrap">{r.started_at ? fmtDate(r.started_at) : '—'}</td>
                       <td className="whitespace-nowrap">{r.completed_at ? fmtDate(r.completed_at) : '—'}</td>
-                      <td>{statusBadge(r.status, { reading: 'bg-blue-100 text-blue-800', completed: 'bg-emerald-100 text-emerald-800', paused: 'bg-amber-100 text-amber-800', abandoned: 'bg-slate-100 text-slate-500' })}</td>
+                      <td>{statusBadge(r.status, { reading: 'bg-sky-100 text-sky-800', completed: 'bg-emerald-100 text-emerald-800', paused: 'bg-amber-100 text-amber-800', abandoned: 'bg-slate-100 text-slate-500' })}</td>
                     </tr>
                   ))}
                   {!filteredReading.length && (
@@ -448,7 +448,7 @@ export default function BookMinistryPage() {
                       <td>{r.isbn || '—'}</td>
                       <td>{r.requested_by_name || '—'}</td>
                       <td className="whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                      <td>{statusBadge(r.status, { pending: 'bg-amber-100 text-amber-800', approved: 'bg-blue-100 text-blue-800', fulfilled: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-slate-100 text-slate-500' })}</td>
+                      <td>{statusBadge(r.status, { pending: 'bg-amber-100 text-amber-800', approved: 'bg-sky-100 text-sky-800', fulfilled: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-slate-100 text-slate-500' })}</td>
                     </tr>
                   ))}
                   {!bookRequests.length && (

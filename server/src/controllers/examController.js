@@ -96,11 +96,14 @@ export const listExamsByCourse = async (req, res, next) => {
       `SELECT ex.*,
               u.full_name AS created_by_name,
               b.name AS batch_name,
+              p.name AS plan_name,
+              p.year AS plan_year,
               (SELECT COUNT(*)::int FROM exam_questions eq WHERE eq.exam_id = ex.id) AS question_count,
               (SELECT COUNT(*)::int FROM exam_deliveries ed WHERE ed.exam_id = ex.id) AS delivery_count
        FROM exams ex
        LEFT JOIN users u ON u.id = ex.created_by
        LEFT JOIN batches b ON b.id = ex.batch_id
+       LEFT JOIN course_plans p ON p.id = ex.plan_id
        WHERE ex.course_id = $1
        ORDER BY ex.created_at DESC`,
       [courseId]

@@ -4,7 +4,7 @@ import { ArrowLeft, X } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import ProgressBar from '../components/ui/ProgressBar'
 import apiClient from '../api/client'
-import { lecturerNavItems } from '../constants/lecturerNav'
+import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 
 const STATUS_COLORS = {
@@ -16,10 +16,9 @@ const STATUS_COLORS = {
   'On Hold': 'bg-orange-100 text-orange-800',
   Suspended: 'bg-red-100 text-red-800',
   Withdrawn: 'bg-gray-200 text-gray-700',
-  Transferred: 'bg-indigo-100 text-indigo-800',
-  Graduating: 'bg-blue-100 text-blue-800',
-  Completed: 'bg-teal-100 text-teal-800',
-  Graduated: 'bg-purple-100 text-purple-800',
+Transferred: 'bg-sky-100 text-sky-800',
+  Graduating: 'bg-sky-200 text-sky-800',
+  Graduated: 'bg-gold-200 text-gold-800',
   Alumni: 'bg-slate-200 text-slate-700',
 }
 
@@ -196,7 +195,7 @@ export default function StudentProfilePage() {
 
   if (loading) {
     return (
-      <AppShell title="Student Profile" navItems={lecturerNavItems}>
+      <AppShell title="Student Profile" groups={lecturerNavGroups}>
         <p className="text-slate-500 text-sm">Loading...</p>
       </AppShell>
     )
@@ -204,7 +203,7 @@ export default function StudentProfilePage() {
 
   if (!student) {
     return (
-      <AppShell title="Student Not Found" navItems={lecturerNavItems}>
+      <AppShell title="Student Not Found" groups={lecturerNavGroups}>
         <p className="text-slate-500 text-sm">{loadError || 'Student not found.'}</p>
         <Link to="/lecturer/students" className="text-slate-900 underline text-sm">
           Back to Students
@@ -214,7 +213,7 @@ export default function StudentProfilePage() {
   }
 
   return (
-    <AppShell title={student.full_name} navItems={lecturerNavItems}>
+    <AppShell title={student.full_name} groups={lecturerNavGroups}>
       {loadError ? (
         <div className="mb-4 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm">{loadError}</div>
       ) : null}
@@ -335,7 +334,7 @@ export default function StudentProfilePage() {
                 </>
               ) : (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs px-2.5 py-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 text-sky-700 text-xs px-2.5 py-1">
                     {cohorts.find((c) => c.id === student.cohort_id)?.name ?? 'No cohort'}
                   </span>
                   <button
@@ -746,7 +745,7 @@ export default function StudentProfilePage() {
               <div key={event.id} className="flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3">
                 <div className="flex flex-col items-center shrink-0">
                   <div className={`w-2.5 h-2.5 rounded-full ${
-                    event.type === 'status_transition' ? 'bg-blue-400' :
+                    event.type === 'status_transition' ? 'bg-gold-500' :
                     event.type === 'enrollment' ? 'bg-emerald-400' : 'bg-slate-400'
                   }`} />
                 </div>

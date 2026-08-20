@@ -5,7 +5,7 @@ import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
-import { lecturerNavItems } from '../constants/lecturerNav'
+import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
 
@@ -49,10 +49,10 @@ const STATUS_COLORS = {
   'On Hold': 'bg-orange-100 text-orange-800',
   Suspended: 'bg-red-100 text-red-800',
   Withdrawn: 'bg-gray-200 text-gray-700',
-  Transferred: 'bg-indigo-100 text-indigo-800',
-  Graduating: 'bg-blue-100 text-blue-800',
-  Completed: 'bg-teal-100 text-teal-800',
-  Graduated: 'bg-purple-100 text-purple-800',
+  Transferred: 'bg-sky-100 text-sky-800',
+  Graduating: 'bg-sky-200 text-sky-800',
+  Completed: 'bg-sky-100 text-sky-700',
+  Graduated: 'bg-gold-200 text-gold-800',
   Alumni: 'bg-slate-200 text-slate-700',
 }
 
@@ -111,7 +111,7 @@ const LecturerDashboard = () => {
   const [examsTab, setExamsTab] = useState('assignments')
   const [exams, setExams] = useState([])
   const [examsLoading, setExamsLoading] = useState(false)
-  const [examForm, setExamForm] = useState({ title: '', description: '', dueDate: '', examType: 'essay', quizUrl: '', questions: [{ text: '' }] })
+  const [examForm, setExamForm] = useState({ title: '', description: '', dueDate: '', examType: 'essay', quizUrl: '', planId: '', questions: [{ text: '' }] })
   const [examEligible, setExamEligible] = useState([])
   const [examSelected, setExamSelected] = useState({})
   const [examSendTarget, setExamSendTarget] = useState(null)
@@ -225,6 +225,7 @@ const LecturerDashboard = () => {
   const [credentialSaving, setCredentialSaving] = useState(false)
   const [prospectiveStudents, setProspectiveStudents] = useState([])
   const [prospectiveStudentsLoading, setProspectiveStudentsLoading] = useState(false)
+  const [studentsTab, setStudentsTab] = useState('students')
 
   const notify = (message) => {
     setNotice(message)
@@ -727,7 +728,7 @@ const LecturerDashboard = () => {
       loadForms()
       apiClient.get('/batches').then(res => setBatches(res.data)).catch(() => {})
     }
-    if (section === 'prospective-students') {
+    if (section === 'students') {
       loadProspectiveStudents()
     }
     if (section === 'reports') {
@@ -1334,6 +1335,7 @@ const LecturerDashboard = () => {
     try {
       await apiClient.post('/exams', {
         courseId: Number(selectedCourseId),
+        planId: examForm.planId ? Number(examForm.planId) : null,
         title: examForm.title.trim(),
         description: examForm.description.trim(),
         dueDate: examForm.dueDate || null,
@@ -1341,7 +1343,7 @@ const LecturerDashboard = () => {
         quizUrl: examForm.quizUrl.trim() || null,
         questions,
       })
-      setExamForm({ title: '', description: '', dueDate: '', examType: 'essay', quizUrl: '', questions: [{ text: '' }] })
+      setExamForm({ title: '', description: '', dueDate: '', examType: 'essay', quizUrl: '', planId: '', questions: [{ text: '' }] })
       await loadExams(selectedCourseId)
       notify('Exam saved')
     } catch (err) {
@@ -1451,11 +1453,15 @@ const LecturerDashboard = () => {
     graduation: 'Graduation',
     assignments: 'Assignments',
     lecturers: 'Lecturers',
-    'prospective-students': 'Prospective Students',
+    'email-process': 'Email Process',
+    forms: 'Forms',
+    reports: 'Reports',
+    'book-ministry': 'Book Ministry',
+    settings: 'Settings',
   }[section] || 'Lecturer Dashboard'
 
   return (
-    <AppShell title={sectionTitle} navItems={lecturerNavItems}>
+    <AppShell title={sectionTitle} groups={lecturerNavGroups}>
       {notice ? <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div> : null}
 
       {section === 'attendance' ? (
@@ -1632,7 +1638,7 @@ const LecturerDashboard = () => {
                         <span className="font-mono text-xs font-medium text-slate-500 bg-slate-100 rounded-md px-2 py-0.5">{course.course_code || '—'}</span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-cyan-700 transition-colors">
+                        <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-gold-700 transition-colors">
                           {course.title}
                         </Link>
                         {course.is_current && (
@@ -1916,15 +1922,15 @@ const LecturerDashboard = () => {
 
                   {/* Eligible students summary */}
                   {eligibleStudents.length > 0 ? (
-                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                      <p className="text-sm font-medium text-blue-800 mb-1">
+                    <div className="rounded-xl border border-gold-200 bg-gold-50 p-4">
+                      <p className="text-sm font-medium text-gold-800 mb-1">
                         {eligibleStudents.length} Eligible Student{eligibleStudents.length !== 1 ? 's' : ''} for {selectedPlan.year}
                       </p>
-                      <p className="text-xs text-blue-600">
+                      <p className="text-xs text-gold-600">
                         Includes cohorts {selectedPlan.year - 1}–{selectedPlan.year} plus any student with a prior failed result.
                       </p>
                       <details className="mt-2">
-                        <summary className="text-xs text-blue-700 cursor-pointer select-none">View list</summary>
+                        <summary className="text-xs text-gold-700 cursor-pointer select-none">View list</summary>
                         <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
                           {eligibleStudents.map((s) => (
                             <div key={s.id} className="flex items-center justify-between text-xs">
@@ -2204,7 +2210,79 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'students' ? (
-        <div className="grid xl:grid-cols-[390px_1fr] gap-6">
+        <div className="space-y-6">
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+            {[
+              { key: 'students', label: 'All Students' },
+              { key: 'prospective', label: 'Prospective' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setStudentsTab(key)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  studentsTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {studentsTab === 'prospective' ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-display text-xl font-semibold text-slate-900">Prospective Students</h3>
+                <p className="text-sm text-slate-500 mt-1">Students created from approved form submissions.</p>
+              </div>
+              {prospectiveStudentsLoading ? (
+                <p className="text-sm text-slate-500">Loading...</p>
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="text-left px-4 py-3 font-medium text-slate-700">Name</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-700">Email</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-700">Form</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-700">Cohort</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-700">Submitted</th>
+                          <th className="text-left px-4 py-3 font-medium text-slate-700">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prospectiveStudents.map((s) => (
+                          <tr key={s.student_id} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="px-4 py-3 font-medium text-slate-900">{s.full_name}</td>
+                            <td className="px-4 py-3 text-slate-600">{s.email}</td>
+                            <td className="px-4 py-3 text-slate-600">{s.form_title || '-'}</td>
+                            <td className="px-4 py-3 text-slate-600">{s.cohort_name || '-'}</td>
+                            <td className="px-4 py-3 text-slate-500 text-xs">
+                              {s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                                {s.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {!prospectiveStudents.length && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                              No prospective students yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+          <div className="grid xl:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-6">
             <form onSubmit={createStudent} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
               <h3 className="font-semibold text-slate-900">Create Student</h3>
@@ -2910,6 +2988,8 @@ const LecturerDashboard = () => {
             </div>
           ) : null}
         </div>
+        )}
+      </div>
       ) : null}
 
       {section === 'batches' ? (
@@ -2983,7 +3063,7 @@ const LecturerDashboard = () => {
             {(() => {
               const COHORT_STATUS_STYLES = {
                 active: 'bg-emerald-100 text-emerald-700',
-                upcoming: 'bg-blue-100 text-blue-700',
+                upcoming: 'bg-sky-100 text-sky-700',
                 completed: 'bg-slate-100 text-slate-500',
               }
               const matrixStudentById = Object.fromEntries(
@@ -3140,7 +3220,7 @@ const LecturerDashboard = () => {
                                         ) : null}
                                         <span className={`rounded-full px-2 py-0.5 text-xs ${
                                           student.status === 'Active' ? 'bg-emerald-50 text-emerald-600' :
-                                          student.status === 'Graduating' ? 'bg-blue-50 text-blue-600' :
+                                          student.status === 'Graduating' ? 'bg-gold-100 text-gold-600' :
                                           'bg-slate-100 text-slate-500'
                                         }`}>
                                           {student.status}
@@ -3699,7 +3779,7 @@ const LecturerDashboard = () => {
                                   min="0"
                                   max="100"
                                   placeholder="Score"
-                                  className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                                  className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-gold-400 bg-gold-50' : 'border-slate-200'}`}
                                   value={displayScore}
                                   onChange={(e) => {
                                     const val = e.target.value
@@ -3713,7 +3793,7 @@ const LecturerDashboard = () => {
                               </td>
                               <td className="py-2 px-3">
                                 <select
-                                  className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                                  className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-gold-400 bg-gold-50' : 'border-slate-200'}`}
                                   value={displayStatus}
                                   onChange={(e) => setPlanGridEdits((prev) => ({
                                     ...prev,
@@ -3780,7 +3860,7 @@ const LecturerDashboard = () => {
                         return (
                           <div key={cohort.cohort_id}>
                             <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                              <span className="rounded-full bg-indigo-100 text-indigo-700 px-3 py-0.5 text-xs">{cohort.cohort_name}</span>
+                              <span className="rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs">{cohort.cohort_name}</span>
                             </h4>
                             <div className="space-y-3">
                               {filteredCourses.map((course) => (
@@ -4048,26 +4128,41 @@ const LecturerDashboard = () => {
                 <p className="text-sm text-slate-500">Exams are saved per course, then emailed to selected or eligible students when it's time.</p>
 
                 <div>
-                  <p className="text-sm font-medium text-slate-700 mb-1.5">Exam Type</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { key: 'essay', label: 'Essay', hint: 'Questions emailed to students' },
-                      { key: 'mcq', label: 'MCQ', hint: 'Quiz link + access ID emailed' },
-                    ].map((t) => (
-                      <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => setExamForm((prev) => ({ ...prev, examType: t.key }))}
-                        className={`rounded-xl border px-3 py-2 text-left transition-colors ${
-                          examForm.examType === t.key ? 'border-sky-500 bg-sky-50' : 'border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="block text-sm font-semibold text-slate-900">{t.label}</span>
-                        <span className="block text-xs text-slate-500 mt-0.5">{t.hint}</span>
-                      </button>
-                    ))}
+                    <p className="text-sm font-medium text-slate-700 mb-1.5">Plan (academic year)</p>
+                    <select
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      value={examForm.planId}
+                      onChange={(event) => setExamForm((prev) => ({ ...prev, planId: event.target.value }))}
+                    >
+                      <option value="">None (general exam)</option>
+                      {plans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.year}{p.is_active ? ' (active)' : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-1.5">Exam Type</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { key: 'essay', label: 'Essay', hint: 'Questions emailed to students' },
+                        { key: 'mcq', label: 'MCQ', hint: 'Quiz link + access ID emailed' },
+                      ].map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => setExamForm((prev) => ({ ...prev, examType: t.key }))}
+                          className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                            examForm.examType === t.key ? 'border-sky-500 bg-sky-50' : 'border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="block text-sm font-semibold text-slate-900">{t.label}</span>
+                          <span className="block text-xs text-slate-500 mt-0.5">{t.hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                 <input className="w-full border rounded-lg px-3 py-2" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
                 <textarea className="w-full min-h-24 border rounded-lg px-3 py-2" placeholder="Instructions / description" value={examForm.description} onChange={(event) => setExamForm((prev) => ({ ...prev, description: event.target.value }))} />
@@ -4148,7 +4243,7 @@ const LecturerDashboard = () => {
                           <div>
                             <p className="font-semibold text-slate-900">
                               {exam.title}
-                              <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                              <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
                                 {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
                               </span>
                             </p>
@@ -4157,6 +4252,7 @@ const LecturerDashboard = () => {
                                 ? (exam.quiz_url ? <span className="break-all">{exam.quiz_url}</span> : 'No quiz URL set')
                                 : `${exam.question_count} question(s)`}
                               {' • '}{exam.delivery_count} delivered
+                              {exam.plan_name ? ` • ${exam.plan_name} (${exam.plan_year})` : ''}
                               {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
                             </p>
                             {exam.description ? <p className="text-sm text-slate-600 mt-1">{exam.description}</p> : null}
@@ -4433,13 +4529,15 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
 
+      {section === 'email-process' ? (
+        <EmailProcesses notify={notify} />
+      ) : null}
+
       {section === 'settings' ? (
         <div className="space-y-6">
-          {/* Settings tabs */}
           <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
             {[
-              { key: 'processes', label: 'Email Processes' },
-              user?.role === 'admin' && { key: 'credentials', label: 'Credentials' },
+              { key: 'credentials', label: 'Credentials' },
             ].filter(Boolean).map(({ key, label }) => (
               <button
                 key={key}
@@ -4454,9 +4552,7 @@ const LecturerDashboard = () => {
             ))}
           </div>
 
-          {settingsTab === 'processes' ? (
-            <EmailProcesses notify={notify} />
-          ) : settingsTab === 'credentials' ? (
+          {settingsTab === 'credentials' ? (
             <div className="max-w-lg">
               {!credentialFormOpen ? (
                 <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-center">
@@ -4574,7 +4670,7 @@ const LecturerDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Users className="w-6 h-6" /></div>
+                    <div className="p-2 bg-gold-50 rounded-lg text-gold-600"><Users className="w-6 h-6" /></div>
                     <span className="text-xs font-medium text-slate-500 uppercase">Students</span>
                   </div>
                   <div className="text-2xl font-bold text-slate-900">{reportStats?.students?.total_students || 0}</div>
@@ -4586,7 +4682,7 @@ const LecturerDashboard = () => {
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-purple-50 rounded-lg text-purple-600"><BookOpen className="w-6 h-6" /></div>
+                    <div className="p-2 bg-gold-100 rounded-lg text-gold-600"><BookOpen className="w-6 h-6" /></div>
                     <span className="text-xs font-medium text-slate-500 uppercase">Courses</span>
                   </div>
                   <div className="text-2xl font-bold text-slate-900">{reportStats?.courses?.total_courses || 0}</div>
@@ -4754,7 +4850,7 @@ const LecturerDashboard = () => {
                       {form.description && <p className="text-sm text-slate-500 mt-1">{form.description}</p>}
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         {form.maps_to_student && (
-                          <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700">
+                          <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-sky-100 text-sky-700">
                             Student Application
                           </span>
                         )}
@@ -4861,7 +4957,7 @@ const LecturerDashboard = () => {
                               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                                 sub.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                                 sub.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                sub.status === 'reviewed' ? 'bg-blue-100 text-blue-700' :
+                                sub.status === 'reviewed' ? 'bg-sky-100 text-sky-700' :
                                 'bg-slate-100 text-slate-600'
                               }`}>
                                 {sub.status}
@@ -5210,6 +5306,33 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     )
   }
 
+  const getRecurring = (field) => (field?.options || []).find((o) => o && o.recurring) || null
+
+  const updateRecurring = (fieldIndex, updates) => {
+    setFields((prev) =>
+      prev.map((f, i) => {
+        if (i !== fieldIndex) return f
+        const existing = (f.options || []).find((o) => o && o.recurring)
+        const rest = (f.options || []).filter((o) => !o || !o.recurring)
+        const base = existing || { value: '__recurring__', label: '', recurring: { weekdays: [3], startTime: '09:00', endTime: '17:00', slotMinutes: 60, capacity: 1, weeksAhead: 4 } }
+        const next = { ...base, recurring: { ...base.recurring, ...updates } }
+        return { ...f, options: [...rest, next] }
+      })
+    )
+  }
+
+  const updateRecurringMeta = (fieldIndex, updates) => {
+    setFields((prev) =>
+      prev.map((f, i) => {
+        if (i !== fieldIndex) return f
+        const existing = (f.options || []).find((o) => o && o.recurring)
+        if (!existing) return f
+        const rest = (f.options || []).filter((o) => !o || !o.recurring)
+        return { ...f, options: [...rest, { ...existing, ...updates }] }
+      })
+    )
+  }
+
   const addSlot = (fieldIndex) => {
     const idx = fields[fieldIndex]?.options?.length || 0
     setFields((prev) =>
@@ -5239,6 +5362,12 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
       prev.map((f, i) =>
         i === fieldIndex ? { ...f, options: f.options.filter((_, j) => j !== optIndex) } : f
       )
+    )
+  }
+
+  const removeRecurring = (fieldIndex) => {
+    setFields((prev) =>
+      prev.map((f, i) => (i === fieldIndex ? { ...f, options: (f.options || []).filter((o) => !o || !o.recurring) } : f))
     )
   }
 
@@ -5644,15 +5773,141 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                   {field.fieldType === 'availability' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-700">Time Slots (Calendly-style)</span>
+                        <span className="text-sm font-medium text-slate-700">Time Slots (Calendly)</span>
+                        <span className="text-xs text-slate-400">Recurring availability + one-off slots</span>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Students pick one slot when they submit. Capacity stops a slot once it's fully booked (set 1 for a personal one-on-one booking).
+                      </p>
+
+                      {/* Recurring weekly availability */}
+                      {(() => {
+                        const rec = getRecurring(field)
+                        const r = rec?.recurring || {}
+                        return (
+                          <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-white">
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rec}
+                                  onChange={(e) => (e.target.checked ? updateRecurring(idx, {}) : removeRecurring(idx))}
+                                  className="accent-sky-600"
+                                />
+                                Recurring weekly availability
+                              </label>
+                              {rec && (
+                                <button type="button" onClick={() => removeRecurring(idx)} className="text-xs text-red-500 hover:underline">
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            {rec && (
+                              <>
+                                <div>
+                                  <p className="text-xs text-slate-600 mb-1.5">Days of the week</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, d) => {
+                                      const dayNum = d + 1
+                                      const active = (r.weekdays || []).includes(dayNum)
+                                      return (
+                                        <button
+                                          key={dayNum}
+                                          type="button"
+                                          onClick={() =>
+                                            updateRecurring(
+                                              idx,
+                                              active
+                                                ? { weekdays: (r.weekdays || []).filter((x) => x !== dayNum) }
+                                                : { weekdays: [...(r.weekdays || []), dayNum] }
+                                            )
+                                          }
+                                          className={`rounded-lg px-2.5 py-1 text-xs border ${
+                                            active ? 'bg-sky-600 text-white border-sky-600' : 'border-slate-200 text-slate-600'
+                                          }`}
+                                        >
+                                          {dayName}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <label className="text-xs text-slate-600 block">
+                                    Start time
+                                    <input
+                                      type="time"
+                                      className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                      value={r.startTime || '09:00'}
+                                      onChange={(e) => updateRecurring(idx, { startTime: e.target.value })}
+                                    />
+                                  </label>
+                                  <label className="text-xs text-slate-600 block">
+                                    End time
+                                    <input
+                                      type="time"
+                                      className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                      value={r.endTime || '17:00'}
+                                      onChange={(e) => updateRecurring(idx, { endTime: e.target.value })}
+                                    />
+                                  </label>
+                                  <label className="text-xs text-slate-600 block">
+                                    Slot length (min)
+                                    <input
+                                      type="number"
+                                      min="15"
+                                      step="15"
+                                      className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                      value={r.slotMinutes || 60}
+                                      onChange={(e) => updateRecurring(idx, { slotMinutes: Number(e.target.value) || 60 })}
+                                    />
+                                  </label>
+                                  <label className="text-xs text-slate-600 block">
+                                    Booking capacity per slot
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                      value={r.capacity || 1}
+                                      onChange={(e) => updateRecurring(idx, { capacity: Number(e.target.value) || 1 })}
+                                    />
+                                  </label>
+                                  <label className="text-xs text-slate-600 block col-span-2">
+                                    Bookable for next (weeks)
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="12"
+                                      className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                      value={r.weeksAhead || 4}
+                                      onChange={(e) => updateRecurring(idx, { weeksAhead: Number(e.target.value) || 4 })}
+                                    />
+                                  </label>
+                                </div>
+                                <label className="text-xs text-slate-600 block">
+                                  Label (shown to students)
+                                  <input
+                                    className="mt-0.5 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                    placeholder="e.g. Weekly mentorship slot"
+                                    value={rec.label || ''}
+                                    onChange={(e) => updateRecurringMeta(idx, { label: e.target.value })}
+                                  />
+                                </label>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* One-off manual slots */}
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-sm font-medium text-slate-700">One-off slots</span>
                         <button type="button" onClick={() => addSlot(idx)} className="text-xs text-sky-600 hover:underline">
                           + Add Slot
                         </button>
                       </div>
-                      <p className="text-xs text-slate-400">
-                        Students pick one slot when they submit. Capacity stops a slot once it's fully booked.
-                      </p>
                       {field.options.map((opt, optIdx) => (
+                        opt.recurring ? null : (
                         <div key={optIdx} className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
                           <div className="grid grid-cols-2 gap-2">
                             <label className="text-xs text-slate-600 block">
@@ -5710,10 +5965,15 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                             </button>
                           </div>
                         </div>
+                        )
                       ))}
-                      {!field.options.length && (
-                        <p className="text-xs text-slate-400">No time slots added yet.</p>
-                      )}
+                      {(() => {
+                        const manualCount = (field.options || []).filter((o) => !o || !o.recurring).length
+                        const rec = getRecurring(field)
+                        return (!manualCount && !rec) ? (
+                          <p className="text-xs text-slate-400">No time slots added yet.</p>
+                        ) : null
+                      })()}
                     </div>
                   )}
                 </div>

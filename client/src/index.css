@@ -1,12 +1,114 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+
+  /* Warm neutral ink scale (replaces slate) */
+  --color-slate-50: #fbf9f6;
+  --color-slate-100: #f4f0e9;
+  --color-slate-200: #e7e0d3;
+  --color-slate-300: #d3c8b4;
+  --color-slate-400: #b0a48c;
+  --color-slate-500: #8e826c;
+  --color-slate-600: #6e6352;
+  --color-slate-700: #514840;
+  --color-slate-800: #352f2a;
+  --color-slate-900: #211d19;
+  --color-slate-950: #16130f;
+
+  /* Brand gold (from the GTS crest), replaces sky */
+  --color-sky-50: #fbf6ea;
+  --color-sky-100: #f6ebd3;
+  --color-sky-200: #eed9ac;
+  --color-sky-300: #e0c07f;
+  --color-sky-400: #c9a15c;
+  --color-sky-500: #aa8b55;
+  --color-sky-600: #8a6f3d;
+  --color-sky-700: #6c562e;
+  --color-sky-800: #4d3d21;
+  --color-sky-900: #302717;
+
+  /* Brand aliases for custom components */
+  --color-gold-50: #fbf6ea;
+  --color-gold-100: #f6ebd3;
+  --color-gold-200: #eed9ac;
+  --color-gold-300: #e0c07f;
+  --color-gold-400: #c9a15c;
+  --color-gold-500: #aa8b55;
+  --color-gold-600: #8a6f3d;
+  --color-gold-700: #6c562e;
+  --color-gold-800: #4d3d21;
+  --color-gold-900: #302717;
+
+  --color-paper: #f7f4ee;
+  --color-ink: #211d19;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  color: #0f172a;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(170, 139, 85, 0.10), transparent 60%),
+    radial-gradient(1000px 500px at -10% 0%, rgba(170, 139, 85, 0.08), transparent 55%),
+    linear-gradient(180deg, #faf8f4 0%, #f3efe7 100%);
+  background-attachment: fixed;
+  color: #211d19;
+  min-height: 100vh;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Elegant serif headings */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  font-variant-ligatures: common-ligatures;
+}
+
+::selection {
+  background: rgba(170, 139, 85, 0.28);
+  color: #211d19;
+}
+
+:focus-visible {
+  outline: 2px solid #aa8b55;
+  outline-offset: 2px;
+}
+
+/* Warm scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d3c8b4;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #aa8b55;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Refined default inputs */
+input, select, textarea {
+  border-radius: 0.65rem;
+  background-color: #fffdf9;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #aa8b55 !important;
+  box-shadow: 0 0 0 3px rgba(170, 139, 85, 0.18);
+  outline: none;
 }

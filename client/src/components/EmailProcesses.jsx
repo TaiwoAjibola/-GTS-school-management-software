@@ -684,7 +684,7 @@ export default function EmailProcesses({ notify }) {
                 {sendResult && (
                   <div className={`rounded-xl p-3 text-xs whitespace-pre-wrap flex items-center gap-2 ${
                     sendResult.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
-                    sendResult.type === 'progress' ? 'bg-blue-50 border border-blue-200 text-blue-800' :
+                    sendResult.type === 'progress' ? 'bg-sky-50 border border-sky-200 text-sky-800' :
                     sendResult.type === 'partial' ? 'bg-amber-50 border border-amber-200 text-amber-800' :
                     'bg-red-50 border border-red-200 text-red-800'
                   }`}>

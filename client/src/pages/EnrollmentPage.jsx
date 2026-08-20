@@ -3,19 +3,19 @@ import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import apiClient from '../api/client'
-import { lecturerNavItems } from '../constants/lecturerNav'
+import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 
 const COHORT_STATUS_STYLES = {
   active: 'bg-emerald-100 text-emerald-700',
-  upcoming: 'bg-blue-100 text-blue-700',
+  upcoming: 'bg-sky-100 text-sky-700',
   completed: 'bg-slate-200 text-slate-600',
 }
 
 const CANDIDATE_REASON_META = {
   retake_failed: { label: 'Retake (Failed)', badgeClass: 'bg-red-100 text-red-700' },
   rejoin_withdrawn: { label: 'Rejoin (Withdrawn)', badgeClass: 'bg-amber-100 text-amber-700' },
-  new_candidate: { label: 'New Candidate', badgeClass: 'bg-blue-100 text-blue-700' },
+  new_candidate: { label: 'New Candidate', badgeClass: 'bg-sky-100 text-sky-700' },
 }
 
 const CANDIDATE_REASON_ORDER = ['retake_failed', 'rejoin_withdrawn', 'new_candidate']
@@ -172,7 +172,7 @@ export default function EnrollmentPage() {
   const selectedCourse = courses.find((c) => c.id === selectedCourseId)
 
   return (
-    <AppShell navItems={lecturerNavItems}>
+    <AppShell groups={lecturerNavGroups}>
       {notice ? (
         <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white rounded-xl px-4 py-3 shadow-lg text-sm">
           {notice}
@@ -293,7 +293,7 @@ export default function EnrollmentPage() {
                     <span className="text-xs rounded-full px-2 py-1 bg-amber-100 text-amber-700">
                       Rejoin: {candidateCounts?.rejoin_withdrawn ?? '…'}
                     </span>
-                    <span className="text-xs rounded-full px-2 py-1 bg-blue-100 text-blue-700">
+                    <span className="text-xs rounded-full px-2 py-1 bg-sky-100 text-sky-700">
                       New: {candidateCounts?.new_candidate ?? '…'}
                     </span>
                   </div>
@@ -332,7 +332,7 @@ export default function EnrollmentPage() {
                                   <td>
                                     <span className={`text-xs rounded-full px-2 py-0.5 ${
                                       s.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                                      s.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                      s.status === 'completed' ? 'bg-sky-100 text-sky-700' :
                                       s.status === 'failed' ? 'bg-red-100 text-red-700' :
                                       'bg-slate-100 text-slate-600'
                                     }`}>

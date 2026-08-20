@@ -4,6 +4,89 @@ import { httpError } from '../utils/httpError.js'
 
 const STUDENT_COLUMNS = ['full_name', 'email', 'phone', 'comments']
 
+// ---------------------------------------------------------------------------
+// Availability / booking helpers (Calendly-style)
+// An availability field's options array may contain:
+//   - manual discrete slots: { value, label, date, start, end, capacity }
+//   - one recurring rule:     { value: '__recurring__', recurring: {
+//       weekdays: [1..7] (1=Mon), startTime, endTime, slotMinutes, capacity, weeksAhead } }
+// ---------------------------------------------------------------------------
+
+const RECURRING_VALUE = '__recurring__'
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const pad = (n) => String(n).padStart(2, '0')
+
+const toDateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+// Expand a field's options into a flat list of concrete bookable slots.
+export const expandAvailabilitySlots = (options = []) => {
+  const recurring = options.find((o) => o?.recurring)
+  const slots = []
+
+  for (const opt of options) {
+    if (opt?.recurring) continue
+    slots.push({ ...opt, kind: 'manual' })
+  }
+
+  if (!recurring) return slots
+
+  const r = recurring.recurring || {}
+  const weekdays = Array.isArray(r.weekdays) ? r.weekdays.map(Number).filter((d) => d >= 1 && d <= 7) : []
+  const startTime = String(r.startTime || '09:00')
+  const endTime = String(r.endTime || '17:00')
+  const slotMinutes = Math.max(15, Number(r.slotMinutes) || 60)
+  const capacity = Math.max(1, Number(r.capacity) || 1)
+  const weeksAhead = Math.min(12, Math.max(1, Number(r.weeksAhead) || 4))
+
+  if (!weekdays.length) return slots
+
+  const startMinutes = timeToMinutes(startTime)
+  const endMinutes = timeToMinutes(endTime)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Align to the Monday of the current week (JS getDay(): 0=Sun)
+  const monday = new Date(today)
+  const dow = (today.getDay() + 6) % 7 // 0=Mon
+  monday.setDate(today.getDate() - dow)
+
+  // Generate concrete date+time slots for the next `weeksAhead` weeks
+  for (let w = 0; w < weeksAhead; w++) {
+    const weekStart = new Date(monday)
+    weekStart.setDate(monday.getDate() + w * 7)
+    for (const weekday of weekdays) {
+      const dayDate = new Date(weekStart)
+      dayDate.setDate(weekStart.getDate() + (weekday - 1)) // weekday 1=Mon
+      if (dayDate < today) continue
+      const dateKey = toDateKey(dayDate)
+      for (let m = startMinutes; m + slotMinutes <= endMinutes; m += slotMinutes) {
+        const startStr = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+        const endStr = `${pad(Math.floor((m + slotMinutes) / 60))}:${pad((m + slotMinutes) % 60)}`
+        const value = `${dateKey}T${startStr}`
+        slots.push({
+          value,
+          label: recurring.label || '',
+          date: dateKey,
+          start: startStr,
+          end: endStr,
+          capacity,
+          kind: 'recurring',
+        })
+      }
+    }
+  }
+
+  return slots
+}
+
+export const timeToMinutes = (time) => {
+  const [h, m] = String(time || '00:00').split(':').map(Number)
+  return (Number(h) || 0) * 60 + (Number(m) || 0)
+}
+
 export const createForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
@@ -221,12 +304,12 @@ export const submitForm = async (req, res, next) => {
       if (field.field_type !== 'availability') continue
       const value = data[field.id]
       if (value === undefined || value === null || value === '') continue
-      const options = field.options || []
-      const option = options.find((o) => String(o.value) === String(value))
-      if (!option) {
+      const slots = expandAvailabilitySlots(field.options || [])
+      const slot = slots.find((s) => String(s.value) === String(value))
+      if (!slot) {
         throw httpError(400, `${field.label}: unknown time slot selected`)
       }
-      const capacity = Number(option.capacity || 1)
+      const capacity = Number(slot.capacity || 1)
       const bookedResult = await client.query(
         `SELECT COUNT(*)::int AS count
          FROM form_submissions
@@ -491,7 +574,18 @@ export const getFormAvailability = async (req, res, next) => {
       for (const row of bookings.rows) {
         counts[String(row.slot_value)] = row.count
       }
-      result[field.id] = { fieldId: field.id, options: field.options || [], booked: counts }
+      const expanded = expandAvailabilitySlots(field.options || [])
+      const slots = expanded.map((s) => ({
+        value: s.value,
+        label: s.label || '',
+        date: s.date || null,
+        start: s.start || null,
+        end: s.end || null,
+        capacity: Number(s.capacity || 1),
+        kind: s.kind || 'manual',
+        booked: Number(counts[String(s.value)] || 0),
+      }))
+      result[field.id] = { fieldId: field.id, options: field.options || [], slots, booked: counts }
     }
 
     res.json(result)

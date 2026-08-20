@@ -191,7 +191,7 @@ const StudentDashboard = () => {
                     <div>
                       <p className="font-medium">
                         {exam.title}
-                        <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                        <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
                           {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
                         </span>
                       </p>
