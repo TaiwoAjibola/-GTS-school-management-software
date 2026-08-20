@@ -184,7 +184,36 @@ export const getFormBySlug = async (req, res, next) => {
       'SELECT * FROM form_fields WHERE form_id = $1 ORDER BY order_index ASC',
       [form.id]
     )
-    res.json({ ...form, fields: fieldsResult.rows })
+
+    const fields = fieldsResult.rows
+    let graduates = []
+    if (fields.some((f) => f.field_type === 'graduate_select')) {
+      const gradResult = await query(
+        `SELECT s.id, u.full_name, u.email, s.matric_no, s.status
+         FROM students s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.status IN ('Graduating', 'Graduated')
+         ORDER BY u.full_name ASC`
+      )
+      graduates = gradResult.rows
+    }
+
+    res.json({ ...form, fields, graduates })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getGraduatingStudentsForForms = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT s.id, u.full_name, u.email, s.matric_no, s.status
+       FROM students s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.status IN ('Graduating', 'Graduated')
+       ORDER BY u.full_name ASC`
+    )
+    res.json(result.rows)
   } catch (error) {
     next(error)
   }

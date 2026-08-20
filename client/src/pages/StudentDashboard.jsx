@@ -200,8 +200,11 @@ const StudentDashboard = () => {
                   </div>
                   {exam.description ? <p className="text-slate-500 mt-1">{exam.description}</p> : null}
                   {exam.exam_type === 'mcq' ? (
-                    <div className="mt-3 rounded-xl bg-sky-50 border border-sky-200 p-3">
-                      {exam.quiz_url ? (
+                    <div className="mt-3 rounded-xl bg-sky-50 border border-sky-200 p-3 space-y-2">
+                      {exam.submission_id ? (
+                        <p className="text-sm text-emerald-700 font-medium">Submitted{exam.result_sent_at ? ` · result emailed` : ' · result pending release'}</p>
+                      ) : null}
+                      {exam.quiz_url && !exam.submission_id ? (
                         <a
                           href={exam.quiz_url}
                           target="_blank"
@@ -210,11 +213,11 @@ const StudentDashboard = () => {
                         >
                           Open Quiz
                         </a>
-                      ) : (
+                      ) : !exam.submission_id ? (
                         <p className="text-xs text-slate-500">Check your email for the quiz link.</p>
-                      )}
-                      {exam.access_code ? (
-                        <p className="mt-2 text-xs text-slate-500">
+                      ) : null}
+                      {exam.access_code && !exam.submission_id ? (
+                        <p className="text-xs text-slate-500">
                           Your access ID:{' '}
                           <span className="font-mono font-bold text-sky-800 tracking-widest">{exam.access_code}</span>
                         </p>

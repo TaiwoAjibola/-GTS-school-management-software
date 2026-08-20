@@ -9,6 +9,7 @@ import StudentDashboard from './pages/StudentDashboard'
 import EnrollmentPage from './pages/EnrollmentPage'
 import BookMinistryPage from './pages/BookMinistryPage'
 import PublicFormPage from './pages/PublicFormPage'
+import PublicQuizPage from './pages/PublicQuizPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 const HomeRedirect = () => {
@@ -25,6 +26,7 @@ function App() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forms/:slug" element={<PublicFormPage />} />
+      <Route path="/quiz/:token" element={<PublicQuizPage />} />
       <Route path="/admin/*" element={<Navigate to="/lecturer/courses" replace />} />
       <Route
         path="/lecturer/courses/:courseId"

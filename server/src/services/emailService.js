@@ -128,7 +128,7 @@ export const sendExamEmail = async ({ to, studentName, courseTitle, examTitle, d
          </div>`
       : ''
     bodyHtml = `
-      <p style="color:#334155;margin:0 0 16px">Your online MCQ exam is ready below. Use the access ID provided to unlock and start the quiz. You can take it as many times as needed before the deadline.</p>
+      <p style="color:#334155;margin:0 0 16px">Your online MCQ exam is ready. Open the quiz link below and enter your Access ID to unlock the questions. Submit once — your score is stored and will be emailed when the lecturer releases results.</p>
       <a href="${link}" style="display:inline-block;background:#0891b2;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Open Quiz</a>
       ${codeBox}
       ${dueLine}`
@@ -157,6 +157,31 @@ export const sendExamEmail = async ({ to, studentName, courseTitle, examTitle, d
     </div>`
 
   return sendRawEmail({ to, subject: `Exam Paper: ${examTitle}`, html })
+}
+
+export const sendMcqResultEmail = async ({ to, studentName, courseTitle, examTitle, score, correctCount, totalQuestions }) => {
+  const escapeHtml = (value) =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
+      <h2 style="color:#0f172a;margin:0 0 4px">${escapeHtml(examTitle)} — Result</h2>
+      <p style="color:#475569;margin:0 0 16px">${escapeHtml(courseTitle || '')}</p>
+      <p style="color:#0f172a;margin:0 0 16px">Dear ${escapeHtml(studentName)},</p>
+      <p style="color:#334155;margin:0 0 16px">Your MCQ exam result is now available.</p>
+      <div style="margin:16px 0;padding:18px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;text-align:center">
+        <p style="margin:0;font-size:12px;color:#166534;font-weight:bold;letter-spacing:1px">SCORE</p>
+        <p style="margin:6px 0 0;font-size:36px;font-weight:bold;color:#14532d">${escapeHtml(score)}%</p>
+        <p style="margin:8px 0 0;font-size:14px;color:#166534">${escapeHtml(correctCount)} of ${escapeHtml(totalQuestions)} correct</p>
+      </div>
+      <p style="color:#475569;margin:16px 0 0;font-size:12px">Grace Theological Seminary (GTS)</p>
+    </div>`
+
+  return sendRawEmail({ to, subject: `MCQ Result: ${examTitle}`, html })
 }
 
 export const sendCourseMaterialEmail = async ({ to, studentName, courseTitle, materialTitle, materialDescription, sectionNumber, materialUrl }) => {

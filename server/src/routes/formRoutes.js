@@ -13,6 +13,7 @@ import {
   deleteSubmission,
   getProspectiveStudents,
   getFormAvailability,
+  getGraduatingStudentsForForms,
 } from '../controllers/formController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
@@ -27,6 +28,7 @@ router.post('/submit', submitForm)
 router.use(authenticate)
 router.post('/', authorize('admin', 'lecturer'), createForm)
 router.get('/', authorize('admin', 'lecturer'), listForms)
+router.get('/graduating-students', authorize('admin', 'lecturer'), getGraduatingStudentsForForms)
 router.get('/prospective-students', authorize('admin', 'lecturer'), getProspectiveStudents)
 router.get('/submissions', authorize('admin', 'lecturer'), getAllSubmissions)
 router.get('/:id', authorize('admin', 'lecturer'), getForm)

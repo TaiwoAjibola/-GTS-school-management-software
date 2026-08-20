@@ -10,12 +10,14 @@ const PublicFormPage = () => {
   const { slug } = useParams()
   const [form, setForm] = useState(null)
   const [fields, setFields] = useState([])
+  const [graduates, setGraduates] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState({})
   const [availability, setAvailability] = useState({})
+  const [selectedDates, setSelectedDates] = useState({}) // fieldId -> date key
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -23,6 +25,7 @@ const PublicFormPage = () => {
         const res = await apiClient.get(`/forms/public/${slug}`)
         setForm(res.data)
         setFields(res.data.fields || [])
+        setGraduates(res.data.graduates || [])
         const initial = {}
         res.data.fields.forEach(f => {
           initial[f.id] = f.field_type === 'checkbox' ? false : ''
@@ -80,6 +83,20 @@ const PublicFormPage = () => {
         if (nameField && formData[nameField.id]) submitterName = formData[nameField.id]
         if (emailField && formData[emailField.id]) submitterEmail = formData[emailField.id]
       }
+
+      // Graduate dropdown: resolve name/email for submitter metadata
+      const gradField = fields.find(f => f.field_type === 'graduate_select')
+      if (gradField && formData[gradField.id]) {
+        const g = graduates.find(x => String(x.id) === String(formData[gradField.id]))
+        if (g) {
+          submitterName = submitterName || g.full_name
+          submitterEmail = submitterEmail || g.email
+        }
+      }
+
+      // Prefer explicit email field if filled
+      const emailField = fields.find(f => f.field_type === 'email')
+      if (emailField && formData[emailField.id]) submitterEmail = formData[emailField.id]
 
       await apiClient.post('/forms/submit', {
         slug,
@@ -185,14 +202,38 @@ const PublicFormPage = () => {
                         {field.required && <span className="text-red-500">*</span>}
                       </label>
 
-                      {field.field_type === 'availability' ? (
+                      {field.field_type === 'graduate_select' ? (
+                        <select
+                          required={field.required}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => {
+                            const id = e.target.value
+                            handleChange(field.id, id)
+                            const g = graduates.find((x) => String(x.id) === String(id))
+                            if (g) {
+                              const emailField = fields.find((f) => f.field_type === 'email')
+                              if (emailField && !formData[emailField.id]) {
+                                handleChange(emailField.id, g.email || '')
+                              }
+                            }
+                          }}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all appearance-none bg-white"
+                        >
+                          <option value="">{field.placeholder || 'Select your name'}</option>
+                          {graduates.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.full_name}{g.matric_no ? ` (${g.matric_no})` : ''} — {g.status}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.field_type === 'availability' ? (
                         <div className="space-y-3">
                           <div className="border border-sky-100 bg-sky-50 rounded-xl px-4 py-3 text-sm text-sky-800">
-                            Pick a time slot below. Each slot holds a limited number of bookings.
+                            1) Choose a date · 2) Choose a time. Fully booked slots are disabled (unique booking).
                           </div>
                           {(() => {
                             const info = availability[field.id] || {}
-                            const slotList = (info.slots && info.slots.length ? info.slots : (field.options || []).map((opt) => ({
+                            const slotList = (info.slots && info.slots.length ? info.slots : (field.options || []).filter((o) => !o.recurring).map((opt) => ({
                               value: opt.value,
                               label: opt.label || '',
                               date: opt.date || null,
@@ -207,50 +248,91 @@ const PublicFormPage = () => {
                               if (!byDate[key]) byDate[key] = []
                               byDate[key].push(s)
                             }
+                            const dateKeys = Object.keys(byDate).sort()
                             if (!slotList.length) {
                               return <p className="text-xs text-slate-400">No time slots available for this form.</p>
                             }
-                            return Object.entries(byDate).map(([dateLabel, slots]) => (
-                              <div key={dateLabel} className="space-y-2">
-                                <p className="text-sm font-semibold text-slate-800 capitalize">
-                                  {dateLabel === 'Other' ? 'Other slots' : new Date(dateLabel).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
-                                </p>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                  {slots.map((opt) => {
-                                    const booked = Number(opt.booked || 0)
-                                    const capacity = Number(opt.capacity || 1)
-                                    const full = booked >= capacity
-                                    const selected = formData[field.id] === opt.value
-                                    const timeLabel = `${opt.start || '—'} – ${opt.end || '—'}`
-                                    return (
-                                      <button
-                                        key={opt.value}
-                                        type="button"
-                                        disabled={full}
-                                        onClick={() => handleChange(field.id, opt.value)}
-                                        className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
-                                          selected
-                                            ? 'border-sky-600 bg-sky-600 text-white shadow-sm'
-                                            : full
-                                            ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
-                                            : 'border-slate-200 bg-white hover:border-sky-400'
-                                        }`}
-                                      >
-                                        <span className="block font-semibold">{timeLabel}</span>
-                                        {opt.label ? (
-                                          <span className={`block text-xs mt-0.5 ${selected ? 'text-sky-100' : full ? 'text-slate-300' : 'text-slate-500'}`}>
-                                            {opt.label}
+                            const activeDate = selectedDates[field.id] || dateKeys.find((d) => byDate[d].some((s) => s.booked < s.capacity)) || dateKeys[0]
+                            const daySlots = byDate[activeDate] || []
+                            return (
+                              <div className="space-y-3">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Date</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {dateKeys.map((dateLabel) => {
+                                      const openCount = (byDate[dateLabel] || []).filter((s) => Number(s.booked || 0) < Number(s.capacity || 1)).length
+                                      const active = activeDate === dateLabel
+                                      return (
+                                        <button
+                                          key={dateLabel}
+                                          type="button"
+                                          disabled={!openCount}
+                                          onClick={() => {
+                                            setSelectedDates((prev) => ({ ...prev, [field.id]: dateLabel }))
+                                            // clear time if switching date
+                                            if (formData[field.id]) {
+                                              const stillOnDay = (byDate[dateLabel] || []).some((s) => s.value === formData[field.id])
+                                              if (!stillOnDay) handleChange(field.id, '')
+                                            }
+                                          }}
+                                          className={`rounded-xl border px-3 py-2 text-left text-sm min-w-[7.5rem] ${
+                                            active
+                                              ? 'border-sky-600 bg-sky-600 text-white'
+                                              : openCount
+                                              ? 'border-slate-200 bg-white hover:border-sky-400'
+                                              : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                          }`}
+                                        >
+                                          <span className="block font-semibold">
+                                            {dateLabel === 'Other' ? 'Other' : new Date(dateLabel + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
                                           </span>
-                                        ) : null}
-                                        <span className={`block text-xs mt-0.5 ${selected ? 'text-sky-100' : full ? 'text-slate-300' : 'text-slate-500'}`}>
-                                          {full ? 'Fully booked' : `${capacity - booked} remaining`}
-                                        </span>
-                                      </button>
-                                    )
-                                  })}
+                                          <span className={`block text-xs mt-0.5 ${active ? 'text-sky-100' : openCount ? 'text-slate-500' : 'text-slate-300'}`}>
+                                            {openCount ? `${openCount} open` : 'Full'}
+                                          </span>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Time</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {daySlots.map((opt) => {
+                                      const booked = Number(opt.booked || 0)
+                                      const capacity = Number(opt.capacity || 1)
+                                      const full = booked >= capacity
+                                      const selected = formData[field.id] === opt.value
+                                      const timeLabel = `${opt.start || '—'} – ${opt.end || '—'}`
+                                      return (
+                                        <button
+                                          key={opt.value}
+                                          type="button"
+                                          disabled={full}
+                                          onClick={() => handleChange(field.id, opt.value)}
+                                          className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
+                                            selected
+                                              ? 'border-sky-600 bg-sky-600 text-white shadow-sm'
+                                              : full
+                                              ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                              : 'border-slate-200 bg-white hover:border-sky-400'
+                                          }`}
+                                        >
+                                          <span className="block font-semibold">{timeLabel}</span>
+                                          {opt.label ? (
+                                            <span className={`block text-xs mt-0.5 ${selected ? 'text-sky-100' : full ? 'text-slate-300' : 'text-slate-500'}`}>
+                                              {opt.label}
+                                            </span>
+                                          ) : null}
+                                          <span className={`block text-xs mt-0.5 ${selected ? 'text-sky-100' : full ? 'text-slate-300' : 'text-slate-500'}`}>
+                                            {full ? 'Fully booked' : capacity === 1 ? 'Available' : `${capacity - booked} remaining`}
+                                          </span>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
                               </div>
-                            ))
+                            )
                           })()}
                         </div>
                       ) : field.field_type === 'textarea' ? (
