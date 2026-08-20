@@ -128,6 +128,7 @@ const LecturerDashboard = () => {
   const [examSubmissions, setExamSubmissions] = useState([])
   const [examSubmissionsLoading, setExamSubmissionsLoading] = useState(false)
   const [examResultsSending, setExamResultsSending] = useState(false)
+  const [examSavedListOpen, setExamSavedListOpen] = useState(false)
 
   const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '', secondaryLecturerId: '', lecturerNotes: '' })
   const [editingSession, setEditingSession] = useState(null) // { session, roster }
@@ -281,7 +282,8 @@ const LecturerDashboard = () => {
 
   const saveForm = async (formData) => {
     try {
-      if (editingForm) {
+      // Only PATCH when editing an existing form with a real id (templates use id: null)
+      if (editingForm?.id) {
         await apiClient.patch(`/forms/${editingForm.id}`, formData)
         notify('Form updated')
       } else {
@@ -294,6 +296,26 @@ const LecturerDashboard = () => {
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to save form')
     }
+  }
+
+  const openGraduationCalendarTemplate = () => {
+    setEditingForm({
+      ...GRADUATION_CALENDAR_TEMPLATE,
+      id: null,
+      fields: GRADUATION_CALENDAR_TEMPLATE.fields.map((f) => ({
+        ...f,
+        field_type: f.fieldType,
+        maps_to_column: f.mapsToColumn,
+        field_conditions: f.fieldConditions,
+      })),
+      maps_to_student: false,
+      status: 'draft',
+      title: GRADUATION_CALENDAR_TEMPLATE.title,
+      slug: GRADUATION_CALENDAR_TEMPLATE.slug,
+      description: GRADUATION_CALENDAR_TEMPLATE.description,
+      _template: 'graduation_calendar',
+    })
+    setFormBuilderOpen(true)
   }
 
   const deleteForm = async (formId) => {
@@ -4001,6 +4023,26 @@ const LecturerDashboard = () => {
 
       {section === 'graduation' ? (
         <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Graduation</h2>
+              <p className="text-sm text-slate-500 mt-1">Track progress and set up the rector meeting calendar for graduates.</p>
+            </div>
+            <button
+              type="button"
+              onClick={openGraduationCalendarTemplate}
+              className="inline-flex items-center gap-2 bg-sky-600 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-sky-700 shadow-sm"
+            >
+              <GraduationCap size={16} />
+              Graduation calendar form
+            </button>
+          </div>
+          <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+            <p className="font-semibold">Rector meeting calendar (Calendly-style)</p>
+            <p className="mt-1 text-sky-800/90">
+              Opens a form prefilled with a graduate name dropdown, contact fields, and unique date/time booking slots. Save it, set status to <strong>Active</strong>, then share the public link with graduating students.
+            </p>
+          </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card title="Total Students" value={graduationStatusCounts.total} />
             <Card title="Graduating" value={graduationStatusCounts.Graduating} />
@@ -4203,26 +4245,46 @@ const LecturerDashboard = () => {
               </div>
             </div>
           ) : (
-            <div className="grid xl:grid-cols-[390px_1fr] gap-6">
-              <form onSubmit={createExam} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 self-start">
-                <h3 className="font-semibold text-slate-900">Create Exam</h3>
-                <p className="text-sm text-slate-500">Exams are saved per course, then emailed to selected or eligible students when it's time.</p>
-
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <p className="text-sm font-medium text-slate-700 mb-1.5">Plan (academic year)</p>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 text-sm"
-                      value={examForm.planId}
-                      onChange={(event) => setExamForm((prev) => ({ ...prev, planId: event.target.value }))}
-                    >
-                      <option value="">None (general exam)</option>
-                      {plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} — {p.year}{p.is_active ? ' (active)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                  <h3 className="font-semibold text-slate-900">Create Exam</h3>
+                  <p className="text-sm text-slate-500">Build questions on the left — live preview on the right. Save when ready, then send to students.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExamSavedListOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 shadow-sm"
+                >
+                  <FileText size={16} />
+                  Saved Exams ({exams.length})
+                </button>
+              </div>
+
+              <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-6 items-start">
+                <form onSubmit={createExam} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 mb-1.5">Plan (academic year)</p>
+                      <select
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                        value={examForm.planId}
+                        onChange={(event) => setExamForm((prev) => ({ ...prev, planId: event.target.value }))}
+                      >
+                        <option value="">None (general exam)</option>
+                        {plans.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.year}{p.is_active ? ' (active)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 mb-1.5">Due date</p>
+                      <input className="w-full border rounded-lg px-3 py-2 text-sm" type="date" value={examForm.dueDate} onChange={(event) => setExamForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
+                    </div>
                   </div>
+
                   <div>
                     <p className="text-sm font-medium text-slate-700 mb-1.5">Exam Type</p>
                     <div className="grid grid-cols-2 gap-2">
@@ -4240,7 +4302,7 @@ const LecturerDashboard = () => {
                               ? (prev.examType === 'mcq' ? prev.questions : [blankMcqQuestion()])
                               : (prev.examType === 'essay' ? prev.questions : [{ text: '' }]),
                           }))}
-                          className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                          className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
                             examForm.examType === t.key ? 'border-sky-500 bg-sky-50' : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
@@ -4251,243 +4313,333 @@ const LecturerDashboard = () => {
                     </div>
                   </div>
 
-                <input className="w-full border rounded-lg px-3 py-2" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
-                <textarea className="w-full min-h-24 border rounded-lg px-3 py-2" placeholder="Instructions / description" value={examForm.description} onChange={(event) => setExamForm((prev) => ({ ...prev, description: event.target.value }))} />
-                <input className="w-full border rounded-lg px-3 py-2" type="date" value={examForm.dueDate} onChange={(event) => setExamForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
+                  <input className="w-full border rounded-lg px-3 py-2.5 text-sm" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                  <textarea className="w-full min-h-20 border rounded-lg px-3 py-2 text-sm" placeholder="Instructions / description" value={examForm.description} onChange={(event) => setExamForm((prev) => ({ ...prev, description: event.target.value }))} />
 
-                {examForm.examType === 'mcq' ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-700">MCQ Questions</p>
-                      <button
-                        type="button"
-                        onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, blankMcqQuestion()] }))}
-                        className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
-                      >
-                        <Plus size={14} /> Add question
-                      </button>
-                    </div>
-                    <p className="text-xs text-slate-400">Built in-system. After save, a quiz URL is generated. Students unlock with their Access ID; scores are stored and mailed when you release results.</p>
-                    {examForm.questions.map((q, idx) => (
-                      <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
-                        <div className="flex items-start gap-2">
-                          <span className="text-xs font-bold text-slate-400 pt-2">Q{idx + 1}</span>
-                          <textarea
-                            className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
-                            rows={2}
-                            placeholder="Question text"
-                            value={q.text}
-                            onChange={(event) => setExamForm((prev) => ({
-                              ...prev,
-                              questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
-                            }))}
-                          />
-                          {examForm.questions.length > 1 ? (
-                            <button
-                              type="button"
-                              onClick={() => setExamForm((prev) => ({
+                  {examForm.examType === 'mcq' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-700">MCQ Questions</p>
+                        <button
+                          type="button"
+                          onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, blankMcqQuestion()] }))}
+                          className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
+                        >
+                          <Plus size={14} /> Add question
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400">After save, a quiz URL is generated. Students unlock with Access ID; scores are stored and mailed when you release results.</p>
+                      {examForm.questions.map((q, idx) => (
+                        <div key={idx} className="border border-slate-200 rounded-xl p-4 space-y-2 bg-slate-50">
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs font-bold text-slate-400 pt-2">Q{idx + 1}</span>
+                            <textarea
+                              className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                              rows={3}
+                              placeholder="Question text"
+                              value={q.text}
+                              onChange={(event) => setExamForm((prev) => ({
                                 ...prev,
-                                questions: prev.questions.filter((_, i) => i !== idx),
+                                questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
                               }))}
-                              className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                            >
-                              <X size={16} />
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className="space-y-1.5 pl-6">
-                          {(q.options || []).map((opt, optIdx) => (
-                            <div key={opt.key || optIdx} className="flex items-center gap-2">
+                            />
+                            {examForm.questions.length > 1 ? (
                               <button
                                 type="button"
-                                title="Mark as correct answer"
                                 onClick={() => setExamForm((prev) => ({
                                   ...prev,
-                                  questions: prev.questions.map((item, i) => (i === idx ? { ...item, correctAnswer: opt.key } : item)),
+                                  questions: prev.questions.filter((_, i) => i !== idx),
                                 }))}
-                                className={`shrink-0 w-7 h-7 rounded-lg text-xs font-bold border ${
-                                  q.correctAnswer === opt.key
-                                    ? 'bg-emerald-600 text-white border-emerald-600'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'
-                                }`}
+                                className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                               >
-                                {opt.key}
+                                <X size={16} />
                               </button>
-                              <input
-                                className="flex-1 border rounded-lg px-2 py-1.5 text-sm bg-white"
-                                placeholder={`Option ${opt.key}`}
-                                value={opt.label}
-                                onChange={(event) => setExamForm((prev) => ({
-                                  ...prev,
-                                  questions: prev.questions.map((item, i) => {
-                                    if (i !== idx) return item
-                                    const options = (item.options || []).map((o, j) => (j === optIdx ? { ...o, label: event.target.value } : o))
-                                    return { ...item, options }
-                                  }),
-                                }))}
-                              />
-                              {(q.options || []).length > 2 ? (
+                            ) : null}
+                          </div>
+                          <div className="space-y-1.5 pl-6">
+                            {(q.options || []).map((opt, optIdx) => (
+                              <div key={opt.key || optIdx} className="flex items-center gap-2">
                                 <button
                                   type="button"
+                                  title="Mark as correct answer"
                                   onClick={() => setExamForm((prev) => ({
+                                    ...prev,
+                                    questions: prev.questions.map((item, i) => (i === idx ? { ...item, correctAnswer: opt.key } : item)),
+                                  }))}
+                                  className={`shrink-0 w-7 h-7 rounded-lg text-xs font-bold border ${
+                                    q.correctAnswer === opt.key
+                                      ? 'bg-emerald-600 text-white border-emerald-600'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400'
+                                  }`}
+                                >
+                                  {opt.key}
+                                </button>
+                                <input
+                                  className="flex-1 border rounded-lg px-2 py-1.5 text-sm bg-white"
+                                  placeholder={`Option ${opt.key}`}
+                                  value={opt.label}
+                                  onChange={(event) => setExamForm((prev) => ({
                                     ...prev,
                                     questions: prev.questions.map((item, i) => {
                                       if (i !== idx) return item
-                                      const options = (item.options || []).filter((_, j) => j !== optIdx)
-                                      const correctAnswer = options.some((o) => o.key === item.correctAnswer)
-                                        ? item.correctAnswer
-                                        : (options[0]?.key || 'A')
-                                      return { ...item, options, correctAnswer }
+                                      const options = (item.options || []).map((o, j) => (j === optIdx ? { ...o, label: event.target.value } : o))
+                                      return { ...item, options }
                                     }),
                                   }))}
-                                  className="text-xs text-red-500"
-                                >
-                                  ×
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => setExamForm((prev) => ({
-                              ...prev,
-                              questions: prev.questions.map((item, i) => {
-                                if (i !== idx) return item
-                                const nextKey = String.fromCharCode(65 + (item.options || []).length)
-                                return { ...item, options: [...(item.options || []), { key: nextKey, label: '' }] }
-                              }),
-                            }))}
-                            className="text-xs text-sky-600 hover:underline"
-                          >
-                            + Add option
-                          </button>
-                          <p className="text-[11px] text-slate-400">Green letter = correct answer</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-slate-700">Questions</p>
-                      <button
-                        type="button"
-                        onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, { text: '' }] }))}
-                        className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
-                      >
-                        <Plus size={14} /> Add question
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {examForm.questions.map((q, idx) => (
-                        <div key={idx} className="flex items-start gap-2">
-                          <span className="text-xs font-bold text-slate-400 pt-2.5">Q{idx + 1}</span>
-                          <textarea
-                            className="w-full border rounded-lg px-3 py-2 text-sm"
-                            rows={2}
-                            placeholder="Question text"
-                            value={q.text}
-                            onChange={(event) => setExamForm((prev) => ({
-                              ...prev,
-                              questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
-                            }))}
-                          />
-                          {examForm.questions.length > 1 ? (
+                                />
+                                {(q.options || []).length > 2 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExamForm((prev) => ({
+                                      ...prev,
+                                      questions: prev.questions.map((item, i) => {
+                                        if (i !== idx) return item
+                                        const options = (item.options || []).filter((_, j) => j !== optIdx)
+                                        const correctAnswer = options.some((o) => o.key === item.correctAnswer)
+                                          ? item.correctAnswer
+                                          : (options[0]?.key || 'A')
+                                        return { ...item, options, correctAnswer }
+                                      }),
+                                    }))}
+                                    className="text-xs text-red-500"
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                              </div>
+                            ))}
                             <button
                               type="button"
                               onClick={() => setExamForm((prev) => ({
                                 ...prev,
-                                questions: prev.questions.filter((_, i) => i !== idx),
+                                questions: prev.questions.map((item, i) => {
+                                  if (i !== idx) return item
+                                  const nextKey = String.fromCharCode(65 + (item.options || []).length)
+                                  return { ...item, options: [...(item.options || []), { key: nextKey, label: '' }] }
+                                }),
                               }))}
-                              className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                              className="text-xs text-sky-600 hover:underline"
                             >
-                              <X size={16} />
+                              + Add option
                             </button>
-                          ) : null}
+                            <p className="text-[11px] text-slate-400">Green letter = correct answer</p>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                <button className="w-full bg-slate-900 text-white rounded-lg px-4 py-2">Save Exam</button>
-              </form>
-
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-                <h3 className="font-semibold text-slate-900 mb-4">Saved Exams ({exams.length})</h3>
-                {examsLoading ? (
-                  <p className="text-sm text-slate-400 py-6 text-center">Loading exams…</p>
-                ) : exams.length === 0 ? (
-                  <p className="text-sm text-slate-400 py-6 text-center">No exams saved for this course yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {exams.map((exam) => (
-                      <div key={exam.id} className="border border-slate-200 rounded-xl p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-slate-900">
-                              {exam.title}
-                              <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
-                                {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
-                              </span>
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {exam.question_count} question(s)
-                              {' • '}{exam.delivery_count} delivered
-                              {exam.exam_type === 'mcq' ? ` • ${exam.submission_count || 0} submitted` : ''}
-                              {exam.plan_name ? ` • ${exam.plan_name} (${exam.plan_year})` : ''}
-                              {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
-                            </p>
-                            {exam.exam_type === 'mcq' && exam.take_url ? (
-                              <p className="text-xs text-sky-700 mt-1 break-all">
-                                Quiz link: <a href={exam.take_url} target="_blank" rel="noreferrer" className="underline">{exam.take_url}</a>
-                                <button
-                                  type="button"
-                                  className="ml-2 text-sky-600 hover:underline"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(exam.take_url)
-                                    notify('Quiz link copied')
-                                  }}
-                                >
-                                  Copy
-                                </button>
-                              </p>
-                            ) : null}
-                            {exam.description ? <p className="text-sm text-slate-600 mt-1">{exam.description}</p> : null}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 shrink-0 justify-end">
-                            <button
-                              type="button"
-                              onClick={() => openExamSend(exam)}
-                              className="text-xs rounded-lg bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-700"
-                            >
-                              Send Exam
-                            </button>
-                            {exam.exam_type === 'mcq' ? (
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold text-slate-700">Essay Questions</p>
+                        <button
+                          type="button"
+                          onClick={() => setExamForm((prev) => ({ ...prev, questions: [...prev.questions, { text: '' }] }))}
+                          className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-100 px-2.5 py-1.5 hover:bg-slate-200"
+                        >
+                          <Plus size={14} /> Add question
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {examForm.questions.map((q, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span className="text-xs font-bold text-slate-400 pt-2.5">Q{idx + 1}</span>
+                            <textarea
+                              className="w-full border rounded-lg px-3 py-2 text-sm"
+                              rows={3}
+                              placeholder="Question text"
+                              value={q.text}
+                              onChange={(event) => setExamForm((prev) => ({
+                                ...prev,
+                                questions: prev.questions.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
+                              }))}
+                            />
+                            {examForm.questions.length > 1 ? (
                               <button
                                 type="button"
-                                onClick={() => openExamSubmissions(exam)}
-                                className="text-xs rounded-lg bg-sky-50 text-sky-700 px-3 py-1.5 hover:bg-sky-100"
+                                onClick={() => setExamForm((prev) => ({
+                                  ...prev,
+                                  questions: prev.questions.filter((_, i) => i !== idx),
+                                }))}
+                                className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                               >
-                                Submissions
+                                <X size={16} />
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              onClick={() => deleteExamItem(exam.id)}
-                              className="text-xs rounded-lg bg-rose-50 text-rose-600 px-3 py-1.5 hover:bg-rose-100"
-                            >
-                              Delete
-                            </button>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  )}
+
+                  <button className="w-full bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-semibold">Save Exam</button>
+                </form>
+
+                {/* Live preview */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm sticky top-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-900">Student preview</h3>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ${examForm.examType === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
+                      {examForm.examType === 'mcq' ? 'MCQ' : 'Essay'}
+                    </span>
                   </div>
-                )}
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div>
+                      <p className="text-lg font-bold text-slate-900">{examForm.title || 'Untitled exam'}</p>
+                      {examForm.description ? <p className="text-sm text-slate-600 mt-1">{examForm.description}</p> : null}
+                      {examForm.dueDate ? <p className="text-xs text-slate-400 mt-1">Due {examForm.dueDate}</p> : null}
+                    </div>
+                    {examForm.examType === 'mcq' ? (
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                          Students enter their Access ID first, then see questions like this.
+                        </div>
+                        {examForm.questions.filter((q) => (q.text || '').trim() || (q.options || []).some((o) => (o.label || '').trim())).length === 0 ? (
+                          <p className="text-sm text-slate-400 text-center py-8">Add questions to preview them here.</p>
+                        ) : (
+                          examForm.questions.map((q, idx) => (
+                            <div key={idx} className="border border-slate-200 rounded-xl p-3 bg-white space-y-2">
+                              <p className="text-sm font-semibold text-slate-900">
+                                <span className="text-slate-400 mr-1.5">Q{idx + 1}.</span>
+                                {q.text || <span className="text-slate-300 italic">Question text…</span>}
+                              </p>
+                              <div className="space-y-1.5">
+                                {(q.options || []).filter((o) => (o.label || '').trim() || true).map((opt) => (
+                                  <div
+                                    key={opt.key}
+                                    className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-sm ${
+                                      q.correctAnswer === opt.key ? 'border-emerald-300 bg-emerald-50' : 'border-slate-100 bg-slate-50'
+                                    }`}
+                                  >
+                                    <span className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold ${
+                                      q.correctAnswer === opt.key ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                                    }`}>
+                                      {opt.key}
+                                    </span>
+                                    <span className="pt-0.5 text-slate-700">{opt.label || <span className="text-slate-300 italic">Option…</span>}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          Essay questions are emailed to students as a paper list.
+                        </div>
+                        {examForm.questions.filter((q) => (q.text || '').trim()).length === 0 ? (
+                          <p className="text-sm text-slate-400 text-center py-8">Add questions to preview them here.</p>
+                        ) : (
+                          <ol className="space-y-3 list-decimal list-inside">
+                            {examForm.questions.map((q, idx) => (
+                              (q.text || '').trim() ? (
+                                <li key={idx} className="text-sm text-slate-800 bg-white border border-slate-200 rounded-xl px-3 py-2.5">
+                                  {q.text}
+                                </li>
+                              ) : null
+                            ))}
+                          </ol>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
+        </div>
+      ) : null}
+
+      {examSavedListOpen ? (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex justify-end"
+          onClick={() => setExamSavedListOpen(false)}
+        >
+          <div
+            className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10">
+              <div>
+                <h3 className="font-semibold text-slate-900">Saved Exams</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{exams.length} for this course</p>
+              </div>
+              <button type="button" onClick={() => setExamSavedListOpen(false)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              {examsLoading ? (
+                <p className="text-sm text-slate-400 py-6 text-center">Loading exams…</p>
+              ) : exams.length === 0 ? (
+                <p className="text-sm text-slate-400 py-6 text-center">No exams saved for this course yet.</p>
+              ) : (
+                exams.map((exam) => (
+                  <div key={exam.id} className="border border-slate-200 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900">
+                          {exam.title}
+                          <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
+                            {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
+                          </span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {exam.question_count} question(s)
+                          {' • '}{exam.delivery_count} delivered
+                          {exam.exam_type === 'mcq' ? ` • ${exam.submission_count || 0} submitted` : ''}
+                          {exam.plan_name ? ` • ${exam.plan_name} (${exam.plan_year})` : ''}
+                          {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
+                        </p>
+                        {exam.exam_type === 'mcq' && exam.take_url ? (
+                          <p className="text-xs text-sky-700 mt-1 break-all">
+                            <a href={exam.take_url} target="_blank" rel="noreferrer" className="underline">{exam.take_url}</a>
+                            <button
+                              type="button"
+                              className="ml-2 text-sky-600 hover:underline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(exam.take_url)
+                                notify('Quiz link copied')
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </p>
+                        ) : null}
+                        {exam.description ? <p className="text-sm text-slate-600 mt-1">{exam.description}</p> : null}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => { setExamSavedListOpen(false); openExamSend(exam) }}
+                        className="text-xs rounded-lg bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-700"
+                      >
+                        Send Exam
+                      </button>
+                      {exam.exam_type === 'mcq' ? (
+                        <button
+                          type="button"
+                          onClick={() => { setExamSavedListOpen(false); openExamSubmissions(exam) }}
+                          className="text-xs rounded-lg bg-sky-50 text-sky-700 px-3 py-1.5 hover:bg-sky-100"
+                        >
+                          Submissions
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => deleteExamItem(exam.id)}
+                        className="text-xs rounded-lg bg-rose-50 text-rose-600 px-3 py-1.5 hover:bg-rose-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -5096,48 +5248,15 @@ const LecturerDashboard = () => {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Form Builder</h2>
-              <p className="text-sm text-slate-500 mt-1">Create dynamic forms for applications, onboarding, surveys, and graduation calendar bookings.</p>
+              <p className="text-sm text-slate-500 mt-1">Create dynamic forms for applications, onboarding, and surveys. Graduation calendar is under Graduation.</p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingForm({
-                    ...GRADUATION_CALENDAR_TEMPLATE,
-                    id: null,
-                    fields: GRADUATION_CALENDAR_TEMPLATE.fields.map((f) => ({
-                      ...f,
-                      field_type: f.fieldType,
-                      maps_to_column: f.mapsToColumn,
-                      field_conditions: f.fieldConditions,
-                    })),
-                    maps_to_student: false,
-                    status: 'draft',
-                    title: GRADUATION_CALENDAR_TEMPLATE.title,
-                    slug: GRADUATION_CALENDAR_TEMPLATE.slug,
-                    description: GRADUATION_CALENDAR_TEMPLATE.description,
-                  })
-                  setFormBuilderOpen(true)
-                }}
-                className="bg-sky-50 text-sky-800 border border-sky-200 rounded-xl px-4 py-2 text-sm font-medium hover:bg-sky-100"
-              >
-                Graduation calendar template
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEditingForm(null); setFormBuilderOpen(true) }}
-                className="bg-slate-900 text-white rounded-xl px-4 py-2 text-sm"
-              >
-                New Form
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-            <p className="font-semibold">Graduation calendar (Calendly-style)</p>
-            <p className="mt-1 text-sky-800/90">
-              Use the template button to prefill a form with: graduate name dropdown (Graduating/Graduated students), email, phone, and a calendar availability field (recurring weekdays + optional one-off slots, capacity 1 so no double-booking). Set the form to <strong>Active</strong> and share the public link.
-            </p>
+            <button
+              type="button"
+              onClick={() => { setEditingForm(null); setFormBuilderOpen(true) }}
+              className="bg-slate-900 text-white rounded-xl px-4 py-2 text-sm"
+            >
+              New Form
+            </button>
           </div>
 
           {/* Forms list */}
@@ -5850,17 +5969,52 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                 <option value="closed">Closed</option>
               </select>
             </label>
-            {/* Maps to Student */}
-            <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer pt-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded"
-                checked={mapsToStudent}
-                onChange={(e) => setMapsToStudent(e.target.checked)}
-              />
-              <span className="font-medium">Student Application Form</span>
-              <span className="text-xs text-slate-400">(auto-creates student on approval)</span>
-            </label>
+            {/* Form type presets */}
+            <div className="pt-2 space-y-2">
+              <p className="text-sm font-medium text-slate-700">Form type</p>
+              <label className="flex items-start gap-3 text-sm text-slate-700 cursor-pointer rounded-xl border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded mt-0.5"
+                  checked={mapsToStudent}
+                  onChange={(e) => {
+                    setMapsToStudent(e.target.checked)
+                    if (e.target.checked && form?._template === 'graduation_calendar') {
+                      // switching away from graduation template flag when marking as student app
+                    }
+                  }}
+                />
+                <span>
+                  <span className="font-medium block">Student Application Form</span>
+                  <span className="text-xs text-slate-400">Auto-creates a student record on approval</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm text-slate-700 cursor-pointer rounded-xl border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded mt-0.5"
+                  checked={!!(form?._template === 'graduation_calendar' || fields.some((f) => f.fieldType === 'graduate_select' || f.fieldType === 'availability'))}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setMapsToStudent(false)
+                      setTitle((t) => t || GRADUATION_CALENDAR_TEMPLATE.title)
+                      setSlug((s) => s || GRADUATION_CALENDAR_TEMPLATE.slug)
+                      setDescription((d) => d || GRADUATION_CALENDAR_TEMPLATE.description)
+                      setFields((prev) => {
+                        if (prev.some((f) => f.fieldType === 'graduate_select' || f.fieldType === 'availability')) return prev
+                        return GRADUATION_CALENDAR_TEMPLATE.fields.map((f) => ({ ...f }))
+                      })
+                    } else {
+                      setFields((prev) => prev.filter((f) => f.fieldType !== 'graduate_select' && f.fieldType !== 'availability'))
+                    }
+                  }}
+                />
+                <span>
+                  <span className="font-medium block">Graduation Calendar Form</span>
+                  <span className="text-xs text-slate-400">Graduate dropdown + unique date/time booking slots</span>
+                </span>
+              </label>
+            </div>
             {mapsToStudent && (
               <div className="pl-7 space-y-3">
                 <label className="text-sm text-slate-600 block">
