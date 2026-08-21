@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, User, X, Mail, Phone, GraduationCap, BookOpen, Award, Layers, Clock, Activity, History as HistoryIcon, Sparkles, Hash, Building2 } from 'lucide-react'
 import AppShell from '../components/AppShell'
-import PageHeader from '../components/ui/PageHeader'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import ProgressBar from '../components/ui/ProgressBar'
@@ -215,7 +214,6 @@ export default function StudentProfilePage() {
   if (loading) {
     return (
       <AppShell title="Student Profile" groups={lecturerNavGroups}>
-        <PageHeader title="Student Profile" icon={<User />} />
         <p className="text-slate-500 text-sm" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Loading…</p>
       </AppShell>
     )
@@ -224,7 +222,6 @@ export default function StudentProfilePage() {
   if (!student) {
     return (
       <AppShell title="Student Not Found" groups={lecturerNavGroups}>
-        <PageHeader title="Student Not Found" icon={<User />} />
         <p className="text-slate-500 text-sm" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{loadError || 'Student not found.'}</p>
         <Link to="/lecturer/students" className="btn btn-ghost btn-sm">
           Back to Students
@@ -246,22 +243,6 @@ export default function StudentProfilePage() {
           {loadError}
         </div>
       ) : null}
-
-      <PageHeader
-        title="Student Profile"
-        subtitle="Academic profile, enrollment & lifecycle — indigo bento"
-        icon={<User />}
-        actions={
-          <button
-            type="button"
-            onClick={() => navigate('/lecturer/students')}
-            className="btn btn-ghost btn-sm lift"
-            style={{ borderRadius: '12px' }}
-          >
-            <ArrowLeft size={15} /> Back to Students
-          </button>
-        }
-      />
 
       {/* ————— BENTO HERO — profile + progress ————— */}
       <div className="grid grid-cols-12 gap-4 shrink-0">

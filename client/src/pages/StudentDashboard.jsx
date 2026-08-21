@@ -3,7 +3,6 @@ import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, Calendar, Clock, Aw
 import { useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
-import PageHeader from '../components/ui/PageHeader'
 import Badge from '../components/ui/Badge'
 import apiClient from '../api/client'
 
@@ -102,15 +101,6 @@ const StudentDashboard = () => {
     <AppShell title={title} navItems={navItems}>
       <div className="h-full flex flex-col gap-5 overflow-hidden bg-[#F8FAFC] text-slate-900" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@500;600;700&family=JetBrains+Mono:wght@600&display=swap');`}</style>
-
-        {/* Sora header override */}
-        <div className="[&_.page-header]:!bg-white [&_.page-header]:!rounded-[24px] [&_.page-header]:!border [&_.page-header]:!border-[#E2E8F0] [&_.page-header]:!shadow-[0_2px_16px_rgba(15,23,42,0.06)] [&_.page-header]:!p-5 [&_.page-header_.ico]:!bg-[#EEF2FF] [&_.page-header_.ico]:!text-[#4F46E5] [&_.page-header_.ico]:!border [&_.page-header_.ico]:!border-[#E0E7FF] [&_.page-header_.page-title]:!font-[800] [&_.page-header_.page-title]:!tracking-tight">
-          <PageHeader
-            title="Student Dashboard"
-            subtitle="Track your courses, attendance, assignments, and results — indigo system."
-            icon={<GraduationCap size={22} />}
-          />
-        </div>
 
         {/* BENTO STATS 4 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">

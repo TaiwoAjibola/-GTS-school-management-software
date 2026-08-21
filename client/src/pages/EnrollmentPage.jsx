@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, UserPlus, Layers, Users, GraduationCap, Search, Sparkles, BookOpen, Filter } from 'lucide-react'
 import AppShell from '../components/AppShell'
-import PageHeader from '../components/ui/PageHeader'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import apiClient from '../api/client'
@@ -195,11 +194,6 @@ export default function EnrollmentPage() {
       ) : null}
 
       <div className="h-full flex flex-col gap-5 overflow-hidden">
-        <PageHeader
-          title="Enrollment"
-          subtitle="Enroll students from each batch into any course — current or past"
-        />
-
         <div className="flex-1 min-h-0 overflow-auto space-y-5 pr-1 pb-2">
           {selectedCourse ? (
             <>

@@ -25,7 +25,6 @@ import AppShell from '../components/AppShell'
 import apiClient from '../api/client'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
-import PageHeader from '../components/ui/PageHeader'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 
@@ -383,21 +382,6 @@ export default function CoursePage() {
             ) : null}
           </div>
         </div>
-
-        <PageHeader
-          title={course.title}
-          subtitle={course.description}
-          icon={<BookOpen size={22} />}
-          actions={
-            <button
-              type="button"
-              onClick={() => { setEditForm({ ...course }); setEditing(true) }}
-              className="btn btn-primary lift"
-            >
-              <Pencil size={14} /> Edit Course
-            </button>
-          }
-        />
 
         {/* Bento hero: meta + stats */}
         <div className="grid lg:grid-cols-12 gap-4">

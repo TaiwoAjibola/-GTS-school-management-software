@@ -23,7 +23,6 @@ import { useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
-import PageHeader from '../components/ui/PageHeader'
 import apiClient from '../api/client'
 
 const navItems = [
@@ -76,25 +75,6 @@ const AdminDashboard = () => {
   return (
     <AppShell title={title} navItems={navItems}>
       <div className="h-full flex flex-col gap-5 overflow-hidden">
-        {/* ── PageHeader — Sora 800, muted sub, indigo icon ── */}
-        <PageHeader
-          title="Admin Dashboard"
-          subtitle="Platform overview & management"
-          icon={<LayoutDashboard size={22} />}
-          actions={
-            <div className="flex items-center gap-2">
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#EEF2FF] border border-[#C7D2FE] px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase text-[#4338CA]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#4F46E5] animate-pulse" />
-                Live
-              </span>
-              <span className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-white border border-[#E2E8F0] px-3 py-1 text-xs font-semibold text-[#64748B]">
-                <Database size={12} className="text-[#4F46E5]" />
-                {students.length + courses.length} records
-              </span>
-            </div>
-          }
-        />
-
         {/* ── BENTO STATS — bento bento-4 dramatical indigo ── */}
         <div className="bento bento-4 gap-4 shrink-0">
           <Card

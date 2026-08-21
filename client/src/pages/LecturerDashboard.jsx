@@ -3,7 +3,6 @@ import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, Gra
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
-import PageHeader from '../components/ui/PageHeader'
 import Badge from '../components/ui/Badge'
 import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
@@ -1566,25 +1565,6 @@ const LecturerDashboard = () => {
   return (
     <AppShell title={sectionTitle} groups={lecturerNavGroups}>
       <div className="h-full flex flex-col gap-5 overflow-hidden">
-      {section !== 'batches' && section !== 'assignments' && section !== 'reports' && section !== 'email-process' && section !== 'lecturers' ? (
-        <PageHeader
-          title="Lecturer Dashboard"
-          subtitle={sectionTitle}
-          icon={<GraduationCap size={22} />}
-          actions={
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm lift"
-              onClick={() => {
-                if (section === 'reports') loadReports()
-                else { loadCourses(); loadAllStudents(); loadGraduationMatrix(); loadCohorts(); loadLecturers() }
-              }}
-            >
-              <BarChart3 size={15} className="opacity-70" /> Refresh
-            </button>
-          }
-        />
-      ) : null}
       {notice ? <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm shrink-0 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{notice}</div> : null}
 
       {section === 'attendance' ? (
