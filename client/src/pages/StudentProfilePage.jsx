@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, User, X } from 'lucide-react'
 import AppShell from '../components/AppShell'
+import PageHeader from '../components/ui/PageHeader'
+import Card from '../components/ui/Card'
+import Badge from '../components/ui/Badge'
 import ProgressBar from '../components/ui/ProgressBar'
 import apiClient from '../api/client'
 import { lecturerNavGroups } from '../constants/lecturerNav'
@@ -16,10 +19,26 @@ const STATUS_COLORS = {
   'On Hold': 'bg-orange-100 text-orange-800',
   Suspended: 'bg-red-100 text-red-800',
   Withdrawn: 'bg-gray-200 text-gray-700',
-Transferred: 'bg-sky-100 text-sky-800',
+  Transferred: 'bg-sky-100 text-sky-800',
   Graduating: 'bg-sky-200 text-sky-800',
   Graduated: 'bg-gold-200 text-gold-800',
   Alumni: 'bg-slate-200 text-slate-700',
+}
+
+const STATUS_TONE = {
+  Applied: 'slate',
+  'Under Review': 'amber',
+  Accepted: 'sky',
+  Prospective: 'amber',
+  Active: 'emerald',
+  'On Hold': 'amber',
+  Suspended: 'rose',
+  Withdrawn: 'slate',
+  Transferred: 'sky',
+  Graduating: 'sky',
+  Graduated: 'gold',
+  Alumni: 'slate',
+  Completed: 'emerald',
 }
 
 const ALL_STATUSES = ['Applied', 'Under Review', 'Accepted', 'Prospective', 'Active', 'On Hold', 'Suspended', 'Withdrawn', 'Transferred', 'Graduating', 'Completed', 'Graduated', 'Alumni']
@@ -196,6 +215,7 @@ export default function StudentProfilePage() {
   if (loading) {
     return (
       <AppShell title="Student Profile" groups={lecturerNavGroups}>
+        <PageHeader title="Student Profile" icon={<User />} />
         <p className="text-slate-500 text-sm">Loading...</p>
       </AppShell>
     )
@@ -204,8 +224,9 @@ export default function StudentProfilePage() {
   if (!student) {
     return (
       <AppShell title="Student Not Found" groups={lecturerNavGroups}>
+        <PageHeader title="Student Not Found" icon={<User />} />
         <p className="text-slate-500 text-sm">{loadError || 'Student not found.'}</p>
-        <Link to="/lecturer/students" className="text-slate-900 underline text-sm">
+        <Link to="/lecturer/students" className="btn btn-ghost btn-sm">
           Back to Students
         </Link>
       </AppShell>
@@ -216,24 +237,30 @@ export default function StudentProfilePage() {
     <AppShell title={student.full_name} groups={lecturerNavGroups}>
       <div className="h-full flex flex-col gap-5 overflow-hidden">
       {loadError ? (
-        <div className="shrink-0 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm">{loadError}</div>
+        <div className="shrink-0 rounded-xl bg-amber-100 text-amber-800 px-4 py-2 text-sm">{loadError}</div>
       ) : null}
 
-      {/* Back */}
-      <button
-        type="button"
-        onClick={() => navigate('/lecturer/students')}
-        className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 shrink-0"
-      >
-        <ArrowLeft size={15} /> Back to Students
-      </button>
+      <PageHeader
+        title="Student Profile"
+        subtitle="Academic profile, enrollment & lifecycle"
+        icon={<User />}
+        actions={
+          <button
+            type="button"
+            onClick={() => navigate('/lecturer/students')}
+            className="btn btn-ghost btn-sm lift"
+          >
+            <ArrowLeft size={15} /> Back to Students
+          </button>
+        }
+      />
 
       {/* Student header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm shrink-0">
+      <div className="card p-6 shrink-0">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4">
             <div
-              className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+              className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:opacity-90 transition-opacity ring-2 ring-gold-100"
               onClick={() => student.profile_image_url && setLightboxOpen(true)}
             >
               {student.profile_image_url ? (
@@ -253,13 +280,9 @@ export default function StudentProfilePage() {
                 <span className="rounded-full bg-amber-100 text-amber-700 px-3 py-1 text-xs">Matric pending activation</span>
               ) : null}
               <div className="relative group">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${
-                    STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'
-                  }`}
-                >
+                <Badge tone={STATUS_TONE[student.status] || 'slate'} dot>
                   {student.status} <span className="text-[10px] ml-0.5 opacity-50">▼</span>
-                </span>
+                </Badge>
                 <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 min-w-[170px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all py-1 max-h-60 overflow-y-auto">
                   {ALL_STATUSES.map((s) => {
                     const isCurrent = student.status === s
@@ -297,7 +320,7 @@ export default function StudentProfilePage() {
               {editingCohort ? (
                 <>
                   <select
-                    className="border rounded-lg px-2 py-1 text-sm"
+                    className="select"
                     defaultValue={student.cohort_id ?? ''}
                     id="cohort-select"
                   >
@@ -309,7 +332,7 @@ export default function StudentProfilePage() {
                   <button
                     type="button"
                     disabled={cohortSaving}
-                    className="text-xs bg-slate-900 text-white rounded-lg px-3 py-1 disabled:opacity-50"
+                    className="btn btn-primary btn-sm lift disabled:opacity-50"
                     onClick={async () => {
                       const sel = document.getElementById('cohort-select')
                       const newCohortId = sel.value ? Number(sel.value) : null
@@ -327,7 +350,7 @@ export default function StudentProfilePage() {
                   </button>
                   <button
                     type="button"
-                    className="text-xs text-slate-500 hover:text-slate-900"
+                    className="btn btn-ghost btn-sm"
                     onClick={() => setEditingCohort(false)}
                   >
                     Cancel
@@ -340,7 +363,7 @@ export default function StudentProfilePage() {
                   </span>
                   <button
                     type="button"
-                    className="text-xs text-slate-400 hover:text-slate-700 underline"
+                    className="btn btn-ghost btn-sm"
                     onClick={() => setEditingCohort(true)}
                   >
                     Change batch
@@ -355,7 +378,7 @@ export default function StudentProfilePage() {
           </div>
 
           {/* Progress summary */}
-          <div className="bg-slate-50 rounded-xl p-4 min-w-50">
+          <div className="bg-slate-50 rounded-xl p-4 min-w-[12rem]">
             <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Graduation Progress</p>
             <p className="text-2xl font-bold text-slate-900">
               {passedCourses}
@@ -398,7 +421,7 @@ export default function StudentProfilePage() {
           onClick={() => setStatusConfirmOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full"
+            className="card p-6 max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-semibold text-slate-900 mb-2">Change Status</h3>
@@ -406,10 +429,10 @@ export default function StudentProfilePage() {
               Move <strong>{student.full_name}</strong> from{' '}
               <strong>{student.status}</strong> → <strong>{pendingStatus}</strong>
             </p>
-            <label className="text-sm text-slate-600 block mb-4">
+            <label className="field-label block mb-4">
               Reason for change
               <input
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                className="input mt-1"
                 placeholder="e.g. Completed orientation"
                 value={statusTransitionReason}
                 onChange={(e) => setStatusTransitionReason(e.target.value)}
@@ -418,7 +441,7 @@ export default function StudentProfilePage() {
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                className="btn btn-ghost btn-sm"
                 onClick={() => setStatusConfirmOpen(false)}
               >
                 Cancel
@@ -426,7 +449,7 @@ export default function StudentProfilePage() {
               <button
                 type="button"
                 disabled={statusSaving}
-                className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                className="btn btn-primary btn-sm lift disabled:opacity-50"
                 onClick={async () => {
                   setStatusSaving(true)
                   try {
@@ -454,8 +477,7 @@ export default function StudentProfilePage() {
       )}
 
       {/* Status Pipeline */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm shrink-0">
-        <h3 className="text-sm font-semibold text-slate-900 mb-3">Student Lifecycle Pipeline</h3>
+      <Card title="Student Lifecycle Pipeline" className="shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto pb-2">
           {ALL_STATUSES.map((s, i, arr) => {
             const isCurrent = student.status === s
@@ -499,7 +521,7 @@ export default function StudentProfilePage() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Tabs */}
       <div className="flex gap-1 shrink-0 bg-slate-100 rounded-xl p-1 w-fit">
@@ -525,8 +547,7 @@ export default function StudentProfilePage() {
       {/* Graduation path */}
       <div className="flex-1 min-h-0 overflow-auto">
       {activeTab === 'path' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="font-semibold text-slate-900 mb-4">All Modules — Graduation Path</h3>
+        <Card title="All Modules — Graduation Path">
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
             {allCourses.map((course) => {
               const enrollment = courseMap[course.id]
@@ -538,7 +559,7 @@ export default function StudentProfilePage() {
                 <Link
                   key={course.id}
                   to={`/lecturer/courses/${course.id}`}
-                  className={`rounded-xl border p-4 transition-colors hover:border-slate-400 ${
+                  className={`card-hover rounded-xl border p-4 transition-colors hover:border-slate-400 ${
                     isPassed
                       ? 'border-emerald-200 bg-emerald-50'
                       : isFailed
@@ -588,7 +609,7 @@ export default function StudentProfilePage() {
           {!allCourses.length ? (
             <p className="text-sm text-slate-400 text-center py-8">No courses in the system yet.</p>
           ) : null}
-        </div>
+        </Card>
       ) : null}
 
       {/* Enrollment history */}
@@ -623,24 +644,24 @@ export default function StudentProfilePage() {
             <div className="text-right shrink-0 ml-4">
               {e.result_status === 'Pass' ? (
                 <>
-                  <span className="text-xs font-semibold rounded-full px-2.5 py-1 bg-emerald-100 text-emerald-700">✓ Pass</span>
+                  <Badge tone="emerald" dot>✓ Pass</Badge>
                   {e.score != null ? <p className="text-xs text-slate-400 mt-1">{e.score} pts</p> : null}
                 </>
               ) : e.result_status === 'Fail' ? (
                 <>
-                  <span className="text-xs font-semibold rounded-full px-2.5 py-1 bg-red-100 text-red-700">✗ Fail</span>
+                  <Badge tone="rose" dot>✗ Fail</Badge>
                   {e.score != null ? <p className="text-xs text-slate-400 mt-1">{e.score} pts</p> : null}
                 </>
               ) : e.status === 'completed' ? (
-                <span className="text-xs rounded-full px-2.5 py-1 bg-amber-100 text-amber-700">Awaiting result</span>
+                <Badge tone="amber">Awaiting result</Badge>
               ) : (
-                <span className="text-xs rounded-full px-2.5 py-1 bg-sky-100 text-sky-700">In Progress</span>
+                <Badge tone="sky">In Progress</Badge>
               )}
               {!e.result_status ? (
                 <button
                   type="button"
                   onClick={() => setResultPanelCourseId((prev) => (prev === e.course_id ? null : e.course_id))}
-                  className="mt-1.5 text-xs font-medium text-sky-600 hover:text-sky-800"
+                  className="btn btn-ghost btn-sm mt-1.5"
                 >
                   {resultPanelCourseId === e.course_id ? 'Cancel' : '+ Add result'}
                 </button>
@@ -655,13 +676,13 @@ export default function StudentProfilePage() {
                       max="100"
                       value={resultFormScore}
                       onChange={(ev) => setResultFormScore(ev.target.value)}
-                      className="w-24 border rounded-lg px-2 py-1 text-sm"
+                      className="input w-24"
                     />
                   </label>
                   <select
                     value={resultFormStatus}
                     onChange={(ev) => setResultFormStatus(ev.target.value)}
-                    className="border rounded-lg px-2 py-1 text-xs"
+                    className="select text-xs"
                   >
                     <option value="Pass">Pass</option>
                     <option value="Fail">Fail</option>
@@ -670,7 +691,7 @@ export default function StudentProfilePage() {
                     type="button"
                     disabled={resultSaving}
                     onClick={() => saveStudentResult(e.course_id)}
-                    className="text-xs font-semibold rounded-lg bg-sky-600 text-white px-3 py-1.5 disabled:opacity-50"
+                    className="btn btn-primary btn-sm lift disabled:opacity-50"
                   >
                     {resultSaving ? 'Saving…' : 'Save result'}
                   </button>
@@ -683,39 +704,31 @@ export default function StudentProfilePage() {
         return (
           <div className="space-y-4">
             {/* Currently enrolled */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <h3 className="font-semibold text-slate-900 mb-1 text-sm">Currently Enrolled</h3>
-              <p className="text-xs text-slate-400 mb-3">Courses this student is actively taking right now</p>
+            <Card title="Currently Enrolled" subtitle="Courses this student is actively taking right now">
               {current.length > 0
                 ? current.map((e) => <EnrollRow key={e.id} e={e} />)
                 : <p className="text-sm text-slate-400 py-2">Not currently enrolled in any course.</p>
               }
-            </div>
+            </Card>
 
             {/* Eligible to retake */}
             {retake.length > 0 ? (
-              <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-1 text-sm">Eligible to Retake</h3>
-                <p className="text-xs text-slate-400 mb-3">Failed courses — eligible to enroll again in the next cycle</p>
+              <Card title="Eligible to Retake" subtitle="Failed courses — eligible to enroll again in the next cycle">
                 {retake.map((e) => <EnrollRow key={e.id} e={e} />)}
-              </div>
+              </Card>
             ) : null}
 
             {/* Past completed */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <h3 className="font-semibold text-slate-900 mb-1 text-sm">Completed Courses</h3>
-              <p className="text-xs text-slate-400 mb-3">Passed or awaiting result</p>
+            <Card title="Completed Courses" subtitle="Passed or awaiting result">
               {past.length > 0
                 ? past.map((e) => <EnrollRow key={e.id} e={e} />)
                 : <p className="text-sm text-slate-400 py-2">No completed courses yet.</p>
               }
-            </div>
+            </Card>
 
             {/* Not yet started */}
             {notStarted.length > 0 ? (
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-1 text-sm">Not Yet Started</h3>
-                <p className="text-xs text-slate-400 mb-3">Courses this student has never been enrolled in</p>
+              <Card title="Not Yet Started" subtitle="Courses this student has never been enrolled in">
                 {notStarted.map((c) => (
                   <div key={c.id} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                     <div>
@@ -730,7 +743,7 @@ export default function StudentProfilePage() {
                     <span className="text-xs rounded-full px-2.5 py-1 bg-slate-100 text-slate-500">Not started</span>
                   </div>
                 ))}
-              </div>
+              </Card>
             ) : null}
           </div>
         )
@@ -740,8 +753,7 @@ export default function StudentProfilePage() {
 
       {/* Timeline */}
       {activeTab === 'timeline' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="font-semibold text-slate-900 mb-4">Activity Timeline</h3>
+        <Card title="Activity Timeline">
           <div className="space-y-2 max-h-150 overflow-auto">
             {timeline.map((event) => (
               <div key={event.id} className="flex items-start gap-3 rounded-xl bg-slate-50 px-4 py-3">
@@ -790,13 +802,12 @@ export default function StudentProfilePage() {
               <p className="text-sm text-slate-400 text-center py-8">No activity recorded yet.</p>
             ) : null}
           </div>
-        </div>
+        </Card>
       ) : null}
 
       {/* Activity log */}
       {activeTab === 'activity' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="font-semibold text-slate-900 mb-4">Activity Log</h3>
+        <Card title="Activity Log">
           <div className="space-y-2 max-h-125 overflow-auto">
             {history.activities.map((activity, index) => (
               <div
@@ -814,7 +825,7 @@ export default function StudentProfilePage() {
               <p className="text-sm text-slate-400 text-center py-8">No activity recorded yet.</p>
             ) : null}
           </div>
-        </div>
+        </Card>
       ) : null}
       </div>
       </div>

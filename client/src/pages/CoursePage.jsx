@@ -1,30 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, ClipboardList, Pencil, Users, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, Pencil, Users, X, XCircle } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import apiClient from '../api/client'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
+import PageHeader from '../components/ui/PageHeader'
+import Card from '../components/ui/Card'
+import Badge from '../components/ui/Badge'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-const statusBadge = (label, active, activeColor = 'bg-emerald-100 text-emerald-800') => (
-  <span
-    key={label}
-    className={`rounded-full px-3 py-1 text-xs font-medium ${active ? activeColor : 'bg-slate-100 text-slate-400 line-through'}`}
-  >
-    {label}
-  </span>
+const statusBadge = (label, active, tone = 'slate') => (
+  active ? (
+    <Badge key={label} tone={tone} dot>{label}</Badge>
+  ) : (
+    <Badge key={label} tone="slate" className="line-through opacity-60">{label}</Badge>
+  )
 )
 
 const resultCell = (info) => {
   if (!info) return <span className="text-slate-300 text-sm">—</span>
   if (info.result_status === 'Pass')
-    return <span className="text-emerald-600 font-semibold text-sm">✓ Pass</span>
+    return <Badge tone="emerald" dot>✓ Pass</Badge>
   if (info.result_status === 'Fail')
-    return <span className="text-red-500 font-semibold text-sm">✗ Fail</span>
+    return <Badge tone="rose" dot>✗ Fail</Badge>
   if (info.enrollment_status === 'active')
-    return <span className="text-sky-600 text-sm">Enrolled</span>
+    return <Badge tone="sky" dot>Enrolled</Badge>
   return <span className="text-slate-300 text-sm">—</span>
 }
 
@@ -316,103 +318,90 @@ export default function CoursePage() {
       ) : null}
 
       {/* Header */}
-      <div className="mb-6 shrink-0">
+      <div className="shrink-0 space-y-4">
         <button
           type="button"
           onClick={() => navigate('/lecturer/courses')}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 mb-4"
+          className="btn btn-ghost btn-sm lift"
         >
           <ArrowLeft size={15} /> Back to Courses
         </button>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-slate-900">{course.title}</h2>
-                {course.course_code ? (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-mono text-slate-700">
-                    {course.course_code}
-                  </span>
-                ) : null}
-              </div>
-              {course.description ? (
-                <p className="text-slate-500 mt-2 max-w-2xl">{course.description}</p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {statusBadge('Assignment', course.has_assignment, 'bg-sky-100 text-sky-800')}
-                {statusBadge('Exam', course.has_exam, 'bg-gold-100 text-gold-800')}
-              </div>
-            </div>
+        <PageHeader
+          title={course.title}
+          subtitle={course.description}
+          icon={<BookOpen size={22} />}
+          actions={
             <button
               type="button"
               onClick={() => { setEditForm({ ...course }); setEditing(true) }}
-              className="flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm"
+              className="btn btn-primary lift"
             >
               <Pencil size={14} /> Edit Course
             </button>
-          </div>
+          }
+        />
 
-          <div className="mt-5 grid sm:grid-cols-2 md:grid-cols-4 gap-4 border-t border-slate-100 pt-5">
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Duration</p>
-              <p className="text-sm font-medium text-slate-800 mt-1">{course.duration_weeks} weeks</p>
+        <section className="card card-hover">
+          <div className="card-pad space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              {course.course_code ? <Badge tone="slate">{course.course_code}</Badge> : null}
+              {statusBadge('Assignment', course.has_assignment, 'sky')}
+              {statusBadge('Exam', course.has_exam, 'gold')}
             </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Schedule</p>
-              <p className="text-sm font-medium text-slate-800 mt-1">
-                {course.class_day || '—'} {course.class_time ? `at ${course.class_time}` : ''}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Course Date Range</p>
-              <p className="text-sm font-medium text-slate-800 mt-1">
-                {fmtDateRange(course.start_date, course.end_date)}
-              </p>
-            </div>
-            {planDates ? (
+
+            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5 border-t border-[var(--gts-line)] pt-5">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Year Plan Dates</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Duration</p>
+                <p className="text-sm font-medium text-slate-800 mt-1">{course.duration_weeks} weeks</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Schedule</p>
                 <p className="text-sm font-medium text-slate-800 mt-1">
-                  {fmtDateRange(planDates.start_date, planDates.end_date)}
-                  <span className="ml-1.5 text-[10px] text-sky-500 font-normal">({planDates.planName})</span>
+                  {course.class_day || '—'} {course.class_time ? `at ${course.class_time}` : ''}
                 </p>
               </div>
-            ) : null}
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Min. Attendance</p>
-              <p className="text-sm font-medium text-slate-800 mt-1">{course.min_attendance_required} classes</p>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Course Date Range</p>
+                <p className="text-sm font-medium text-slate-800 mt-1">
+                  {fmtDateRange(course.start_date, course.end_date)}
+                </p>
+              </div>
+              {planDates ? (
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">Year Plan Dates</p>
+                  <p className="text-sm font-medium text-slate-800 mt-1">
+                    {fmtDateRange(planDates.start_date, planDates.end_date)}
+                    <span className="ml-1.5 text-[10px] text-sky-500 font-normal">({planDates.planName})</span>
+                  </p>
+                </div>
+              ) : null}
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Min. Attendance</p>
+                <p className="text-sm font-medium text-slate-800 mt-1">{course.min_attendance_required} classes</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Lecturer</p>
+                <p className="text-sm font-medium text-slate-800 mt-1">
+                  {course.lecturer_name || course.assigned_lecturer || '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">Secondary Lecturer</p>
+                <p className="text-sm font-medium text-slate-800 mt-1">
+                  {course.secondary_lecturer_name || '—'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Lecturer</p>
-              <p className="text-sm font-medium text-slate-800 mt-1">
-                {course.lecturer_name || course.assigned_lecturer || '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Secondary Lecturer</p>
-              <p className="text-sm font-medium text-slate-800 mt-1">
-                {course.secondary_lecturer_name || '—'}
-              </p>
-            </div>
-          </div>
 
-          {/* Stats row */}
-          <div className="mt-5 grid grid-cols-3 gap-4 border-t border-slate-100 pt-5">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-slate-900">{enrolledCount}</p>
-              <p className="text-xs text-slate-400">Currently Enrolled</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-emerald-600">{passCount}</p>
-              <p className="text-xs text-slate-400">Passed</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-red-500">{failCount}</p>
-              <p className="text-xs text-slate-400">Failed</p>
+            {/* Stats row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-t border-[var(--gts-line)] pt-5">
+              <Card value={enrolledCount} title="Currently Enrolled" icon={<Users size={20} />} accent="sky" />
+              <Card value={passCount} title="Passed" icon={<CheckCircle2 size={20} />} accent="emerald" />
+              <Card value={failCount} title="Failed" icon={<XCircle size={20} />} accent="rose" />
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Plan dates banner */}
@@ -487,11 +476,7 @@ export default function CoursePage() {
 
       {/* Current batch tab */}
       {activeTab === 'current' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto flex-1 min-h-0">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h3 className="font-semibold text-slate-900">Active Students</h3>
-            <span className="text-sm text-slate-500">{enrolledStudentIds.size} enrolled</span>
-          </div>
+        <Card title="Active Students" action={<span className="text-sm text-slate-500">{enrolledStudentIds.size} enrolled</span>} className="flex-1 min-h-0 overflow-auto">
             <table className="data-table w-full text-sm">
               <thead className="text-left text-slate-500">
                 <tr>
@@ -717,7 +702,7 @@ export default function CoursePage() {
               <p className="text-sm text-slate-400">Select a cohort or search to find students to enroll.</p>
             )}
           </div>
-        </div>
+      </Card>
       ) : null}
 
       {/* Materials tab */}

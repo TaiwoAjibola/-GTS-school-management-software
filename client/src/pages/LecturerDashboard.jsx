@@ -3,6 +3,8 @@ import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, Gra
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
+import PageHeader from '../components/ui/PageHeader'
+import Badge from '../components/ui/Badge'
 import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -1561,17 +1563,34 @@ const LecturerDashboard = () => {
   return (
     <AppShell title={sectionTitle} groups={lecturerNavGroups}>
       <div className="h-full flex flex-col gap-5 overflow-hidden">
+      <PageHeader
+        title="Lecturer Dashboard"
+        subtitle={sectionTitle}
+        icon={<GraduationCap size={22} />}
+        actions={
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              if (section === 'reports') loadReports()
+              else { loadCourses(); loadAllStudents(); loadGraduationMatrix(); loadCohorts(); loadLecturers() }
+            }}
+          >
+            <BarChart3 size={15} className="opacity-70" /> Refresh
+          </button>
+        }
+      />
       {notice ? <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm shrink-0">{notice}</div> : null}
 
       {section === 'attendance' ? (
         <div className="flex-1 min-h-0 overflow-auto">
-          <div className="grid sm:grid-cols-3 gap-4 mb-6">
-            <Card title="My Courses" value={courses.length} />
-            <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} />
-            <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" />
+            <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" />
+            <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mb-6">
+          <div className="card card-pad card-hover mb-6">
             <div className="grid lg:grid-cols-1 gap-3 items-center">
               <div>
                 <h3 className="font-semibold text-slate-900">Current course</h3>
@@ -1608,7 +1627,7 @@ const LecturerDashboard = () => {
           {coursesTab === 'courses' ? (
         <div className="grid lg:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-6">
-          <form onSubmit={createCourse} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <form onSubmit={createCourse} className="card card-pad card-hover space-y-3">
             <h3 className="font-semibold text-slate-900">Create Course</h3>
 
             <label className="text-sm text-slate-600 block">
@@ -1673,11 +1692,11 @@ const LecturerDashboard = () => {
               </label>
             </div>
 
-            <button className="w-full bg-slate-900 text-white rounded-lg py-2">Save Course</button>
+            <button className="w-full btn btn-primary py-2">Save Course</button>
           </form>
 
           {/* Bulk course upload */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="card card-pad card-hover space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-900">Bulk Upload Courses</h3>
               <button
@@ -1689,7 +1708,7 @@ const LecturerDashboard = () => {
               </button>
             </div>
             <input type="file" accept=".xlsx,.xls" onChange={(e) => setCourseUploadFile(e.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
-            <button onClick={uploadCourses} disabled={!courseUploadFile} className="w-full bg-slate-900 text-white rounded-lg py-2 disabled:opacity-50">
+            <button onClick={uploadCourses} disabled={!courseUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50">
               Upload Courses
             </button>
           </div>
@@ -1916,7 +1935,7 @@ const LecturerDashboard = () => {
             {/* Left: create + list */}
             <div className="space-y-4">
               {/* Create plan form */}
-              <form onSubmit={createPlan} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <form onSubmit={createPlan} className="card card-pad card-hover space-y-3">
                 <h3 className="font-semibold text-slate-900">New Plan</h3>
                 <input
                   className="w-full border rounded-lg px-3 py-2 text-sm"
@@ -1933,11 +1952,11 @@ const LecturerDashboard = () => {
                   onChange={(e) => setPlanForm((p) => ({ ...p, year: e.target.value }))}
                   required
                 />
-                <button className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm">Create Plan</button>
+                <button className="w-full btn btn-primary py-2 text-sm">Create Plan</button>
               </form>
 
               {/* Plan list */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+              <div className="card card-pad card-hover space-y-2">
                 <h3 className="font-semibold text-slate-900 mb-3">All Plans</h3>
                 {plans.length === 0 && !planLoading ? (
                   <p className="text-sm text-slate-400">No plans yet. Create one above.</p>
@@ -1960,7 +1979,7 @@ const LecturerDashboard = () => {
                           required
                         />
                         <div className="flex gap-2">
-                          <button type="submit" className="flex-1 bg-slate-900 text-white rounded-lg py-1.5 text-xs">Save</button>
+                          <button type="submit" className="flex-1 btn btn-primary py-1.5 text-xs">Save</button>
                           <button type="button" onClick={() => setEditingPlan(null)} className="flex-1 bg-slate-100 text-slate-700 rounded-lg py-1.5 text-xs">Cancel</button>
                         </div>
                       </form>
@@ -2011,7 +2030,7 @@ const LecturerDashboard = () => {
             </div>
 
             {/* Right: plan detail */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="card card-pad card-hover">
               {!selectedPlan ? (
                 <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
                   Select or create a plan to view its courses
@@ -2081,7 +2100,7 @@ const LecturerDashboard = () => {
                         <input type="date" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={planItemForm.endDate} onChange={(e) => setPlanItemForm((p) => ({ ...p, endDate: e.target.value }))} />
                       </label>
                     </div>
-                    <button className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm">Add to Plan</button>
+                    <button className="btn btn-primary px-4 py-2 text-sm">Add to Plan</button>
                   </form>
 
                   {/* Plan items table */}
@@ -2172,7 +2191,7 @@ const LecturerDashboard = () => {
           })
 
         return (
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <div className="card card-pad card-hover">
             {/* Header row: year nav + plan badge */}
             <div className="flex items-center gap-3 mb-5 flex-wrap">
               <button type="button" onClick={() => setCalendarYear((y) => y - 1)} className="rounded-lg px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">◀</button>
@@ -2278,7 +2297,7 @@ const LecturerDashboard = () => {
 ) : null}
 
       {section === 'courses' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mt-6 overflow-auto flex-1 min-h-0">
+        <div className="card card-pad card-hover mt-6 overflow-auto flex-1 min-h-0">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h3 className="font-semibold text-slate-900">Course History by Batch</h3>
             <select className="border rounded-lg px-3 py-2 text-sm" value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)}>
@@ -2406,7 +2425,7 @@ const LecturerDashboard = () => {
           ) : (
           <div className="grid xl:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-4 xl:overflow-y-auto xl:pr-1.5" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-            <form onSubmit={createStudent} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <form onSubmit={createStudent} className="card card-pad card-hover space-y-3">
               <h3 className="font-semibold text-slate-900">Create Student</h3>
               <input className="w-full border rounded-lg px-3 py-2" placeholder="Full name" value={studentForm.fullName} onChange={(event) => setStudentForm((prev) => ({ ...prev, fullName: event.target.value }))} required />
               <input className="w-full border rounded-lg px-3 py-2" placeholder="Email" type="email" value={studentForm.email} onChange={(event) => setStudentForm((prev) => ({ ...prev, email: event.target.value }))} required />
@@ -2442,10 +2461,10 @@ const LecturerDashboard = () => {
                   </option>
                 ))}
               </select>
-              <button className="w-full bg-slate-900 text-white rounded-lg py-2">Create Student</button>
+              <button className="w-full btn btn-primary py-2">Create Student</button>
             </form>
 
-            <form onSubmit={createStudentBatch} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <form onSubmit={createStudentBatch} className="card card-pad card-hover space-y-3">
               <h3 className="font-semibold text-slate-900">Create Student Batch</h3>
               <input
                 className="w-full border rounded-lg px-3 py-2"
@@ -2476,10 +2495,10 @@ const LecturerDashboard = () => {
                   />
                 </label>
               </div>
-              <button className="w-full bg-slate-900 text-white rounded-lg py-2">Create Batch</button>
+              <button className="w-full btn btn-primary py-2">Create Batch</button>
             </form>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="card card-pad card-hover space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900">Upload Students (Excel/CSV)</h3>
                 <button
@@ -2491,12 +2510,12 @@ const LecturerDashboard = () => {
                 </button>
               </div>
               <input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => setStudentUploadFile(event.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
-              <button onClick={uploadStudents} disabled={!studentUploadFile} className="w-full bg-slate-900 text-white rounded-lg py-2 disabled:opacity-50 flex items-center justify-center gap-2">
+              <button onClick={uploadStudents} disabled={!studentUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 flex items-center justify-center gap-2">
                 <Upload size={16} /> Upload List
               </button>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="card card-pad card-hover space-y-3">
               <h3 className="font-semibold text-slate-900">Student Batches</h3>
               <div className="max-h-72 overflow-auto space-y-2">
                 {cohorts.map((cohort) => (
@@ -2532,7 +2551,7 @@ const LecturerDashboard = () => {
                           <option value="completed">completed</option>
                         </select>
                         <div className="flex gap-2">
-                          <button type="button" className="rounded-lg bg-slate-900 text-white px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
+                          <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
                           <button type="button" className="rounded-lg bg-slate-200 px-2 py-1 text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
                         </div>
                       </div>
@@ -2544,7 +2563,7 @@ const LecturerDashboard = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs" onClick={() => startEditCohort(cohort)}>Edit</button>
-                          <button type="button" className="rounded-lg bg-rose-100 text-rose-700 px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
+                          <button type="button" className="rounded-lg btn btn-danger px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
                         </div>
                       </div>
                     )}
@@ -2684,7 +2703,7 @@ const LecturerDashboard = () => {
                       <button type="button" onClick={() => openStudentPanel(student)} className="rounded-lg px-3 py-1.5 bg-slate-100 text-slate-700 text-xs hover:bg-slate-200 cursor-pointer">View</button>
                       <button
                         type="button"
-                        className="rounded-lg px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 text-xs hover:bg-red-100 cursor-pointer"
+                        className="rounded-lg px-3 py-1.5 btn btn-danger border border-red-200 text-xs hover:bg-red-100 cursor-pointer"
                         onClick={async () => {
                           if (!window.confirm(`Delete ${student.full_name}? This cannot be undone.`)) return
                           try {
@@ -2739,7 +2758,7 @@ const LecturerDashboard = () => {
                         type="button"
                         onClick={uploadProfileImage}
                         disabled={profileImageUploading}
-                        className="mt-1 text-xs bg-slate-900 text-white rounded-lg px-3 py-1 disabled:opacity-50"
+                        className="mt-1 text-xs btn btn-primary px-3 py-1 disabled:opacity-50"
                       >
                         {profileImageUploading ? 'Uploading...' : 'Upload'}
                       </button>
@@ -2848,11 +2867,11 @@ const LecturerDashboard = () => {
 
                 <div className="flex gap-2">
                   <input className="flex-1 border rounded-lg px-3 py-2" placeholder="Add status" value={newStatusInput} onChange={(event) => setNewStatusInput(event.target.value)} />
-                  <button type="button" onClick={addStudentStatus} className="bg-slate-900 text-white rounded-lg px-3 py-2">Add</button>
+                  <button type="button" onClick={addStudentStatus} className="btn btn-primary px-3 py-2">Add</button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
-                  <button className="bg-slate-900 text-white rounded-lg py-2">Save</button>
+                  <button className="btn btn-primary py-2">Save</button>
                   <button type="button" className="bg-slate-200 rounded-lg py-2" onClick={closeStudentPanel}>Cancel</button>
                 </div>
 
@@ -2914,7 +2933,7 @@ const LecturerDashboard = () => {
                       <button
                         type="button"
                         disabled={statusSaving}
-                        className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                        className="px-4 py-2 text-sm btn btn-primary disabled:opacity-50"
                         onClick={async () => {
                           if (!selectedStudent) return
                           setStatusSaving(true)
@@ -2945,7 +2964,7 @@ const LecturerDashboard = () => {
                 <div className="pt-3 border-t border-red-100">
                   <button
                     type="button"
-                    className="w-full bg-red-50 text-red-600 border border-red-200 rounded-lg py-2 text-sm font-medium hover:bg-red-100"
+                    className="w-full btn btn-danger border border-red-200 rounded-lg py-2 text-sm font-medium hover:bg-red-100"
                     onClick={async () => {
                       if (!window.confirm(`Delete ${selectedStudent.full_name}? This cannot be undone.`)) return
                       await apiClient.delete(`/students/${selectedStudent.id}`)
@@ -2990,7 +3009,7 @@ const LecturerDashboard = () => {
                         value={enrollmentNotesEdits[enrollment.id] || ''}
                         onChange={(event) => setEnrollmentNotesEdits((prev) => ({ ...prev, [enrollment.id]: event.target.value }))}
                       />
-                      <button type="button" className="bg-slate-900 text-white rounded-lg px-3 py-2 text-sm" onClick={() => saveEnrollmentNote(enrollment.id)}>Save Note</button>
+                      <button type="button" className="btn btn-primary px-3 py-2 text-sm" onClick={() => saveEnrollmentNote(enrollment.id)}>Save Note</button>
                     </div>
                   ))}
 
@@ -3058,7 +3077,7 @@ const LecturerDashboard = () => {
                 <div className="sticky top-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
                   <h3 className="font-semibold text-slate-900">Manage Student Batches</h3>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={persistCohortOrder} className="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs">Save Order</button>
+                    <button type="button" onClick={persistCohortOrder} className="btn btn-primary px-3 py-2 text-xs">Save Order</button>
                     <button type="button" onClick={() => setShowBatchDrawer(false)} className="rounded-lg p-1 hover:bg-slate-100">
                       <X size={18} />
                     </button>
@@ -3109,7 +3128,7 @@ const LecturerDashboard = () => {
                             <option value="completed">completed</option>
                           </select>
                           <div className="flex gap-2">
-                            <button type="button" className="rounded-lg bg-slate-900 text-white px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
+                            <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
                             <button type="button" className="rounded-lg bg-slate-200 px-2 py-1 text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
                           </div>
                         </div>
@@ -3123,7 +3142,7 @@ const LecturerDashboard = () => {
                           <div className="flex items-center gap-2">
                             <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">Drag</span>
                             <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs" onClick={() => startEditCohort(cohort)}>Edit</button>
-                            <button type="button" className="rounded-lg bg-rose-100 text-rose-700 px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
+                            <button type="button" className="rounded-lg btn btn-danger px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
                           </div>
                         </div>
                       )}
@@ -3141,7 +3160,7 @@ const LecturerDashboard = () => {
 
       {section === 'batches' ? (
         <div className="grid lg:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
-          <form onSubmit={createStudentBatch} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <form onSubmit={createStudentBatch} className="card card-pad card-hover space-y-3">
             <h3 className="font-semibold text-slate-900">Create Student Batch</h3>
             <input
               className="w-full border rounded-lg px-3 py-2"
@@ -3172,10 +3191,10 @@ const LecturerDashboard = () => {
                 />
               </label>
             </div>
-            <button className="w-full bg-slate-900 text-white rounded-lg py-2">Create Batch</button>
+            <button className="w-full btn btn-primary py-2">Create Batch</button>
           </form>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+          <div className="card card-pad card-hover overflow-auto">
             {/* Header + controls */}
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
               <h3 className="font-semibold text-slate-900">Student Batches</h3>
@@ -3200,7 +3219,7 @@ const LecturerDashboard = () => {
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={persistCohortOrder} className="rounded-lg bg-slate-900 text-white px-3 py-1.5 text-xs">
+                <button type="button" onClick={persistCohortOrder} className="btn btn-primary px-3 py-1.5 text-xs">
                   Save Order
                 </button>
               </div>
@@ -3281,7 +3300,7 @@ const LecturerDashboard = () => {
                               <option value="completed">completed</option>
                             </select>
                             <div className="flex gap-2">
-                              <button type="button" className="rounded-lg bg-slate-900 text-white px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
+                              <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
                               <button type="button" className="rounded-lg bg-slate-200 px-2 py-1 text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
                             </div>
                           </div>
@@ -3321,7 +3340,7 @@ const LecturerDashboard = () => {
                                 </button>
                                 <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-400">⠿</span>
                                 <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs" onClick={() => startEditCohort(cohort)}>Edit</button>
-                                <button type="button" className="rounded-lg bg-rose-100 text-rose-700 px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
+                                <button type="button" className="rounded-lg btn btn-danger px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
                               </div>
                             </div>
 
@@ -3460,7 +3479,7 @@ const LecturerDashboard = () => {
                   <button
                     type="button"
                     disabled={quickStatusSaving}
-                    className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                    className="px-4 py-2 text-sm btn btn-primary disabled:opacity-50"
                     onClick={async () => {
                       setQuickStatusSaving(true)
                       try {
@@ -3573,7 +3592,7 @@ const LecturerDashboard = () => {
                 type="button"
                 disabled={!vettingAllConfirmed || gradVettingSaving}
                 onClick={confirmGradVetting}
-                className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-40"
+                className="px-4 py-2 text-sm btn btn-primary disabled:opacity-40"
               >
                 {gradVettingSaving ? 'Saving…' : `Move to ${gradVetting.targetStatus}`}
               </button>
@@ -3585,7 +3604,7 @@ const LecturerDashboard = () => {
       {section === 'attendance' ? (
         <div className="grid xl:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="card card-pad card-hover space-y-4">
               <div>
                 <h3 className="font-semibold text-slate-900">Attendance Session</h3>
                 <p className="text-sm text-slate-500 mt-1">Mark students present. Unmarked students are treated as absent.</p>
@@ -3635,7 +3654,7 @@ const LecturerDashboard = () => {
                   placeholder="Optional notes for this session"
                 />
               </label>
-              <button onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="w-full bg-slate-900 text-white rounded-lg px-4 py-2 disabled:opacity-50">Start Attendance</button>
+              <button onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="w-full btn btn-primary px-4 py-2 disabled:opacity-50">Start Attendance</button>
               <button onClick={closeAttendance} disabled={!attendanceStatus.activeSession} className="w-full bg-slate-200 text-slate-800 rounded-lg px-4 py-2 disabled:opacity-50">Close Attendance</button>
               <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
                 <p>Class: {selectedClassNumber}</p>
@@ -3646,7 +3665,7 @@ const LecturerDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="card card-pad card-hover">
               <p className="text-sm font-medium text-slate-900">Session History</p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600 max-h-56 overflow-auto">
                 {attendanceHistory.map((session) => (
@@ -3671,7 +3690,7 @@ const LecturerDashboard = () => {
 
           <div className="space-y-6">
             {attendanceStatus.canMark ? (
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+              <div className="card card-pad card-hover overflow-auto">
                 <h3 className="font-semibold text-slate-900 mb-4">Roll Call (Editable)</h3>
                 <table className="data-table w-full text-sm">
                   <thead className="text-left text-slate-500">
@@ -3684,7 +3703,7 @@ const LecturerDashboard = () => {
                         <td>{student.matric_no}</td>
                         <td>{student.status}</td>
                         <td>
-                          <button onClick={() => markStudentPresent(student.student_id)} disabled={!attendanceStatus.activeSession || student.present} className={`rounded-lg px-3 py-2 ${student.present ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-900 text-white disabled:opacity-50'}`}>
+                          <button onClick={() => markStudentPresent(student.student_id)} disabled={!attendanceStatus.activeSession || student.present} className={`rounded-lg px-3 py-2 ${student.present ? 'bg-emerald-100 text-emerald-700' : 'btn btn-primary disabled:opacity-50'}`}>
                             {student.present ? 'Present' : 'Mark Present'}
                           </button>
                         </td>
@@ -3694,12 +3713,12 @@ const LecturerDashboard = () => {
                 </table>
               </div>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-sm text-slate-600">
+              <div className="card card-pad card-hover text-sm text-slate-600">
                 Roll call is locked for this class. View summary below.
               </div>
             )}
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+            <div className="card card-pad card-hover overflow-auto">
               <h3 className="font-semibold text-slate-900 mb-4">Attendance Summary by Student</h3>
               <table className="data-table w-full text-sm">
                 <thead className="text-left text-slate-500">
@@ -3800,7 +3819,7 @@ const LecturerDashboard = () => {
             </div>
 
             {/* Shared selectors */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="card card-pad card-hover">
               <div className="flex flex-wrap gap-4 items-end">
                 <label className="text-sm text-slate-600 block flex-1 min-w-[200px]">
                   Plan
@@ -3858,7 +3877,7 @@ const LecturerDashboard = () => {
                   type="button"
                   onClick={loadPlanGrid}
                   disabled={!resultPlanId || !resultCourseId || planGridLoading}
-                  className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+                  className="btn btn-primary px-4 py-2 text-sm disabled:opacity-50"
                 >
                   {planGridLoading ? 'Loading...' : 'Load Grid'}
                 </button>
@@ -3868,7 +3887,7 @@ const LecturerDashboard = () => {
             {/* Input grid tab */}
             {resultsTab === 'input' ? (
               planGrid ? (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+                <div className="card card-pad card-hover overflow-auto">
                   <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                     <div>
                       <h3 className="font-semibold text-slate-900">{planGrid.plan.name} — {planGrid.course.title}</h3>
@@ -3878,7 +3897,7 @@ const LecturerDashboard = () => {
                       type="button"
                       disabled={Object.keys(planGridEdits).length === 0}
                       onClick={saveAllEdits}
-                      className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+                      className="btn btn-primary px-4 py-2 text-sm disabled:opacity-50"
                     >
                       Save Changes {Object.keys(planGridEdits).length > 0 ? `(${Object.keys(planGridEdits).length})` : ''}
                     </button>
@@ -3959,7 +3978,7 @@ const LecturerDashboard = () => {
                   )}
                 </div>
               ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="card card-pad card-hover">
                   <p className="text-sm text-slate-400 text-center py-6">
                     Select a plan and course, then click "Load Grid" to enter results.
                   </p>
@@ -3970,7 +3989,7 @@ const LecturerDashboard = () => {
             {/* History tab — auto-loads all results */}
             {resultsTab === 'history' ? (
               <div className="space-y-4">
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="card card-pad card-hover">
                   <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
                     <h3 className="font-semibold text-slate-900">All Saved Results</h3>
                     <input
@@ -4102,7 +4121,7 @@ const LecturerDashboard = () => {
                     key={value}
                     type="button"
                     onClick={() => setGraduationStatusFilter(value)}
-                    className={`rounded-full px-3 py-1 text-xs border cursor-pointer ${graduationStatusFilter === value ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
+                    className={`rounded-full px-3 py-1 text-xs border cursor-pointer ${graduationStatusFilter === value ? 'btn btn-primary border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
                   >
                     {value === 'all' ? 'All Statuses' : value}
                   </button>
@@ -4282,17 +4301,17 @@ const LecturerDashboard = () => {
 
           {examsTab === 'assignments' ? (
             <div className="grid xl:grid-cols-[390px_1fr] gap-6">
-              <form onSubmit={createAssignment} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <form onSubmit={createAssignment} className="card card-pad card-hover space-y-3">
                 <h3 className="font-semibold text-slate-900">Create Assignment</h3>
                 <p className="text-sm text-slate-500">Assignments are sent only to students who are eligible from attendance.</p>
                 <input className="w-full border rounded-lg px-3 py-2" placeholder="Title" value={assignmentForm.title} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, title: event.target.value }))} required />
                 <textarea className="w-full min-h-36 border rounded-lg px-3 py-2" placeholder="Description" value={assignmentForm.description} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, description: event.target.value }))} required />
                 <input className="w-full border rounded-lg px-3 py-2" type="date" value={assignmentForm.dueDate} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
                 <input className="w-full border rounded-lg px-3 py-2" type="file" onChange={(event) => setAssignmentForm((prev) => ({ ...prev, file: event.target.files?.[0] || null }))} />
-                <button className="bg-slate-900 text-white rounded-lg px-4 py-2">Send Assignment</button>
+                <button className="btn btn-primary px-4 py-2">Send Assignment</button>
               </form>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+              <div className="card card-pad card-hover overflow-auto">
                 <h3 className="font-semibold text-slate-900 mb-4">Eligible Students ({eligibleStudents.length})</h3>
                 <table className="data-table w-full text-sm">
                   <thead className="text-left text-slate-500">
@@ -4329,7 +4348,7 @@ const LecturerDashboard = () => {
               </div>
 
               <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-6 items-start">
-                <form onSubmit={createExam} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                <form onSubmit={createExam} className="card card-pad card-hover space-y-4">
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
                       <p className="text-sm font-medium text-slate-700 mb-1.5">Plan (academic year)</p>
@@ -4538,11 +4557,11 @@ const LecturerDashboard = () => {
                     </div>
                   )}
 
-                  <button className="w-full bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-semibold">Save Exam</button>
+                  <button className="w-full btn btn-primary rounded-xl px-4 py-3 text-sm font-semibold">Save Exam</button>
                 </form>
 
                 {/* Live preview */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm sticky top-4">
+                <div className="card card-pad card-hover sticky top-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-slate-900">Student preview</h3>
                     <span className={`text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ${examForm.examType === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
@@ -4681,7 +4700,7 @@ const LecturerDashboard = () => {
                       <button
                         type="button"
                         onClick={() => { setExamSavedListOpen(false); openExamSend(exam) }}
-                        className="text-xs rounded-lg bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-700"
+                        className="text-xs btn btn-primary px-3 py-1.5 hover:bg-slate-700"
                       >
                         Send Exam
                       </button>
@@ -4864,7 +4883,7 @@ const LecturerDashboard = () => {
                 type="button"
                 disabled={examSending}
                 onClick={sendExamNow}
-                className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                className="px-4 py-2 text-sm btn btn-primary disabled:opacity-50"
               >
                 {examSending ? 'Sending…' : 'Send Exam'}
               </button>
@@ -4876,7 +4895,7 @@ const LecturerDashboard = () => {
         <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           {/* Create lecturer form */}
           <form
-            className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 self-start"
+            className="card card-pad card-hover space-y-3 self-start"
             onSubmit={async (e) => {
               e.preventDefault()
               if (!lecturerForm.name.trim()) return
@@ -4920,11 +4939,11 @@ const LecturerDashboard = () => {
                 onChange={(e) => setLecturerForm((p) => ({ ...p, phone: e.target.value }))}
               />
             </label>
-            <button className="w-full bg-slate-900 text-white rounded-lg py-2">Add Lecturer</button>
+            <button className="w-full btn btn-primary py-2">Add Lecturer</button>
           </form>
 
           {/* Lecturers list */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+          <div className="card card-pad card-hover overflow-auto">
             <h3 className="font-semibold text-slate-900 mb-4">All Lecturers ({lecturers.length})</h3>
             {lecturers.length === 0 ? (
               <p className="text-sm text-slate-400">No lecturers yet. Add one using the form.</p>
@@ -4968,7 +4987,7 @@ const LecturerDashboard = () => {
                           <td className="py-2 whitespace-nowrap">
                             <button
                               type="button"
-                              className="text-xs bg-slate-900 text-white rounded px-2 py-1 mr-1"
+                              className="text-xs btn btn-primary rounded px-2 py-1 mr-1"
                               onClick={async () => {
                                 try {
                                   await apiClient.put(`/lecturers/${l.id}`, lecturerEditForm)
@@ -5059,11 +5078,11 @@ const LecturerDashboard = () => {
                   <UserCog size={40} className="mx-auto text-slate-300 mb-3" />
                   <p className="text-sm text-slate-500 mb-4">No student credentials have been created.</p>
                   <button type="button" onClick={openCredentialForm}
-                    className="inline-flex items-center gap-1.5 bg-slate-900 text-white rounded-xl px-5 py-2 text-sm font-medium hover:bg-slate-800 transition-colors"
+                    className="inline-flex items-center gap-1.5 btn btn-primary rounded-xl px-5 py-2 text-sm font-medium hover:bg-slate-800 transition-colors"
                   ><Plus size={15} /> Add Credential</button>
                 </div>
               ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="card card-pad card-hover space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-slate-900">Create Student Credential</h3>
                     <button type="button" onClick={() => setCredentialFormOpen(false)} className="text-sm text-slate-500 hover:text-slate-900">Cancel</button>
@@ -5118,7 +5137,7 @@ const LecturerDashboard = () => {
                       className="text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg hover:bg-slate-100"
                     >Generate Password</button>
                     <button type="button" disabled={credentialSaving} onClick={saveCredential}
-                      className="bg-slate-900 text-white rounded-xl px-5 py-2 text-sm font-medium disabled:opacity-50"
+                      className="btn btn-primary rounded-xl px-5 py-2 text-sm font-medium disabled:opacity-50"
                     >{credentialSaving ? 'Saving...' : 'Save Credential'}</button>
                   </div>
                 </div>
@@ -5131,7 +5150,7 @@ const LecturerDashboard = () => {
       {section === 'reports' ? (
         <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           {/* Filter Header */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
+          <div className="card card-pad card-hover flex flex-wrap gap-4 items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Reporting & Analytics</h2>
               <p className="text-sm text-slate-500">Comprehensive system performance and academic metrics.</p>
@@ -5155,7 +5174,7 @@ const LecturerDashboard = () => {
               </select>
               <button
                 onClick={loadReports}
-                className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm font-medium"
+                className="btn btn-primary px-4 py-2 text-sm font-medium"
               >
                 Refresh
               </button>
@@ -5322,7 +5341,7 @@ const LecturerDashboard = () => {
             <button
               type="button"
               onClick={() => { setEditingForm(null); setFormBuilderOpen(true) }}
-              className="bg-slate-900 text-white rounded-xl px-4 py-2 text-sm"
+              className="btn btn-primary rounded-xl px-4 py-2 text-sm"
             >
               New Form
             </button>
@@ -5334,7 +5353,7 @@ const LecturerDashboard = () => {
           ) : (
             <div className="grid gap-4">
               {forms.map((form) => (
-                <div key={form.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div key={form.id} className="card card-pad card-hover">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
@@ -5415,7 +5434,7 @@ const LecturerDashboard = () => {
                       <button
                         type="button"
                         onClick={() => deleteForm(form.id)}
-                        className="text-xs bg-red-50 text-red-600 rounded-lg px-3 py-1.5 hover:bg-red-100"
+                        className="text-xs btn btn-danger rounded-lg px-3 py-1.5 hover:bg-red-100"
                       >
                         Delete
                       </button>
@@ -5672,7 +5691,7 @@ const LecturerDashboard = () => {
                 <button
                   type="button"
                   onClick={() => { setEditingSession(null); setShowDeleteSessionConfirm(false); setDeleteSessionReason('') }}
-                  className="rounded-lg px-4 py-2 bg-slate-900 text-white text-sm"
+                  className="rounded-lg px-4 py-2 btn btn-primary text-sm"
                 >
                   Done
                 </button>
@@ -6155,7 +6174,7 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                     <button
                       type="button"
                       onClick={handleCreateCohort}
-                      className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm"
+                      className="btn btn-primary rounded-xl px-6 py-2 text-sm"
                     >
                       Create
                     </button>
@@ -6176,7 +6195,7 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium text-slate-900">Fields ({fields.length})</h4>
-              <button type="button" onClick={addField} className="text-sm bg-slate-900 text-white rounded-lg px-3 py-1.5">
+              <button type="button" onClick={addField} className="text-sm btn btn-primary px-3 py-1.5">
                 Add Field
               </button>
             </div>
@@ -6609,7 +6628,7 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
             <button
               type="submit"
               disabled={saving || !title.trim() || !slug.trim()}
-              className="bg-slate-900 text-white rounded-xl px-6 py-2 text-sm disabled:opacity-50"
+              className="btn btn-primary rounded-xl px-6 py-2 text-sm disabled:opacity-50"
             >
               {saving ? 'Saving...' : form ? 'Update Form' : 'Create Form'}
             </button>

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, BookmarkCheck, Library, RefreshCw, Link2, FileText, Shield, Settings, Sliders, ExternalLink } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import DataTable from '../components/ui/DataTable'
+import Card from '../components/ui/Card'
+import Badge from '../components/ui/Badge'
 import apiClient from '../api/client'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate } from '../utils/formatDate'
@@ -17,9 +19,9 @@ const tabs = [
   { key: 'integration', label: 'Integration', icon: Settings },
 ]
 
-const statusBadge = (status, colors) => {
-  const color = colors[status] || 'bg-slate-100 text-slate-700'
-  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>{status}</span>
+const statusBadge = (status, tones = {}) => {
+  const tone = tones[status] || 'slate'
+  return <Badge tone={tone} dot>{status}</Badge>
 }
 
 export default function BookMinistryPage() {
@@ -107,41 +109,40 @@ export default function BookMinistryPage() {
   return (
     <AppShell title="Book Ministry" groups={lecturerNavGroups}>
       {notice ? (
-        <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div>
+        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2.5 text-sm font-medium">{notice}</div>
       ) : null}
 
       <div className="h-full flex flex-col gap-5 overflow-hidden">
       {/* Header */}
-      <div className="mb-6 shrink-0">
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <div className="shrink-0">
+        <div className="card card-hover p-6">
           <div className="flex items-center gap-3 mb-1">
-            <Library size={24} className="text-slate-700" />
-            <h2 className="text-2xl font-bold text-slate-900">Book Ministry</h2>
+            <div className="ico h-11 w-11"><Library size={22} /></div>
+            <h2 className="section-title">Book Ministry</h2>
           </div>
-          <p className="text-sm text-slate-500 mt-1 max-w-2xl">
+          <p className="section-sub max-w-2xl">
             Manage library-linked student accounts, borrowing records, reading progress, and access permissions.
             This module connects GTS student data with the Book Ministry application.
           </p>
-          <div className="mt-3 flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-              <span className={`inline-block h-2 w-2 rounded-full ${settingVal('enabled') === 'true' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+          <div className="mt-3 flex items-center gap-4 flex-wrap">
+            <Badge tone={settingVal('enabled') === 'true' ? 'emerald' : 'slate'} dot>
               {settingVal('enabled') === 'true' ? 'Enabled' : 'Disabled'}
+            </Badge>
+            <span className="text-xs text-slate-400">
+              {settingVal('notification_email') ? `Notifications: ${settingVal('notification_email')}` : 'No notification email set'}
             </span>
-            <span className="text-xs text-slate-400">{settingVal('notification_email') ? `Notifications: ${settingVal('notification_email')}` : 'No notification email set'}</span>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 shrink-0 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-2 shrink-0">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
             onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
+            className={`btn btn-sm lift ${activeTab === key ? 'btn-primary' : 'btn-ghost'}`}
           >
             <Icon size={14} />
             {label}
@@ -158,22 +159,14 @@ export default function BookMinistryPage() {
           {activeTab === 'overview' && stats && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {[
-                  { label: 'Linked Accounts', value: stats.linkedAccounts, color: 'text-sky-600', bg: 'bg-sky-50' },
-                  { label: 'Active Borrows', value: stats.activeBorrows, color: 'text-amber-600', bg: 'bg-amber-50' },
-                  { label: 'Active Reading', value: stats.activeReading, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Active Permissions', value: stats.activePermissions, color: 'text-gold-600', bg: 'bg-gold-50' },
-                  { label: 'Pending Requests', value: stats.pendingRequests, color: 'text-gold-600', bg: 'bg-gold-50' },
-                ].map(({ label, value, color, bg }) => (
-                  <div key={label} className={`rounded-xl border border-slate-200 p-4 ${bg}`}>
-                    <p className="text-3xl font-bold ${color}">{value}</p>
-                    <p className="text-xs text-slate-500 mt-1">{label}</p>
-                  </div>
-                ))}
+                <Card title="Linked Accounts" value={stats.linkedAccounts} accent="sky" icon={<Link2 size={20} />} />
+                <Card title="Active Borrows" value={stats.activeBorrows} accent="emerald" icon={<BookOpen size={20} />} />
+                <Card title="Active Reading" value={stats.activeReading} accent="gold" icon={<BookmarkCheck size={20} />} />
+                <Card title="Active Permissions" value={stats.activePermissions} accent="sky" icon={<Shield size={20} />} />
+                <Card title="Pending Requests" value={stats.pendingRequests} accent="rose" icon={<FileText size={20} />} />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-2">Integration Status</h3>
+              <Card title="Integration Status">
                 <div className="grid sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-slate-500">Book Ministry Feature</p>
@@ -192,7 +185,7 @@ export default function BookMinistryPage() {
                     <p className="font-medium text-slate-800">Book Ministry App (external)</p>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -200,8 +193,8 @@ export default function BookMinistryPage() {
           {activeTab === 'linked' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900">Linked Accounts</h3>
-                <span className="text-xs text-slate-500">{linkedAccounts.length} linked</span>
+                <h3 className="card-title">Linked Accounts</h3>
+                <span className="chip">{linkedAccounts.length} linked</span>
               </div>
               <DataTable
                 data={linkedAccounts}
@@ -219,7 +212,7 @@ export default function BookMinistryPage() {
                     accessor: 'student_status',
                     filterType: 'select',
                     filterOptions: ['Active', 'Graduating', 'Graduated'],
-                    cell: (a) => statusBadge(a.student_status, { Active: 'bg-emerald-100 text-emerald-800', Graduating: 'bg-sky-100 text-sky-800', Graduated: 'bg-gold-100 text-gold-800' }),
+                    cell: (a) => statusBadge(a.student_status, { Active: 'emerald', Graduating: 'sky', Graduated: 'gold' }),
                   },
                   {
                     id: 'external_account_id',
@@ -239,9 +232,9 @@ export default function BookMinistryPage() {
           {activeTab === 'borrowing' && (
             <div>
               <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                <h3 className="font-semibold text-slate-900">Borrowing History</h3>
+                <h3 className="card-title">Borrowing History</h3>
                 <select
-                  className="border rounded-lg px-3 py-2 text-sm"
+                  className="select w-auto"
                   value={borrowStudentFilter}
                   onChange={(e) => setBorrowStudentFilter(e.target.value)}
                 >
@@ -272,7 +265,7 @@ export default function BookMinistryPage() {
                     accessor: 'status',
                     filterType: 'select',
                     filterOptions: ['borrowed', 'returned', 'overdue', 'lost'],
-                    cell: (b) => statusBadge(b.status, { borrowed: 'bg-sky-100 text-sky-800', returned: 'bg-emerald-100 text-emerald-800', overdue: 'bg-red-100 text-red-800', lost: 'bg-slate-200 text-slate-700' }),
+                    cell: (b) => statusBadge(b.status, { borrowed: 'sky', returned: 'emerald', overdue: 'rose', lost: 'slate' }),
                   },
                 ]}
               />
@@ -283,9 +276,9 @@ export default function BookMinistryPage() {
           {activeTab === 'reading' && (
             <div>
               <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                <h3 className="font-semibold text-slate-900">Reading Records</h3>
+                <h3 className="card-title">Reading Records</h3>
                 <select
-                  className="border rounded-lg px-3 py-2 text-sm"
+                  className="select w-auto"
                   value={readingStudentFilter}
                   onChange={(e) => setReadingStudentFilter(e.target.value)}
                 >
@@ -328,7 +321,7 @@ export default function BookMinistryPage() {
                     accessor: 'status',
                     filterType: 'select',
                     filterOptions: ['reading', 'completed', 'paused', 'abandoned'],
-                    cell: (r) => statusBadge(r.status, { reading: 'bg-sky-100 text-sky-800', completed: 'bg-emerald-100 text-emerald-800', paused: 'bg-amber-100 text-amber-800', abandoned: 'bg-slate-100 text-slate-500' }),
+                    cell: (r) => statusBadge(r.status, { reading: 'sky', completed: 'emerald', paused: 'amber', abandoned: 'slate' }),
                   },
                 ]}
               />
@@ -339,8 +332,8 @@ export default function BookMinistryPage() {
           {activeTab === 'permissions' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900">Library Permissions</h3>
-                <span className="text-xs text-slate-500">{permissions.length} total</span>
+                <h3 className="card-title">Library Permissions</h3>
+                <span className="chip">{permissions.length} total</span>
               </div>
               <DataTable
                 data={permissions}
@@ -367,7 +360,7 @@ export default function BookMinistryPage() {
                     accessor: (p) => (p.is_active ? 'active' : 'revoked'),
                     filterType: 'select',
                     filterOptions: ['active', 'revoked'],
-                    cell: (p) => statusBadge(p.is_active ? 'active' : 'revoked', { active: 'bg-emerald-100 text-emerald-800', revoked: 'bg-slate-100 text-slate-500' }),
+                    cell: (p) => statusBadge(p.is_active ? 'active' : 'revoked', { active: 'emerald', revoked: 'slate' }),
                   },
                 ]}
               />
@@ -377,7 +370,7 @@ export default function BookMinistryPage() {
           {/* Access Rules */}
           {activeTab === 'access-rules' && (
             <div>
-              <h3 className="font-semibold text-slate-900 mb-3">Access Rules by Student Status</h3>
+              <h3 className="card-title mb-3">Access Rules by Student Status</h3>
               <DataTable
                 data={accessRules}
                 rowKey="id"
@@ -393,7 +386,7 @@ export default function BookMinistryPage() {
                     accessor: (r) => (r.can_request_books ? 'Yes' : 'No'),
                     filterType: 'select',
                     filterOptions: ['Yes', 'No'],
-                    cell: (r) => (r.can_request_books ? <span className="text-emerald-600 font-medium">Yes</span> : <span className="text-red-500 font-medium">No</span>),
+                    cell: (r) => (r.can_request_books ? <Badge tone="emerald" dot>Yes</Badge> : <Badge tone="rose" dot>No</Badge>),
                   },
                   {
                     id: 'digital_access',
@@ -401,7 +394,7 @@ export default function BookMinistryPage() {
                     accessor: (r) => (r.digital_access ? 'Yes' : 'No'),
                     filterType: 'select',
                     filterOptions: ['Yes', 'No'],
-                    cell: (r) => (r.digital_access ? <span className="text-emerald-600 font-medium">Yes</span> : <span className="text-red-500 font-medium">No</span>),
+                    cell: (r) => (r.digital_access ? <Badge tone="emerald" dot>Yes</Badge> : <Badge tone="rose" dot>No</Badge>),
                   },
                   { id: 'notes', header: 'Notes', accessor: 'notes', cell: (r) => <span className="text-slate-500 max-w-60 truncate block">{r.notes || null}</span> },
                 ]}
@@ -413,8 +406,8 @@ export default function BookMinistryPage() {
           {activeTab === 'requests' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900">Book Requests</h3>
-                <span className="text-xs text-slate-500">{bookRequests.length} requests</span>
+                <h3 className="card-title">Book Requests</h3>
+                <span className="chip">{bookRequests.length} requests</span>
               </div>
               <DataTable
                 data={bookRequests}
@@ -437,7 +430,7 @@ export default function BookMinistryPage() {
                     accessor: 'status',
                     filterType: 'select',
                     filterOptions: ['pending', 'approved', 'fulfilled', 'cancelled'],
-                    cell: (r) => statusBadge(r.status, { pending: 'bg-amber-100 text-amber-800', approved: 'bg-sky-100 text-sky-800', fulfilled: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-slate-100 text-slate-500' }),
+                    cell: (r) => statusBadge(r.status, { pending: 'amber', approved: 'sky', fulfilled: 'emerald', cancelled: 'slate' }),
                   },
                 ]}
               />
@@ -447,12 +440,12 @@ export default function BookMinistryPage() {
           {/* Integration */}
           {activeTab === 'integration' && (
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <h3 className="font-semibold text-slate-900 flex items-center gap-2 mb-4">
+              <div className="card card-hover p-6">
+                <h3 className="card-title flex items-center gap-2 mb-4">
                   <ExternalLink size={16} />
                   Book Ministry Application Integration
                 </h3>
-                <p className="text-sm text-slate-600 mb-4">
+                <p className="section-sub mb-4">
                   GTS Book Ministry is designed to sync with an external Book Ministry application.
                   When the Book Ministry app is ready, it will push data into these GTS endpoints:
                 </p>
@@ -473,8 +466,7 @@ export default function BookMinistryPage() {
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-4">Configuration</h3>
+              <Card title="Configuration">
                 <div className="space-y-4 max-w-lg">
                   <div className="flex items-center justify-between">
                     <div>
@@ -501,10 +493,10 @@ export default function BookMinistryPage() {
                     </label>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-800 mb-1">Notification Email</p>
+                    <p className="field-label">Notification Email</p>
                     <div className="flex gap-2">
                       <input
-                        className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                        className="input"
                         defaultValue={settingVal('notification_email')}
                         placeholder="bookministry@example.com"
                         id="notif-email"
@@ -520,20 +512,20 @@ export default function BookMinistryPage() {
                             notify(err?.response?.data?.message || 'Failed to update')
                           }
                         }}
-                        className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm"
+                        className="btn btn-primary btn-sm lift"
                       >
                         Save
                       </button>
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-800 mb-1">Max Requests per Student</p>
+                    <p className="field-label">Max Requests per Student</p>
                     <div className="flex gap-2">
                       <input
                         type="number"
                         min="1"
                         max="100"
-                        className="w-24 border rounded-lg px-3 py-2 text-sm"
+                        className="input w-24"
                         defaultValue={settingVal('max_requests_per_student', '5')}
                         id="max-req"
                       />
@@ -548,14 +540,14 @@ export default function BookMinistryPage() {
                             notify(err?.response?.data?.message || 'Failed to update')
                           }
                         }}
-                        className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm"
+                        className="btn btn-primary btn-sm lift"
                       >
                         Save
                       </button>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
 
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
                 <div className="flex items-start gap-3">
