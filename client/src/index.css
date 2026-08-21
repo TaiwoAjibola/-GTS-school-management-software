@@ -47,10 +47,14 @@
 
 html {
   scroll-behavior: smooth;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
+  height: 100%;
+  overflow: hidden;
   font-family: var(--font-sans);
   background:
     radial-gradient(1200px 600px at 100% -10%, rgba(170, 139, 85, 0.10), transparent 60%),
@@ -58,7 +62,11 @@ body {
     linear-gradient(180deg, #faf8f4 0%, #f3efe7 100%);
   background-attachment: fixed;
   color: #211d19;
-  min-height: 100vh;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 * {
@@ -141,11 +149,17 @@ table {
   color: #6e6352;
 }
 
+.dt-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
 .dt-table thead tr.dt-filter-row th {
   background: #f7f1e4;
   position: sticky;
-  top: 2.6rem;
-  z-index: 15;
+  top: 2.65rem;
+  z-index: 19;
   box-shadow: inset 0 -1px 0 var(--dt-border);
 }
 

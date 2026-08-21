@@ -89,13 +89,13 @@ const AppShell = ({ title, navItems = [], groups = [], children }) => {
   )
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[264px_1fr]">
-      <aside className="hidden md:flex sticky top-0 h-screen bg-slate-950 text-white p-6 border-r border-slate-800 flex-col">
+    <div className="h-screen overflow-hidden md:grid md:grid-cols-[264px_1fr]">
+      <aside className="hidden md:flex h-screen bg-slate-950 text-white p-6 border-r border-slate-800 flex-col">
         {navContent}
       </aside>
 
-      <main className="p-4 md:p-8">
-        <div className="flex items-center justify-between mb-6 gap-4">
+      <main className="h-screen min-h-0 flex flex-col overflow-hidden p-4 md:p-8">
+        <div className="flex items-center justify-between mb-6 gap-4 shrink-0">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-semibold text-slate-900">{title}</h1>
             <p className="text-sm text-slate-500 mt-1">Welcome back, {user?.fullName?.split(' ')[0] || user?.fullName}</p>
@@ -109,12 +109,17 @@ const AppShell = ({ title, navItems = [], groups = [], children }) => {
         </div>
 
         {isOpen ? (
-          <div className="md:hidden mb-6 rounded-2xl bg-slate-950 text-white p-4 border border-slate-800 max-h-[70vh] overflow-y-auto">
+          <div className="md:hidden mb-6 shrink-0 rounded-2xl bg-slate-950 text-white p-4 border border-slate-800 max-h-[40vh] overflow-y-auto">
             {navContent}
           </div>
         ) : null}
 
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+        <motion.div
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
           {children}
         </motion.div>
       </main>

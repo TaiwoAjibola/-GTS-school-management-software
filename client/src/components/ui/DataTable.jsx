@@ -69,11 +69,12 @@ export default function DataTable({
   defaultSort = null, // { id, dir: 'asc'|'desc' }
   density = 'comfortable', // comfortable | compact
   stickyHeader = true,
-  maxHeight = null,
+  maxHeight = 'min(60vh, 560px)', // keep body scroll inside the table, not the page
   rowClassName,
   onRowClick,
   className = '',
   initialPageSize = 0, // 0 = show all
+  fillHeight = false, // when true, table flexes to fill parent and body scrolls
 }) {
   const [sort, setSort] = useState(defaultSort)
   const [colFilters, setColFilters] = useState({})
@@ -185,10 +186,20 @@ export default function DataTable({
     return sort.dir === 'asc' ? <ArrowUp size={13} className="text-gold-700" /> : <ArrowDown size={13} className="text-gold-700" />
   }
 
+  const bodyStyle = fillHeight
+    ? undefined
+    : maxHeight
+      ? { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight }
+      : { maxHeight: 'min(60vh, 560px)' }
+
   return (
-    <div className={`dt-root bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden ${className}`}>
+    <div
+      className={`dt-root bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden flex flex-col ${
+        fillHeight ? 'h-full min-h-0' : ''
+      } ${className}`}
+    >
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-slate-200/80 bg-gradient-to-r from-[#fffdf9] to-[#fbf6ea]/40">
+      <div className="shrink-0 flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-slate-200/80 bg-gradient-to-r from-[#fffdf9] to-[#fbf6ea]/40">
         {globalSearch ? (
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -244,7 +255,7 @@ export default function DataTable({
       </div>
 
       {/* Meta bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-500">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-500">
         <span>
           Showing <strong className="text-slate-800">{pageRows.length}</strong>
           {total !== data.length ? (
@@ -274,8 +285,8 @@ export default function DataTable({
       </div>
 
       <div
-        className="overflow-auto"
-        style={maxHeight ? { maxHeight } : undefined}
+        className={`overflow-auto min-h-0 ${fillHeight ? 'flex-1' : ''}`}
+        style={bodyStyle}
       >
         <table className="dt-table w-full text-sm">
           <thead className={stickyHeader ? 'sticky top-0 z-20' : ''}>
@@ -406,7 +417,7 @@ export default function DataTable({
 
       {/* Pagination */}
       {pageSize > 0 && total > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50/50">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50/50">
           <p className="text-xs text-slate-500">
             Page {safePage + 1} of {pageCount}
           </p>
