@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen } from 'lucide-react'
 import apiClient from '../api/client'
 
+const EXAM_FALLBACK_VARIABLES = [
+  { id: 'fb_exam_title', variable_key: 'exam_title', display_label: 'Exam Title', category: 'exam', example_value: 'Midterm Exam' },
+  { id: 'fb_exam_link', variable_key: 'exam_link', display_label: 'Exam Link', category: 'exam', example_value: 'https://example.com/exam/123' },
+  { id: 'fb_access_code', variable_key: 'access_code', display_label: 'Exam Access Code', category: 'exam', example_value: 'ABC123' },
+  { id: 'fb_due_date', variable_key: 'due_date', display_label: 'Exam Due Date', category: 'exam', example_value: '2026-05-01' },
+  { id: 'fb_course_title', variable_key: 'course_title', display_label: 'Course Title', category: 'exam', example_value: 'GTS 101' },
+]
+
 export default function EmailProcesses({ notify }) {
   const pollRef = useRef(null)
   useEffect(() => () => clearTimeout(pollRef.current), [])
@@ -51,9 +59,23 @@ export default function EmailProcesses({ notify }) {
         apiClient.get('/email-processes/variables/all'),
         apiClient.get('/email-processes/variables/categories'),
       ])
-      setVariables(varsRes.data || [])
-      setVarCategories(catsRes.data || [])
-    } catch { /* silent */ }
+      let vars = varsRes.data || []
+      // Ensure exam placeholders are present even if backend has not seeded them
+      for (const fb of EXAM_FALLBACK_VARIABLES) {
+        if (!vars.some((v) => v.variable_key === fb.variable_key)) vars = [...vars, fb]
+      }
+      setVariables(vars)
+      let cats = catsRes.data || []
+      if (!cats.some((c) => (c.category || c) === 'exam')) {
+        const examCount = vars.filter((v) => v.category === 'exam').length
+        cats = [...cats, { category: 'exam', count: examCount }]
+      }
+      setVarCategories(cats)
+    } catch {
+      // Fallback to exam variables when API unavailable
+      setVariables(EXAM_FALLBACK_VARIABLES)
+      setVarCategories([{ category: 'exam', count: EXAM_FALLBACK_VARIABLES.length }])
+    }
   }
 
   useEffect(() => { loadTemplates(); loadVariables() }, [])

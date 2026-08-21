@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronRight, UserPlus, Layers, Users, GraduationCap, Search, Info, Sparkles, BookOpen, Filter } from 'lucide-react'
+import { ChevronDown, ChevronRight, UserPlus, Layers, Users, GraduationCap, Search, Sparkles, BookOpen, Filter } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import PageHeader from '../components/ui/PageHeader'
 import Card from '../components/ui/Card'
@@ -196,94 +196,52 @@ export default function EnrollmentPage() {
 
       <div className="h-full flex flex-col gap-5 overflow-hidden">
         <PageHeader
-          title="Enrollment Management"
+          title="Enrollment"
           subtitle="Enroll students from each batch into any course — current or past"
-          icon={<UserPlus size={22} />}
-          actions={
-            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase text-slate-500">
-                <BookOpen size={12} className="text-indigo-500" /> Course
-              </span>
-              <select
-                className="select min-w-[268px] !w-auto border-0 !bg-transparent !p-0 !pr-7 text-sm font-semibold text-slate-900 focus:ring-0 focus:border-0 shadow-none"
-                value={selectedCourseId ?? ''}
-                onChange={(e) => setSelectedCourseId(Number(e.target.value))}
-              >
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.is_current ? '★ ' : ''}{course.course_code ? `${course.course_code} — ` : ''}{course.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          }
         />
 
         <div className="flex-1 min-h-0 overflow-auto space-y-5 pr-1 pb-2">
           {selectedCourse ? (
             <>
-              {/* BENTO OVERVIEW GRID */}
-              <div className="grid lg:grid-cols-[1.45fr_0.85fr] gap-4">
-                <Card
-                  title="Enrollment Overview"
-                  subtitle="Select any course (past or current) to view and manage its enrollments."
-                  className="card-hover !rounded-[24px]"
-                  action={
-                    selectedCourse.is_current ? (
-                      <Badge tone="emerald" dot>Current course</Badge>
-                    ) : (
-                      <Badge tone="slate" dot>Past / completed</Badge>
-                    )
-                  }
-                >
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    {selectedCourse.class_day ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> {selectedCourse.class_day}
-                      </span>
-                    ) : null}
-                    <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1.5 text-xs font-bold text-indigo-700">
-                      {selectedCourse.duration_weeks} weeks
+              {/* Compact course selector — clean filter bar */}
+              <div className="card card-hover p-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3 min-w-0 flex-1">
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase text-slate-500 shrink-0">
+                    <BookOpen size={12} className="text-indigo-500" /> Course
+                  </span>
+                  <select
+                    className="select rounded-xl min-w-[240px] flex-1 max-w-[420px] text-sm font-semibold"
+                    value={selectedCourseId ?? ''}
+                    onChange={(e) => setSelectedCourseId(Number(e.target.value))}
+                  >
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.is_current ? '★ ' : ''}{course.course_code ? `${course.course_code} — ` : ''}{course.title}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCourse.is_current ? (
+                    <Badge tone="emerald" dot>Current</Badge>
+                  ) : (
+                    <Badge tone="slate" dot>Past</Badge>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedCourse.class_day ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> {selectedCourse.class_day}
                     </span>
-                    {selectedCourse.start_date ? (
-                      <span className="text-xs font-medium text-slate-500">• Starts {fmtDate(selectedCourse.start_date)}</span>
-                    ) : null}
-                    {!currentCourseId ? (
-                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">No course is marked as current yet.</span>
-                    ) : null}
-                  </div>
-                  {/* indigo divider */}
-                  <div className="mt-4 flex items-center gap-2 text-[11px] font-bold tracking-widest uppercase text-indigo-500">
-                    <span className="h-px flex-1 bg-gradient-to-r from-indigo-200 to-transparent" />
-                    <span className="inline-flex items-center gap-1"><Sparkles size={10} /> Indigo bento</span>
-                    <span className="h-px flex-1 bg-gradient-to-l from-indigo-200 to-transparent" />
-                  </div>
-                </Card>
-
-                <Card className="!rounded-[24px] !p-0 overflow-hidden card-hover border-indigo-100">
-                  <div className="bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-500 px-5 py-4 text-white">
-                    <p className="text-[11px] font-bold tracking-widest uppercase opacity-90 flex items-center gap-1.5"><GraduationCap size={12} /> Eligibility logic</p>
-                    <p className="mt-1 text-sm font-semibold leading-snug">Shows eligible students per batch: never took this course, failed before, or withdrawn before.</p>
-                    <p className="mt-1 text-xs opacity-80">Students who passed are not shown.</p>
-                  </div>
-                  <div className="px-5 py-4 bg-white">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5">
-                        <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Retake</p>
-                        <p className="font-mono text-sm font-bold text-rose-600">{totalRetakeAll}</p>
-                      </div>
-                      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5">
-                        <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Eligible</p>
-                        <p className="font-mono text-sm font-bold text-slate-900">{totalEligibleAll}</p>
-                      </div>
-                      <div className="rounded-xl bg-indigo-50 border border-indigo-200 p-2.5">
-                        <p className="text-[10px] font-bold tracking-widest uppercase text-indigo-600">Enrolled</p>
-                        <p className="font-mono text-sm font-bold text-indigo-700">{totalEnrolledAll}</p>
-                      </div>
-                    </div>
-                    <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500"><Info size={12} className="text-indigo-400" /> Batch-aware — counts refresh per cohort automatically.</p>
-                  </div>
-                </Card>
+                  ) : null}
+                  <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700">
+                    {selectedCourse.duration_weeks} weeks
+                  </span>
+                  {selectedCourse.start_date ? (
+                    <span className="text-xs font-medium text-slate-500">Starts {fmtDate(selectedCourse.start_date)}</span>
+                  ) : null}
+                  {!currentCourseId ? (
+                    <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">No course is marked as current yet.</span>
+                  ) : null}
+                </div>
               </div>
 
               {/* BENTO STATS STRIP */}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
@@ -9,7 +9,7 @@ import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { lecturerNavGroups } from '../constants/lecturerNav'
-import { fmtDateRange } from '../utils/formatDate'
+import { fmtDate, fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
 
 const CLASS_DAY_INDEX = {
@@ -186,6 +186,9 @@ const LecturerDashboard = () => {
   const [showBatchDrawer, setShowBatchDrawer] = useState(false)
   const [batchViewFilter, setBatchViewFilter] = useState('active')
   const [expandedCohortIds, setExpandedCohortIds] = useState(new Set())
+  const [showCreateStudentModal, setShowCreateStudentModal] = useState(false)
+  const [showCreateBatchModal, setShowCreateBatchModal] = useState(false)
+  const [showStudentUploadModal, setShowStudentUploadModal] = useState(false)
   const [studentCohortFilter, setStudentCohortFilter] = useState('')
   const [studentStatusFilter, setStudentStatusFilter] = useState('current')
   const [graduationSearch, setGraduationSearch] = useState('')
@@ -1551,7 +1554,7 @@ const LecturerDashboard = () => {
     attendance: 'Attendance',
     results: 'Results',
     graduation: 'Graduation',
-    assignments: 'Assignments',
+    assignments: 'Exams',
     lecturers: 'Lecturers',
     'email-process': 'Email Process',
     forms: 'Forms',
@@ -1563,23 +1566,25 @@ const LecturerDashboard = () => {
   return (
     <AppShell title={sectionTitle} groups={lecturerNavGroups}>
       <div className="h-full flex flex-col gap-5 overflow-hidden">
-      <PageHeader
-        title="Lecturer Dashboard"
-        subtitle={sectionTitle}
-        icon={<GraduationCap size={22} />}
-        actions={
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm lift"
-            onClick={() => {
-              if (section === 'reports') loadReports()
-              else { loadCourses(); loadAllStudents(); loadGraduationMatrix(); loadCohorts(); loadLecturers() }
-            }}
-          >
-            <BarChart3 size={15} className="opacity-70" /> Refresh
-          </button>
-        }
-      />
+      {section !== 'batches' && section !== 'assignments' && section !== 'reports' && section !== 'email-process' && section !== 'lecturers' ? (
+        <PageHeader
+          title="Lecturer Dashboard"
+          subtitle={sectionTitle}
+          icon={<GraduationCap size={22} />}
+          actions={
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm lift"
+              onClick={() => {
+                if (section === 'reports') loadReports()
+                else { loadCourses(); loadAllStudents(); loadGraduationMatrix(); loadCohorts(); loadLecturers() }
+              }}
+            >
+              <BarChart3 size={15} className="opacity-70" /> Refresh
+            </button>
+          }
+        />
+      ) : null}
       {notice ? <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm shrink-0 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{notice}</div> : null}
 
       {section === 'attendance' ? (
@@ -2357,7 +2362,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'students' ? (
-        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
             {[
               { key: 'students', label: 'All Students' },
@@ -2422,164 +2427,13 @@ const LecturerDashboard = () => {
               )}
             </div>
           ) : (
-          <div className="grid xl:grid-cols-[390px_1fr] gap-6">
-          <div className="space-y-4 xl:overflow-y-auto xl:pr-1.5" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-            <form onSubmit={createStudent} className="card card-pad card-hover space-y-3">
-              <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Student</h3>
-              <input className="w-full border rounded-lg px-3 py-2" placeholder="Full name" value={studentForm.fullName} onChange={(event) => setStudentForm((prev) => ({ ...prev, fullName: event.target.value }))} required />
-              <input className="w-full border rounded-lg px-3 py-2" placeholder="Email" type="email" value={studentForm.email} onChange={(event) => setStudentForm((prev) => ({ ...prev, email: event.target.value }))} required />
-              <input className="w-full border rounded-lg px-3 py-2" placeholder="Phone" value={studentForm.phone} onChange={(event) => setStudentForm((prev) => ({ ...prev, phone: event.target.value }))} required />
-              <input className="w-full border rounded-lg px-3 py-2" placeholder="Matric Number (optional)" value={studentForm.matricNo} onChange={(event) => setStudentForm((prev) => ({ ...prev, matricNo: event.target.value }))} />
-              <textarea className="w-full border rounded-lg px-3 py-2" placeholder="Comments" value={studentForm.comments} onChange={(event) => setStudentForm((prev) => ({ ...prev, comments: event.target.value }))} rows={3} />
-              <select
-                className="w-full border rounded-lg px-3 py-2"
-                value={studentForm.status}
-                onChange={(event) => {
-                  const nextStatus = event.target.value
-                  setStudentForm((prev) => ({
-                    ...prev,
-                    status: nextStatus,
-                  }))
-                }}
-              >
-                <option value="Prospective">Prospective (applied, not yet active)</option>
-                <option value="Active">Active</option>
-                <option value="Graduating">Graduating</option>
-                <option value="Graduated">Graduated</option>
-                <option value="Alumni">Alumni</option>
-              </select>
-              <select
-                className="w-full border rounded-lg px-3 py-2"
-                value={studentForm.cohortId || ''}
-                onChange={(event) => setStudentForm((prev) => ({ ...prev, cohortId: event.target.value }))}
-              >
-                <option value="">Assign to batch (optional)</option>
-                {cohorts.map((cohort) => (
-                  <option key={cohort.id} value={cohort.id}>
-                    {cohort.name} ({cohort.status})
-                  </option>
-                ))}
-              </select>
-              <button className="w-full btn btn-primary py-2 lift">Create Student</button>
-            </form>
-
-            <form onSubmit={createStudentBatch} className="card card-pad card-hover space-y-3">
-              <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Student Batch</h3>
-              <input
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="Batch name (e.g. February 2026)"
-                value={cohortForm.name}
-                onChange={(event) => setCohortForm((prev) => ({ ...prev, name: event.target.value }))}
-                required
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm text-slate-600 block">
-                  Start Date
-                  <input
-                    type="date"
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={cohortForm.startDate}
-                    onChange={(event) => setCohortForm((prev) => ({ ...prev, startDate: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="text-sm text-slate-600 block">
-                  End Date
-                  <input
-                    type="date"
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    value={cohortForm.endDate}
-                    onChange={(event) => setCohortForm((prev) => ({ ...prev, endDate: event.target.value }))}
-                    required
-                  />
-                </label>
-              </div>
-              <button className="w-full btn btn-primary py-2 lift">Create Batch</button>
-            </form>
-
-            <div className="card card-pad card-hover space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-900">Upload Students (Excel/CSV)</h3>
-                <button
-                  type="button"
-                  onClick={() => downloadTemplate('students')}
-                  className="text-xs text-slate-500 underline"
-                >
-                  Download Template
-                </button>
-              </div>
-              <input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => setStudentUploadFile(event.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
-              <button onClick={uploadStudents} disabled={!studentUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift flex items-center justify-center gap-2">
-                <Upload size={16} /> Upload List
-              </button>
-            </div>
-
-            <div className="card card-pad card-hover space-y-3">
-              <h3 className="font-semibold text-slate-900">Student Batches</h3>
-              <div className="max-h-72 overflow-auto space-y-2">
-                {cohorts.map((cohort) => (
-                  <div key={cohort.id} className="rounded-lg border border-slate-200 p-3">
-                    {editingCohortId === cohort.id ? (
-                      <div className="space-y-2">
-                        <input
-                          className="w-full border rounded-lg px-2 py-1 text-sm"
-                          value={cohortEditForm.name}
-                          onChange={(event) => setCohortEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="date"
-                            className="w-full border rounded-lg px-2 py-1 text-sm"
-                            value={cohortEditForm.startDate || ''}
-                            onChange={(event) => setCohortEditForm((prev) => ({ ...prev, startDate: event.target.value }))}
-                          />
-                          <input
-                            type="date"
-                            className="w-full border rounded-lg px-2 py-1 text-sm"
-                            value={cohortEditForm.endDate || ''}
-                            onChange={(event) => setCohortEditForm((prev) => ({ ...prev, endDate: event.target.value }))}
-                          />
-                        </div>
-                        <select
-                          className="w-full border rounded-lg px-2 py-1 text-sm"
-                          value={cohortEditForm.status}
-                          onChange={(event) => setCohortEditForm((prev) => ({ ...prev, status: event.target.value }))}
-                        >
-                          <option value="upcoming">upcoming</option>
-                          <option value="active">active</option>
-                          <option value="completed">completed</option>
-                        </select>
-                        <div className="flex gap-2">
-                          <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
-                          <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">{cohort.name}</p>
-                          <p className="text-xs text-slate-500">{fmtDateRange(cohort.start_date, cohort.end_date)} • {cohort.status} • {cohort.student_count || 0} student(s)</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs" onClick={() => startEditCohort(cohort)}>Edit</button>
-                          <button type="button" className="rounded-lg btn btn-danger px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {!cohorts.length ? <p className="text-sm text-slate-500">No student batches created yet.</p> : null}
-              </div>
-            </div>
-
-          </div>
-
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+            {/* Header: filters + actions — single-viewport yardstick header */}
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-semibold text-slate-900">Student Directory</h3>
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  className="border rounded-lg px-3 py-2 text-sm"
+                  className="border rounded-lg px-3 py-2 text-sm bg-white"
                   value={studentCohortFilter}
                   onChange={(event) => setStudentCohortFilter(event.target.value)}
                 >
@@ -2591,7 +2445,7 @@ const LecturerDashboard = () => {
                   ))}
                 </select>
                 <select
-                  className="border rounded-lg px-3 py-2 text-sm"
+                  className="border rounded-lg px-3 py-2 text-sm bg-white"
                   value={studentStatusFilter}
                   onChange={(event) => setStudentStatusFilter(event.target.value)}
                 >
@@ -2603,26 +2457,31 @@ const LecturerDashboard = () => {
                   <option value="Graduated">Graduated</option>
                   <option value="Alumni">Alumni</option>
                 </select>
-                <button
-                  type="button"
-                  onClick={exportStudentList}
-                  className="inline-flex items-center gap-2 btn btn-primary px-3 py-2 text-sm cursor-pointer lift"
-                >
+                <button type="button" onClick={exportStudentList} className="btn btn-ghost btn-sm lift">
                   <Download size={14} /> Export
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowBatchDrawer(true)}
-                  className="btn btn-ghost px-3 py-2 text-sm cursor-pointer"
-                >
+                <button type="button" onClick={() => setShowBatchDrawer(true)} className="btn btn-ghost btn-sm lift">
                   Manage Batches
+                </button>
+                <button type="button" onClick={() => setShowCreateStudentModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                  <Plus size={14} /> Create Student
+                </button>
+                <button type="button" onClick={() => setShowCreateBatchModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                  <Plus size={14} /> Create Batch
+                </button>
+                <button type="button" onClick={() => setShowStudentUploadModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                  <Upload size={14} /> Upload Excel
                 </button>
               </div>
             </div>
+            <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-auto">
             <DataTable
               data={filteredStudents}
               rowKey="id"
               initialPageSize={25}
+              fillHeight
+              className="flex-1 min-h-0 border-0 shadow-none rounded-none"
               emptyMessage="No students match these filters."
               emptyIcon={<Users size={32} />}
               globalSearchPlaceholder="Search name, email, matric, phone…"
@@ -2697,10 +2556,10 @@ const LecturerDashboard = () => {
                   align: 'right',
                   cell: (student) => (
                     <div className="flex items-center justify-end gap-2">
-                      <button type="button" onClick={() => openStudentPanel(student)} className="rounded-lg px-3 py-1.5 bg-slate-100 text-slate-700 text-xs hover:bg-slate-200 cursor-pointer">View</button>
+                      <button type="button" onClick={() => openStudentPanel(student)} className="btn btn-ghost btn-sm lift">View</button>
                       <button
                         type="button"
-                        className="rounded-lg px-3 py-1.5 btn btn-danger border border-red-200 text-xs hover:bg-red-100 cursor-pointer"
+                        className="btn btn-danger btn-sm lift"
                         onClick={async () => {
                           if (!window.confirm(`Delete ${student.full_name}? This cannot be undone.`)) return
                           try {
@@ -2716,7 +2575,8 @@ const LecturerDashboard = () => {
                 },
               ]}
             />
-          </div>
+              </div>
+            </div>
 
           {selectedStudent && studentEditForm ? (
             <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-50 overflow-y-auto">
@@ -3068,9 +2928,9 @@ const LecturerDashboard = () => {
           ) : null}
 
           {showBatchDrawer ? (
-            <div className="fixed inset-0 z-40">
-              <div className="absolute inset-0 bg-slate-900/20" onClick={() => setShowBatchDrawer(false)} />
-              <div className="absolute right-0 top-0 h-full w-120 max-w-full bg-white border-l border-slate-200 shadow-2xl overflow-y-auto">
+            <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setShowBatchDrawer(false)}>
+              <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+              <div className="relative bg-white w-[420px] max-w-[92vw] h-full shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <div className="sticky top-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
                   <h3 className="font-semibold text-slate-900">Manage Student Batches</h3>
                   <div className="flex items-center gap-2">
@@ -3081,7 +2941,7 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
 
-                <div className="p-4 space-y-3">
+                <div className="flex-1 min-h-0 overflow-auto p-4 space-y-3">
                   {cohorts.map((cohort) => (
                     <div
                       key={cohort.id}
@@ -3138,8 +2998,8 @@ const LecturerDashboard = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">Drag</span>
-                            <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs" onClick={() => startEditCohort(cohort)}>Edit</button>
-                            <button type="button" className="rounded-lg btn btn-danger px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
+                            <button type="button" className="btn btn-ghost btn-sm lift" onClick={() => startEditCohort(cohort)}>Edit</button>
+                            <button type="button" className="btn btn-danger btn-sm lift" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
                           </div>
                         </div>
                       )}
@@ -3155,159 +3015,251 @@ const LecturerDashboard = () => {
       </div>
       ) : null}
 
-      {section === 'batches' ? (
-        <div className="grid lg:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
-          <form onSubmit={createStudentBatch} className="card card-pad card-hover space-y-3">
-            <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Student Batch</h3>
-            <input
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Batch name (e.g. February 2026)"
-              value={cohortForm.name}
-              onChange={(event) => setCohortForm((prev) => ({ ...prev, name: event.target.value }))}
-              required
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm text-slate-600 block">
-                Start Date
-                <input
-                  type="date"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={cohortForm.startDate}
-                  onChange={(event) => setCohortForm((prev) => ({ ...prev, startDate: event.target.value }))}
-                  required
-                />
-              </label>
-              <label className="text-sm text-slate-600 block">
-                End Date
-                <input
-                  type="date"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  value={cohortForm.endDate}
-                  onChange={(event) => setCohortForm((prev) => ({ ...prev, endDate: event.target.value }))}
-                  required
-                />
-              </label>
-            </div>
-            <button className="w-full btn btn-primary py-2 lift">Create Batch</button>
-          </form>
-
-          <div className="card card-pad card-hover overflow-auto">
-            {/* Header + controls */}
-            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <h3 className="font-semibold text-slate-900">Student Batches</h3>
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Status filter toggle */}
-                <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1">
-                  {[
-                    { key: 'active', label: 'Active' },
-                    { key: 'upcoming', label: 'Upcoming' },
-                    { key: 'completed', label: 'Completed' },
-                    { key: 'all', label: 'All' },
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setBatchViewFilter(key)}
-                      className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                        batchViewFilter === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+          {showCreateStudentModal ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCreateStudentModal(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                  <h3 className="font-display font-bold text-slate-900">Create Student</h3>
+                  <button type="button" onClick={() => setShowCreateStudentModal(false)} className="rounded-lg p-1 hover:bg-slate-100"><X size={18} /></button>
                 </div>
-                <button type="button" onClick={persistCohortOrder} className="btn btn-primary px-3 py-1.5 text-xs lift">
-                  Save Order
-                </button>
+                <form onSubmit={async (e) => { await createStudent(e); setShowCreateStudentModal(false) }} className="p-6 space-y-3 overflow-y-auto">
+                  <input className="w-full border rounded-lg px-3 py-2" placeholder="Full name" value={studentForm.fullName} onChange={(event) => setStudentForm((prev) => ({ ...prev, fullName: event.target.value }))} required />
+                  <input className="w-full border rounded-lg px-3 py-2" placeholder="Email" type="email" value={studentForm.email} onChange={(event) => setStudentForm((prev) => ({ ...prev, email: event.target.value }))} required />
+                  <input className="w-full border rounded-lg px-3 py-2" placeholder="Phone" value={studentForm.phone} onChange={(event) => setStudentForm((prev) => ({ ...prev, phone: event.target.value }))} required />
+                  <input className="w-full border rounded-lg px-3 py-2" placeholder="Matric Number (optional)" value={studentForm.matricNo} onChange={(event) => setStudentForm((prev) => ({ ...prev, matricNo: event.target.value }))} />
+                  <textarea className="w-full border rounded-lg px-3 py-2" placeholder="Comments" value={studentForm.comments} onChange={(event) => setStudentForm((prev) => ({ ...prev, comments: event.target.value }))} rows={3} />
+                  <select
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={studentForm.status}
+                    onChange={(event) => setStudentForm((prev) => ({ ...prev, status: event.target.value }))}
+                  >
+                    <option value="Prospective">Prospective (applied, not yet active)</option>
+                    <option value="Active">Active</option>
+                    <option value="Graduating">Graduating</option>
+                    <option value="Graduated">Graduated</option>
+                    <option value="Alumni">Alumni</option>
+                  </select>
+                  <select
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={studentForm.cohortId || ''}
+                    onChange={(event) => setStudentForm((prev) => ({ ...prev, cohortId: event.target.value }))}
+                  >
+                    <option value="">Assign to batch (optional)</option>
+                    {cohorts.map((cohort) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name} ({cohort.status})
+                      </option>
+                    ))}
+                  </select>
+                  <button className="w-full btn btn-primary py-2 lift">Create Student</button>
+                </form>
               </div>
             </div>
+          ) : null}
+          {showCreateBatchModal ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCreateBatchModal(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                  <h3 className="font-display font-bold text-slate-900">Create Student Batch</h3>
+                  <button type="button" onClick={() => setShowCreateBatchModal(false)} className="rounded-lg p-1 hover:bg-slate-100"><X size={18} /></button>
+                </div>
+                <form onSubmit={async (e) => { await createStudentBatch(e); setShowCreateBatchModal(false) }} className="p-6 space-y-3 overflow-y-auto">
+                  <input
+                    className="w-full border rounded-lg px-3 py-2"
+                    placeholder="Batch name (e.g. February 2026)"
+                    value={cohortForm.name}
+                    onChange={(event) => setCohortForm((prev) => ({ ...prev, name: event.target.value }))}
+                    required
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm text-slate-600 block">
+                      Start Date
+                      <input
+                        type="date"
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={cohortForm.startDate}
+                        onChange={(event) => setCohortForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      End Date
+                      <input
+                        type="date"
+                        className="mt-1 w-full border rounded-lg px-3 py-2"
+                        value={cohortForm.endDate}
+                        onChange={(event) => setCohortForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                        required
+                      />
+                    </label>
+                  </div>
+                  <button className="w-full btn btn-primary py-2 lift">Create Batch</button>
+                </form>
+              </div>
+            </div>
+          ) : null}
+          {showStudentUploadModal ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowStudentUploadModal(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                  <h3 className="font-semibold text-slate-900">Upload Students (Excel/CSV)</h3>
+                  <button type="button" onClick={() => setShowStudentUploadModal(false)} className="rounded-lg p-1 hover:bg-slate-100"><X size={18} /></button>
+                </div>
+                <div className="p-6 space-y-4 overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-500">Bulk import via spreadsheet</p>
+                    <button
+                      type="button"
+                      onClick={() => downloadTemplate('students')}
+                      className="text-xs text-slate-500 underline"
+                    >
+                      Download Template
+                    </button>
+                  </div>
+                  <input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => setStudentUploadFile(event.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
+                  <button onClick={async () => { await uploadStudents(); setShowStudentUploadModal(false) }} disabled={!studentUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift flex items-center justify-center gap-2">
+                    <Upload size={16} /> Upload List
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {editingCohortId ? (
+            <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setEditingCohortId(null)}>
+              <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+              <div className="relative bg-white w-[420px] max-w-[92vw] h-full shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="shrink-0 px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">Edit Batch</h3>
+                  <button type="button" onClick={() => setEditingCohortId(null)} className="rounded-lg p-1 hover:bg-slate-100"><X size={18} /></button>
+                </div>
+                <div className="p-5 space-y-3 overflow-y-auto flex-1">
+                  <input
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={cohortEditForm.name}
+                    onChange={(event) => setCohortEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="Batch name"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      className="w-full border rounded-lg px-3 py-2"
+                      value={cohortEditForm.startDate || ''}
+                      onChange={(event) => setCohortEditForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                    />
+                    <input
+                      type="date"
+                      className="w-full border rounded-lg px-3 py-2"
+                      value={cohortEditForm.endDate || ''}
+                      onChange={(event) => setCohortEditForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                    />
+                  </div>
+                  <select
+                    className="w-full border rounded-lg px-3 py-2"
+                    value={cohortEditForm.status}
+                    onChange={(event) => setCohortEditForm((prev) => ({ ...prev, status: event.target.value }))}
+                  >
+                    <option value="upcoming">upcoming</option>
+                    <option value="active">active</option>
+                    <option value="completed">completed</option>
+                  </select>
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" className="flex-1 btn btn-primary btn-sm lift" onClick={() => { saveCohortEdit(editingCohortId); setEditingCohortId(null) }}>Save</button>
+                    <button type="button" className="flex-1 btn btn-ghost btn-sm lift" onClick={() => setEditingCohortId(null)}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
-            {/* Filtered cohort cards */}
-            {(() => {
-              const COHORT_STATUS_STYLES = {
-                active: 'bg-emerald-100 text-emerald-700',
-                upcoming: 'bg-sky-100 text-indigo-700',
-                completed: 'bg-slate-100 text-slate-500',
-              }
-              const matrixStudentById = Object.fromEntries(
-                (graduationMatrix.students || []).map((s) => [s.id, s])
-              )
-              const filtered = batchViewFilter === 'all'
-                ? cohorts
-                : cohorts.filter((c) => c.status === batchViewFilter)
+      {section === 'batches' ? (
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {/* Header / filters — shrink-0 */}
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-semibold text-slate-900">Student Batches</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1">
+                {[
+                  { key: 'active', label: 'Active' },
+                  { key: 'upcoming', label: 'Upcoming' },
+                  { key: 'completed', label: 'Completed' },
+                  { key: 'all', label: 'All' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setBatchViewFilter(key)}
+                    className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
+                      batchViewFilter === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={persistCohortOrder} className="btn btn-primary btn-sm lift">
+                Save Order
+              </button>
+              <button type="button" onClick={() => setShowCreateBatchModal(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
+                <Plus size={14} /> Create Batch
+              </button>
+            </div>
+          </div>
 
-              if (!filtered.length) {
-                return (
-                  <p className="text-sm text-slate-400 py-4 text-center">
-                    No {batchViewFilter === 'all' ? '' : batchViewFilter + ' '}batches found.
-                  </p>
+          {/* Yardstick table container — fills page, table scrolls inside */}
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-auto">
+              {(() => {
+                const COHORT_STATUS_STYLES = {
+                  active: 'bg-emerald-100 text-emerald-700',
+                  upcoming: 'bg-sky-100 text-indigo-700',
+                  completed: 'bg-slate-100 text-slate-500',
+                }
+                const matrixStudentById = Object.fromEntries(
+                  (graduationMatrix.students || []).map((s) => [s.id, s])
                 )
-              }
+                const filtered = batchViewFilter === 'all'
+                  ? cohorts
+                  : cohorts.filter((c) => c.status === batchViewFilter)
 
-              return (
-                <div className="space-y-3">
-                  {filtered.map((cohort) => {
-                    const cohortStudents = allStudents.filter((s) => s.cohort_id === cohort.id)
-                    const isExpanded = expandedCohortIds.has(cohort.id)
-                    const isInactive = cohort.status !== 'active'
-                    const retakeCount = cohortStudents.filter((s) => (matrixStudentById[s.id]?.failed || 0) > 0).length
+                if (!filtered.length) {
+                  return (
+                    <p className="text-sm text-slate-400 py-8 text-center">
+                      No {batchViewFilter === 'all' ? '' : batchViewFilter + ' '}batches found.
+                    </p>
+                  )
+                }
 
-                    return (
-                      <div
-                        key={cohort.id}
-                        draggable
-                        onDragStart={() => setDraggingCohortId(cohort.id)}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={() => {
-                          moveCohortLocally(draggingCohortId, cohort.id)
-                          setDraggingCohortId(null)
-                        }}
-                        className={`rounded-xl border p-4 bg-white transition-colors ${
-                          isInactive ? 'border-slate-200' : 'border-emerald-200'
-                        }`}
-                      >
-                        {editingCohortId === cohort.id ? (
-                          <div className="space-y-2">
-                            <input
-                              className="w-full border rounded-lg px-2 py-1 text-sm"
-                              value={cohortEditForm.name}
-                              onChange={(event) => setCohortEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                            />
-                            <div className="grid grid-cols-2 gap-2">
-                              <input
-                                type="date"
-                                className="w-full border rounded-lg px-2 py-1 text-sm"
-                                value={cohortEditForm.startDate || ''}
-                                onChange={(event) => setCohortEditForm((prev) => ({ ...prev, startDate: event.target.value }))}
-                              />
-                              <input
-                                type="date"
-                                className="w-full border rounded-lg px-2 py-1 text-sm"
-                                value={cohortEditForm.endDate || ''}
-                                onChange={(event) => setCohortEditForm((prev) => ({ ...prev, endDate: event.target.value }))}
-                              />
-                            </div>
-                            <select
-                              className="w-full border rounded-lg px-2 py-1 text-sm"
-                              value={cohortEditForm.status}
-                              onChange={(event) => setCohortEditForm((prev) => ({ ...prev, status: event.target.value }))}
+                return (
+                  <table className="data-table w-full text-sm">
+                    <thead className="sticky top-0 bg-white z-10">
+                      <tr className="border-b border-slate-200 text-left text-slate-500">
+                        <th className="py-3 px-4 font-medium">Batch</th>
+                        <th className="py-3 px-3 font-medium">Dates</th>
+                        <th className="py-3 px-3 font-medium">Status</th>
+                        <th className="py-3 px-3 font-medium text-center">Students</th>
+                        <th className="py-3 px-3 font-medium text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((cohort) => {
+                        const cohortStudents = allStudents.filter((s) => s.cohort_id === cohort.id)
+                        const isExpanded = expandedCohortIds.has(cohort.id)
+                        const retakeCount = cohortStudents.filter((s) => (matrixStudentById[s.id]?.failed || 0) > 0).length
+                        return (
+                          <React.Fragment key={cohort.id}>
+                            <tr
+                              draggable
+                              onDragStart={() => setDraggingCohortId(cohort.id)}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDrop={() => {
+                                moveCohortLocally(draggingCohortId, cohort.id)
+                                setDraggingCohortId(null)
+                              }}
+                              className="border-t border-slate-100 hover:bg-slate-50"
                             >
-                              <option value="upcoming">upcoming</option>
-                              <option value="active">active</option>
-                              <option value="completed">completed</option>
-                            </select>
-                            <div className="flex gap-2">
-                              <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
-                              <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Cohort header row */}
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
+                              <td className="py-3 px-4">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="text-sm font-semibold text-slate-900">{cohort.name}</p>
+                                  <span className="font-medium text-slate-900">{cohort.name}</span>
                                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COHORT_STATUS_STYLES[cohort.status] || 'bg-slate-100 text-slate-500'}`}>
                                     {cohort.status}
                                   </span>
@@ -3317,91 +3269,85 @@ const LecturerDashboard = () => {
                                     </span>
                                   ) : null}
                                 </div>
-                                <p className="text-xs text-slate-400 mt-0.5">
-                                  {fmtDateRange(cohort.start_date, cohort.end_date)} · {cohortStudents.length} student{cohortStudents.length !== 1 ? 's' : ''}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  className="rounded-lg bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
-                                  onClick={() =>
-                                    setExpandedCohortIds((prev) => {
-                                      const next = new Set(prev)
-                                      next.has(cohort.id) ? next.delete(cohort.id) : next.add(cohort.id)
-                                      return next
-                                    })
-                                  }
-                                >
-                                  {isExpanded ? 'Hide' : `Students ${cohortStudents.length > 0 ? `(${cohortStudents.length})` : ''}`}
-                                </button>
-                                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-400">⠿</span>
-                                <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs" onClick={() => startEditCohort(cohort)}>Edit</button>
-                                <button type="button" className="rounded-lg btn btn-danger px-2 py-1 text-xs" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
-                              </div>
-                            </div>
-
-                            {/* Student list (expandable) */}
+                              </td>
+                              <td className="py-3 px-3 text-slate-600 text-xs whitespace-nowrap">{fmtDateRange(cohort.start_date, cohort.end_date)}</td>
+                              <td className="py-3 px-3">
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COHORT_STATUS_STYLES[cohort.status] || 'bg-slate-100 text-slate-500'}`}>
+                                  {cohort.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center text-slate-700">{cohortStudents.length}</td>
+                              <td className="py-3 px-3">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm lift"
+                                    onClick={() =>
+                                      setExpandedCohortIds((prev) => {
+                                        const next = new Set(prev)
+                                        next.has(cohort.id) ? next.delete(cohort.id) : next.add(cohort.id)
+                                        return next
+                                      })
+                                    }
+                                  >
+                                    {isExpanded ? 'Hide' : 'View'}
+                                  </button>
+                                  <button type="button" className="btn btn-ghost btn-sm lift" onClick={() => startEditCohort(cohort)}>Edit</button>
+                                  <button type="button" className="btn btn-danger btn-sm lift" onClick={() => deleteCohortSafely(cohort)}>Delete</button>
+                                </div>
+                              </td>
+                            </tr>
                             {isExpanded ? (
-                              <div className="mt-3 border-t border-slate-100 pt-3 space-y-1">
-                                {cohortStudents.length === 0 ? (
-                                  <p className="text-xs text-slate-400">No students assigned to this batch yet.</p>
-                                ) : cohortStudents.map((student) => {
-                                  const mx = matrixStudentById[student.id]
-                                  const needsRetake = (mx?.failed || 0) > 0
-                                  const inProgress = (mx?.enrolled_active || 0) > 0
-                                  const pct = mx?.completion_pct ?? 0
-                                  return (
-                                    <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-slate-50">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <Link
-                                          to={`/lecturer/students/${student.id}`}
-                                          className="text-sm font-medium text-slate-900 hover:underline truncate"
-                                        >
-                                          {student.full_name}
-                                        </Link>
-                                        <span className="text-xs text-slate-400 shrink-0">{student.matric_no}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                                        {/* Completion */}
-                                        <span className="text-xs text-slate-500">{pct}%</span>
-                                        {/* Status tags */}
-                                        {needsRetake ? (
-                                          <span className="rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium">
-                                            Retake needed ({mx.failed})
-                                          </span>
-                                        ) : null}
-                                        {inProgress && !needsRetake ? (
-                                          <span className="rounded-full bg-sky-100 text-indigo-700 px-2 py-0.5 text-xs">
-                                            In progress
-                                          </span>
-                                        ) : null}
-                                        {!mx || (pct === 0 && !inProgress && !needsRetake) ? (
-                                          <span className="rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-xs">Not started</span>
-                                        ) : pct === 100 ? (
-                                          <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">✓ Complete</span>
-                                        ) : null}
-                                        <span className={`rounded-full px-2 py-0.5 text-xs ${
-                                          student.status === 'Active' ? 'bg-emerald-50 text-emerald-600' :
-                                          student.status === 'Graduating' ? 'bg-indigo-100 text-indigo-700' :
-                                          'bg-slate-100 text-slate-500'
-                                        }`}>
-                                          {student.status}
-                                        </span>
-                                      </div>
+                              <tr key={`${cohort.id}-expanded`} className="border-t border-slate-100 bg-slate-50/50">
+                                <td colSpan={5} className="px-4 py-3">
+                                  {cohortStudents.length === 0 ? (
+                                    <p className="text-xs text-slate-400">No students assigned to this batch yet.</p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      {cohortStudents.map((student) => {
+                                        const mx = matrixStudentById[student.id]
+                                        const needsRetake = (mx?.failed || 0) > 0
+                                        const inProgress = (mx?.enrolled_active || 0) > 0
+                                        const pct = mx?.completion_pct ?? 0
+                                        return (
+                                          <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3 py-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              <Link to={`/lecturer/students/${student.id}`} className="text-sm font-medium text-slate-900 hover:underline truncate">
+                                                {student.full_name}
+                                              </Link>
+                                              <span className="text-xs text-slate-400 shrink-0">{student.matric_no}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                                              <span className="text-xs text-slate-500">{pct}%</span>
+                                              {needsRetake ? (
+                                                <span className="rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium">Retake needed ({mx.failed})</span>
+                                              ) : null}
+                                              {inProgress && !needsRetake ? (
+                                                <span className="rounded-full bg-sky-100 text-indigo-700 px-2 py-0.5 text-xs">In progress</span>
+                                              ) : null}
+                                              {!mx || (pct === 0 && !inProgress && !needsRetake) ? (
+                                                <span className="rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-xs">Not started</span>
+                                              ) : pct === 100 ? (
+                                                <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">✓ Complete</span>
+                                              ) : null}
+                                              <span className={`rounded-full px-2 py-0.5 text-xs ${student.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : student.status === 'Graduating' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>{student.status}</span>
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
                                     </div>
-                                  )
-                                })}
-                              </div>
+                                  )}
+                                </td>
+                              </tr>
                             ) : null}
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })()}
+                          </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )
+              })()}
+            </div>
           </div>
         </div>
       ) : null}
@@ -3522,7 +3468,22 @@ const LecturerDashboard = () => {
               </button>
             </div>
 
-            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 mt-4">
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-xs text-slate-500">{graduationMatrix.courses.length} course{graduationMatrix.courses.length !== 1 ? 's' : ''} to confirm</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = {}
+                  for (const course of graduationMatrix.courses) next[course.id] = true
+                  setGradVettingConfirm(next)
+                }}
+                className="text-xs font-medium btn btn-ghost lift border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50"
+              >
+                Select all as Yes
+              </button>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 mt-3">
               <div className="px-4 py-2 grid grid-cols-[1fr_auto_auto] gap-3 items-center text-xs font-semibold text-slate-500">
                 <span>Course</span>
                 <span>Status</span>
@@ -3796,10 +3757,39 @@ const LecturerDashboard = () => {
           } catch (err) { notify(err.response?.data?.message || 'Save failed') }
         }
 
+        const saveRowEdit = async (student) => {
+          const editKey = `${student.student_id}_${planGrid.course.id}`
+          const edit = planGridEdits[editKey]
+          if (!edit) { notify('No changes to save for this row'); return }
+          try {
+            await apiClient.post('/results/bulk-plan', {
+              entries: [
+                {
+                  studentId: Number(student.student_id),
+                  courseId: Number(resultCourseId),
+                  resultType: planGridResultType,
+                  score: edit.score !== '' && edit.score !== undefined ? Number(edit.score) : undefined,
+                  status: edit.status,
+                },
+              ],
+            })
+            setPlanGridEdits((prev) => {
+              const next = { ...prev }
+              delete next[editKey]
+              return next
+            })
+            await loadPlanGrid()
+            await loadGraduationMatrix()
+            notify('Result saved')
+          } catch (err) {
+            notify(err.response?.data?.message || 'Save failed')
+          }
+        }
+
         return (
-          <div className="space-y-5 flex-1 min-h-0 overflow-auto">
-            {/* Tab bar */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+          <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+            {/* Tab bar — shrink-0 */}
+            <div className="shrink-0 flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
               {[{ key: 'input', label: 'Enter Results' }, { key: 'history', label: 'History' }].map(({ key, label }) => (
                 <button
                   key={key}
@@ -3812,8 +3802,8 @@ const LecturerDashboard = () => {
               ))}
             </div>
 
-            {/* Shared selectors */}
-            <div className="card card-pad card-hover">
+            {/* Shared selectors — shrink-0 */}
+            <div className="shrink-0 card card-pad card-hover">
               <div className="flex flex-wrap gap-4 items-end">
                 <label className="text-sm text-slate-600 block flex-1 min-w-[200px]">
                   Plan
@@ -3878,11 +3868,11 @@ const LecturerDashboard = () => {
               </div>
             </div>
 
-            {/* Input grid tab */}
+            {/* Input grid tab — card card-hover flex flex-col flex-1 min-h-0 overflow-hidden with inner overflow-auto (graduation matrix yardstick) */}
             {resultsTab === 'input' ? (
               planGrid ? (
-                <div className="card card-pad card-hover overflow-auto">
-                  <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+                  <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-100 gap-3 flex-wrap">
                     <div>
                       <h3 className="font-semibold text-slate-900">{planGrid.plan.name} — {planGrid.course.title}</h3>
                       <p className="text-xs text-slate-400 mt-0.5">{planGrid.students.length} students · {planGridResultType}</p>
@@ -3896,17 +3886,19 @@ const LecturerDashboard = () => {
                       Save Changes {Object.keys(planGridEdits).length > 0 ? `(${Object.keys(planGridEdits).length})` : ''}
                     </button>
                   </div>
+                  <div className="flex-1 min-h-0 overflow-auto">
                   {planGrid.students.length === 0 ? (
-                    <p className="text-sm text-slate-400">No students found for this course. Toggle "Include unenrolled students" and reload.</p>
+                    <p className="text-sm text-slate-400 p-4">No students found for this course. Toggle "Include unenrolled students" and reload.</p>
                   ) : (
                     <table className="data-table w-full text-sm border-collapse">
-                      <thead>
+                      <thead className="sticky top-0 bg-white">
                         <tr className="border-b border-slate-200">
                           <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
                           <th className="py-2 pr-3 text-left text-slate-500 font-medium">Matric</th>
                           <th className="py-2 pr-3 text-left text-slate-500 font-medium text-xs w-20">Status</th>
                           <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Score</th>
                           <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Result</th>
+                          <th className="py-2 px-3 text-left text-slate-500 font-medium text-xs">Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3919,11 +3911,13 @@ const LecturerDashboard = () => {
                           const isEdited = !!edit
                           return (
                             <tr key={student.student_id} className={`border-b border-slate-100 hover:bg-slate-50 ${!student.is_enrolled ? 'bg-amber-50/50' : ''}`}>
-                              <td className="py-2.5 pr-4 font-medium text-slate-800 flex items-center gap-2">
+                              <td className="py-2.5 pr-4 font-medium text-slate-800">
+                                <span className="flex items-center gap-2">
                                 {student.full_name}
                                 {!student.is_enrolled ? (
                                   <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 font-medium">not enrolled</span>
                                 ) : null}
+                                </span>
                               </td>
                               <td className="py-2.5 pr-3 text-slate-500 text-xs">{student.matric_no || '—'}</td>
                               <td className="py-2.5 pr-3 text-xs">
@@ -3964,15 +3958,26 @@ const LecturerDashboard = () => {
                                   <option value="Fail">Fail</option>
                                 </select>
                               </td>
+                              <td className="py-2 px-3">
+                                <button
+                                  type="button"
+                                  onClick={() => saveRowEdit(student)}
+                                  disabled={!isEdited}
+                                  className="btn btn-primary btn-sm lift disabled:opacity-40"
+                                >
+                                  Save
+                                </button>
+                              </td>
                             </tr>
                           )
                         })}
                       </tbody>
                     </table>
                   )}
+                  </div>
                 </div>
               ) : (
-                <div className="card card-pad card-hover">
+                <div className="shrink-0 card card-pad card-hover">
                   <p className="text-sm text-slate-400 text-center py-6">
                     Select a plan and course, then click "Load Grid" to enter results.
                   </p>
@@ -3980,11 +3985,10 @@ const LecturerDashboard = () => {
               )
             ) : null}
 
-            {/* History tab — auto-loads all results */}
+            {/* History tab — auto-loads all results — graduation matrix yardstick: card card-hover flex flex-col flex-1 min-h-0 overflow-hidden with inner overflow-auto */}
             {resultsTab === 'history' ? (
-              <div className="space-y-4">
-                <div className="card card-pad card-hover">
-                  <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-slate-100">
                     <h3 className="font-semibold text-slate-900">All Saved Results</h3>
                     <input
                       className="border rounded-lg px-3 py-2 text-sm w-64"
@@ -3993,9 +3997,10 @@ const LecturerDashboard = () => {
                       onChange={(e) => setHistorySearch(e.target.value)}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 mb-3">
+                  <p className="shrink-0 text-xs text-slate-400 px-4 py-2">
                     {resultsHistoryLoading ? 'Loading...' : `${resultsHistory.reduce((sum, c) => sum + c.courses.reduce((s, co) => s + co.students.length, 0), 0)} results across ${resultsHistory.length} cohorts`}
                   </p>
+                  <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
 
                   {resultsHistoryLoading ? (
                     <p className="text-sm text-slate-400 py-6 text-center">Loading results...</p>
@@ -4079,67 +4084,60 @@ const LecturerDashboard = () => {
       })() : null}
 
       {section === 'graduation' ? (
-        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
-          <div className="card card-pad card-hover flex flex-wrap items-center justify-between gap-3 bg-gradient-to-br from-indigo-50 to-violet-50/60 border-indigo-200">
-            <div>
-              <h2 className="font-display text-xl font-extrabold tracking-tight text-slate-900">Graduation</h2>
-              <p className="text-sm text-slate-500 mt-1">Track progress and set up the rector meeting calendar for graduates.</p>
-            </div>
-            <button
-              type="button"
-              onClick={openGraduationCalendarTemplate}
-              className="inline-flex items-center gap-2 btn btn-primary rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm"
-            >
-              <GraduationCap size={16} />
-              Graduation calendar form
-            </button>
-          </div>
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900">
-            <p className="font-semibold">Rector meeting calendar (Calendly-style)</p>
-            <p className="mt-1 text-indigo-800/90">
-              Opens a form prefilled with a graduate name dropdown, contact fields, and unique date/time booking slots. Save it, set status to <strong>Active</strong>, then share the public link with graduating students.
-            </p>
-          </div>
-          <div className="bento bento-4">
-            <Card title="Total Students" value={graduationStatusCounts.total} className="stat-hover" />
-            <Card title="Graduating" value={graduationStatusCounts.Graduating} className="stat-hover" />
-            <Card title="Graduated" value={graduationStatusCounts.Graduated} className="stat-hover" />
-            <Card title="Alumni" value={graduationStatusCounts.Alumni} className="stat-hover" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <h3 className="font-semibold text-slate-900">Graduation Matrix</h3>
-              <div className="flex flex-wrap items-center gap-2">
-                {['all', 'Active', 'Graduating', 'Graduated', 'Alumni'].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setGraduationStatusFilter(value)}
-                    className={`rounded-full px-3 py-1 text-xs border cursor-pointer ${graduationStatusFilter === value ? 'btn btn-primary border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
-                  >
-                    {value === 'all' ? 'All Statuses' : value}
-                  </button>
-                ))}
-                <select
-                  className="rounded-full px-3 py-1 text-xs border bg-white text-slate-600"
-                  value={graduationCohortFilter}
-                  onChange={(event) => setGraduationCohortFilter(event.target.value)}
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {/* Header row — Graduation Matrix + filters + Create Calendar (opens same formBuilderOpen slider) */}
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-display font-bold tracking-tight text-slate-900">Graduation Matrix</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {['all', 'Active', 'Graduating', 'Graduated', 'Alumni'].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setGraduationStatusFilter(value)}
+                  className={`rounded-full px-3 py-1 text-xs border cursor-pointer ${graduationStatusFilter === value ? 'btn btn-primary border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
                 >
-                  <option value="">All Batches</option>
-                  {cohorts.map((cohort) => (
-                    <option key={cohort.id} value={String(cohort.id)}>
-                      {cohort.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  {value === 'all' ? 'All Statuses' : value}
+                </button>
+              ))}
+              <select
+                className="rounded-full px-3 py-1 text-xs border bg-white text-slate-600"
+                value={graduationCohortFilter}
+                onChange={(event) => setGraduationCohortFilter(event.target.value)}
+              >
+                <option value="">All Batches</option>
+                {cohorts.map((cohort) => (
+                  <option key={cohort.id} value={String(cohort.id)}>
+                    {cohort.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={openGraduationCalendarTemplate}
+                className="btn btn-primary lift inline-flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Create Calendar
+              </button>
             </div>
+          </div>
 
-            <DataTable
+          {/* Stats — pushed up, shrink-0, bento/grid at top */}
+          <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card title="Total Students" value={graduationStatusCounts.total} className="card card-hover stat" />
+            <Card title="Graduating" value={graduationStatusCounts.Graduating} className="card card-hover stat" />
+            <Card title="Graduated" value={graduationStatusCounts.Graduated} className="card card-hover stat" />
+            <Card title="Alumni" value={graduationStatusCounts.Alumni} className="card card-hover stat" />
+          </div>
+
+          {/* Yardstick table container — fills page, scrolls inside */}
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-auto">
+              <DataTable
               data={filteredGraduationStudents}
               rowKey="id"
               initialPageSize={25}
-              maxHeight="70vh"
+              fillHeight
+              className="flex-1 min-h-0 border-0 shadow-none rounded-none"
               emptyMessage="No students match the current filters."
               emptyIcon={<GraduationCap size={32} />}
               globalSearchPlaceholder="Search name, matric, status…"
@@ -4257,13 +4255,14 @@ const LecturerDashboard = () => {
                 },
               ]}
             />
+              </div>
+            </div>
           </div>
-        </div>
       ) : null}
 
       {section === 'assignments' ? (
-        <div className="space-y-5 flex-1 min-h-0 overflow-auto">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
               {['assignments', 'exams'].map((tab) => (
                 <button
@@ -4276,25 +4275,11 @@ const LecturerDashboard = () => {
                 </button>
               ))}
             </div>
-            <label className="text-sm text-slate-600 flex items-center gap-2">
-              Course
-              <select
-                className="border rounded-lg px-3 py-2 text-sm font-medium min-w-64 bg-white"
-                value={selectedCourseId || ''}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-              >
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.is_current ? '★ ' : ''}{course.course_code ? `${course.course_code} — ` : ''}{course.title}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           {examsTab === 'assignments' ? (
-            <div className="grid xl:grid-cols-[390px_1fr] gap-6">
-              <form onSubmit={createAssignment} className="card card-pad card-hover space-y-3">
+            <div className="flex-1 min-h-0 grid xl:grid-cols-[390px_1fr] gap-6 overflow-hidden">
+              <form onSubmit={createAssignment} className="card card-pad card-hover space-y-3 overflow-auto">
                 <h3 className="font-semibold text-slate-900">Create Assignment</h3>
                 <p className="text-sm text-slate-500">Assignments are sent only to students who are eligible from attendance.</p>
                 <input className="w-full border rounded-lg px-3 py-2" placeholder="Title" value={assignmentForm.title} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, title: event.target.value }))} required />
@@ -4304,28 +4289,32 @@ const LecturerDashboard = () => {
                 <button className="btn btn-primary px-4 py-2 lift">Send Assignment</button>
               </form>
 
-              <div className="card card-pad card-hover overflow-auto">
-                <h3 className="font-semibold text-slate-900 mb-4">Eligible Students ({eligibleStudents.length})</h3>
-                <table className="data-table w-full text-sm">
-                  <thead className="text-left text-slate-500">
-                    <tr><th className="pb-2">Name</th><th>Matric</th><th>Email</th><th>Attendance</th></tr>
-                  </thead>
-                  <tbody>
-                    {eligibleStudents.map((student) => (
-                      <tr key={student.id} className="border-t border-slate-200">
-                        <td className="py-3">{student.full_name}</td>
-                        <td>{student.matric_no}</td>
-                        <td>{student.email}</td>
-                        <td>{student.attendance_count}/{student.min_attendance_required}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="shrink-0 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">Eligible Students ({eligibleStudents.length})</h3>
+                </div>
+                <div className="flex-1 min-h-0 overflow-auto p-4">
+                  <table className="data-table w-full text-sm">
+                    <thead className="text-left text-slate-500">
+                      <tr><th className="pb-2">Name</th><th>Matric</th><th>Email</th><th>Attendance</th></tr>
+                    </thead>
+                    <tbody>
+                      {eligibleStudents.map((student) => (
+                        <tr key={student.id} className="border-t border-slate-200">
+                          <td className="py-3">{student.full_name}</td>
+                          <td>{student.matric_no}</td>
+                          <td>{student.email}</td>
+                          <td>{student.attendance_count}/{student.min_attendance_required}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+              <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="font-semibold text-slate-900">Create Exam</h3>
                   <p className="text-sm text-slate-500">Build questions on the left — live preview on the right. Save when ready, then send to students.</p>
@@ -4340,8 +4329,23 @@ const LecturerDashboard = () => {
                 </button>
               </div>
 
-              <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-6 items-start">
+              <div className="flex-1 min-h-0 grid xl:grid-cols-[1.15fr_0.85fr] gap-6 overflow-auto">
                 <form onSubmit={createExam} className="card card-pad card-hover space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-1.5">Course</p>
+                    <select
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      value={selectedCourseId || ''}
+                      onChange={(e) => setSelectedCourseId(e.target.value)}
+                    >
+                      <option value="">Select course</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.is_current ? '★ ' : ''}{course.course_code ? `${course.course_code} — ` : ''}{course.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
                       <p className="text-sm font-medium text-slate-700 mb-1.5">Plan (academic year)</p>
@@ -4671,20 +4675,36 @@ const LecturerDashboard = () => {
                           {exam.plan_name ? ` • ${exam.plan_name} (${exam.plan_year})` : ''}
                           {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
                         </p>
-                        {exam.exam_type === 'mcq' && exam.take_url ? (
-                          <p className="text-xs text-indigo-700 mt-1 break-all">
-                            <a href={exam.take_url} target="_blank" rel="noreferrer" className="underline">{exam.take_url}</a>
-                            <button
-                              type="button"
-                              className="ml-2 text-sky-600 hover:underline"
-                              onClick={() => {
-                                navigator.clipboard.writeText(exam.take_url)
-                                notify('Quiz link copied')
-                              }}
-                            >
-                              Copy
-                            </button>
-                          </p>
+                        {exam.take_url ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <a href={exam.take_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-700 underline break-all">{exam.take_url}</a>
+                            {exam.exam_type === 'mcq' ? (
+                              <>
+                                <span className="text-xs text-slate-500">Access code per student delivery</span>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(exam.take_url)
+                                    notify('Link copied')
+                                  }}
+                                >
+                                  Copy Link
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(exam.take_url)
+                                  notify('Link copied')
+                                }}
+                              >
+                                Copy Link
+                              </button>
+                            )}
+                          </div>
                         ) : null}
                         {exam.description ? <p className="text-sm text-slate-600 mt-1">{exam.description}</p> : null}
                       </div>
@@ -4885,163 +4905,171 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
       {section === 'lecturers' ? (
-        <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
-          {/* Create lecturer form */}
-          <form
-            className="card card-pad card-hover space-y-3 self-start"
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (!lecturerForm.name.trim()) return
-              try {
-                await apiClient.post('/lecturers', lecturerForm)
-                setLecturerForm({ name: '', email: '', phone: '' })
-                await loadLecturers()
-                notify('Lecturer added')
-              } catch (err) {
-                notify(err?.response?.data?.message || 'Unable to add lecturer')
-              }
-            }}
-          >
-            <h3 className="font-semibold text-slate-900">Add Lecturer</h3>
-            <label className="text-sm text-slate-600 block">
-              Name *
-              <input
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                placeholder="Full name"
-                value={lecturerForm.name}
-                onChange={(e) => setLecturerForm((p) => ({ ...p, name: e.target.value }))}
-                required
-              />
-            </label>
-            <label className="text-sm text-slate-600 block">
-              Email
-              <input
-                type="email"
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                placeholder="email@example.com"
-                value={lecturerForm.email}
-                onChange={(e) => setLecturerForm((p) => ({ ...p, email: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm text-slate-600 block">
-              Phone
-              <input
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                placeholder="+1 234 567 8900"
-                value={lecturerForm.phone}
-                onChange={(e) => setLecturerForm((p) => ({ ...p, phone: e.target.value }))}
-              />
-            </label>
-            <button className="w-full btn btn-primary py-2 lift">Add Lecturer</button>
-          </form>
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-hidden">
+            {/* Create lecturer form — shrink-0, self-start with overflow-auto */}
+            <form
+              className="card card-pad card-hover space-y-3 self-start overflow-auto max-h-full"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                if (!lecturerForm.name.trim()) return
+                try {
+                  await apiClient.post('/lecturers', lecturerForm)
+                  setLecturerForm({ name: '', email: '', phone: '' })
+                  await loadLecturers()
+                  notify('Lecturer added')
+                } catch (err) {
+                  notify(err?.response?.data?.message || 'Unable to add lecturer')
+                }
+              }}
+            >
+              <h3 className="font-semibold text-slate-900">Add Lecturer</h3>
+              <label className="text-sm text-slate-600 block">
+                Name *
+                <input
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  placeholder="Full name"
+                  value={lecturerForm.name}
+                  onChange={(e) => setLecturerForm((p) => ({ ...p, name: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="text-sm text-slate-600 block">
+                Email
+                <input
+                  type="email"
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  placeholder="email@example.com"
+                  value={lecturerForm.email}
+                  onChange={(e) => setLecturerForm((p) => ({ ...p, email: e.target.value }))}
+                />
+              </label>
+              <label className="text-sm text-slate-600 block">
+                Phone
+                <input
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  placeholder="+1 234 567 8900"
+                  value={lecturerForm.phone}
+                  onChange={(e) => setLecturerForm((p) => ({ ...p, phone: e.target.value }))}
+                />
+              </label>
+              <button className="w-full btn btn-primary btn-sm lift">Add Lecturer</button>
+            </form>
 
-          {/* Lecturers list */}
-          <div className="card card-pad card-hover overflow-auto">
-            <h3 className="font-semibold text-slate-900 mb-4">All Lecturers ({lecturers.length})</h3>
-            {lecturers.length === 0 ? (
-              <p className="text-sm text-slate-400">No lecturers yet. Add one using the form.</p>
-            ) : (
-              <table className="data-table w-full text-sm">
-                <thead className="text-left text-slate-500 border-b border-slate-200">
-                  <tr>
-                    <th className="pb-2 pr-4">Name</th>
-                    <th className="pb-2 pr-4">Email</th>
-                    <th className="pb-2 pr-4">Phone</th>
-                    <th className="pb-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {lecturers.map((l) => (
-                    <tr key={l.id} className="border-t border-slate-100">
-                      {editingLecturerId === l.id ? (
-                        <>
-                          <td className="py-2 pr-2">
-                            <input
-                              className="w-full border rounded px-2 py-1 text-sm"
-                              value={lecturerEditForm.name}
-                              onChange={(e) => setLecturerEditForm((p) => ({ ...p, name: e.target.value }))}
-                            />
-                          </td>
-                          <td className="py-2 pr-2">
-                            <input
-                              type="email"
-                              className="w-full border rounded px-2 py-1 text-sm"
-                              value={lecturerEditForm.email}
-                              onChange={(e) => setLecturerEditForm((p) => ({ ...p, email: e.target.value }))}
-                            />
-                          </td>
-                          <td className="py-2 pr-2">
-                            <input
-                              className="w-full border rounded px-2 py-1 text-sm"
-                              value={lecturerEditForm.phone}
-                              onChange={(e) => setLecturerEditForm((p) => ({ ...p, phone: e.target.value }))}
-                            />
-                          </td>
-                          <td className="py-2 whitespace-nowrap">
-                            <button
-                              type="button"
-                              className="text-xs btn btn-primary rounded px-2 py-1 mr-1"
-                              onClick={async () => {
-                                try {
-                                  await apiClient.put(`/lecturers/${l.id}`, lecturerEditForm)
-                                  setEditingLecturerId(null)
-                                  await loadLecturers()
-                                  notify('Lecturer updated')
-                                } catch (err) {
-                                  notify(err?.response?.data?.message || 'Unable to update lecturer')
-                                }
-                              }}
-                            >Save</button>
-                            <button
-                              type="button"
-                              className="text-xs text-slate-500 hover:text-slate-700"
-                              onClick={() => setEditingLecturerId(null)}
-                            >Cancel</button>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="py-3 pr-4 font-medium">{l.name}</td>
-                          <td className="py-3 pr-4 text-slate-500">{l.email || '—'}</td>
-                          <td className="py-3 pr-4 text-slate-500">{l.phone || '—'}</td>
-                          <td className="py-3 whitespace-nowrap">
-                            <button
-                              type="button"
-                              className="text-xs text-sky-600 hover:underline mr-3"
-                              onClick={() => {
-                                setEditingLecturerId(l.id)
-                                setLecturerEditForm({ name: l.name, email: l.email || '', phone: l.phone || '' })
-                              }}
-                            >Edit</button>
-                            <button
-                              type="button"
-                              className="text-xs text-red-500 hover:underline"
-                              onClick={async () => {
-                                if (!window.confirm(`Delete lecturer "${l.name}"?`)) return
-                                try {
-                                  await apiClient.delete(`/lecturers/${l.id}`)
-                                  await loadLecturers()
-                                  notify('Lecturer deleted')
-                                } catch (err) {
-                                  notify(err?.response?.data?.message || 'Unable to delete lecturer')
-                                }
-                              }}
-                            >Delete</button>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            {/* Lecturers list — graduation matrix yardstick */}
+            <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="shrink-0 px-4 py-3 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900">All Lecturers ({lecturers.length})</h3>
+              </div>
+              <div className="flex-1 min-h-0 overflow-auto">
+                {lecturers.length === 0 ? (
+                  <p className="text-sm text-slate-400 p-4">No lecturers yet. Add one using the form.</p>
+                ) : (
+                  <table className="data-table w-full text-sm">
+                    <thead className="text-left text-slate-500 border-b border-slate-200 sticky top-0 bg-white">
+                      <tr>
+                        <th className="pb-2 pr-4 px-4">Name</th>
+                        <th className="pb-2 pr-4">Email</th>
+                        <th className="pb-2 pr-4">Phone</th>
+                        <th className="pb-2 pr-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lecturers.map((l) => (
+                        <tr key={l.id} className="border-t border-slate-100">
+                          {editingLecturerId === l.id ? (
+                            <>
+                              <td className="py-2 pr-2 pl-4">
+                                <input
+                                  className="w-full border rounded px-2 py-1 text-sm"
+                                  value={lecturerEditForm.name}
+                                  onChange={(e) => setLecturerEditForm((p) => ({ ...p, name: e.target.value }))}
+                                />
+                              </td>
+                              <td className="py-2 pr-2">
+                                <input
+                                  type="email"
+                                  className="w-full border rounded px-2 py-1 text-sm"
+                                  value={lecturerEditForm.email}
+                                  onChange={(e) => setLecturerEditForm((p) => ({ ...p, email: e.target.value }))}
+                                />
+                              </td>
+                              <td className="py-2 pr-2">
+                                <input
+                                  className="w-full border rounded px-2 py-1 text-sm"
+                                  value={lecturerEditForm.phone}
+                                  onChange={(e) => setLecturerEditForm((p) => ({ ...p, phone: e.target.value }))}
+                                />
+                              </td>
+                              <td className="py-2 pr-4 whitespace-nowrap text-right">
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-sm lift mr-1"
+                                  onClick={async () => {
+                                    try {
+                                      await apiClient.put(`/lecturers/${l.id}`, lecturerEditForm)
+                                      setEditingLecturerId(null)
+                                      await loadLecturers()
+                                      notify('Lecturer updated')
+                                    } catch (err) {
+                                      notify(err?.response?.data?.message || 'Unable to update lecturer')
+                                    }
+                                  }}
+                                >Save</button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm lift"
+                                  onClick={() => setEditingLecturerId(null)}
+                                >Cancel</button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="py-3 pr-4 pl-4 font-medium">{l.name}</td>
+                              <td className="py-3 pr-4 text-slate-500">{l.email || '—'}</td>
+                              <td className="py-3 pr-4 text-slate-500">{l.phone || '—'}</td>
+                              <td className="py-3 pr-4 whitespace-nowrap text-right">
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm lift mr-1"
+                                  onClick={() => {
+                                    setEditingLecturerId(l.id)
+                                    setLecturerEditForm({ name: l.name, email: l.email || '', phone: l.phone || '' })
+                                  }}
+                                >Edit</button>
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm lift"
+                                  onClick={async () => {
+                                    if (!window.confirm(`Delete lecturer "${l.name}"?`)) return
+                                    try {
+                                      await apiClient.delete(`/lecturers/${l.id}`)
+                                      await loadLecturers()
+                                      notify('Lecturer deleted')
+                                    } catch (err) {
+                                      notify(err?.response?.data?.message || 'Unable to delete lecturer')
+                                    }
+                                  }}
+                                >Delete</button>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
 
       {section === 'email-process' ? (
-        <div className="flex-1 min-h-0 overflow-auto">
-        <EmailProcesses notify={notify} />
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-auto">
+            <EmailProcesses notify={notify} />
+          </div>
         </div>
       ) : null}
 
@@ -5141,9 +5169,9 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'reports' ? (
-        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
-          {/* Filter Header */}
-          <div className="card card-pad card-hover flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {/* Filter Header — shrink-0 (report content header, PageHeader removed) */}
+          <div className="shrink-0 card card-pad card-hover flex flex-wrap gap-4 items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Reporting & Analytics</h2>
               <p className="text-sm text-slate-500">Comprehensive system performance and academic metrics.</p>
@@ -5167,7 +5195,7 @@ const LecturerDashboard = () => {
               </select>
               <button
                 onClick={loadReports}
-                className="btn btn-primary px-4 py-2 text-sm font-medium"
+                className="btn btn-primary btn-sm lift"
               >
                 Refresh
               </button>
@@ -5177,7 +5205,7 @@ const LecturerDashboard = () => {
           {reportLoading && !reportStats ? (
             <div className="flex justify-center p-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div></div>
           ) : (
-            <>
+            <div className="flex-1 min-h-0 overflow-auto space-y-4 pr-1">
               {/* Summary Cards */}
               <div className="bento bento-4">
                 <div className="card card-pad card-hover">
@@ -5220,18 +5248,18 @@ const LecturerDashboard = () => {
                 </div>
               </div>
 
-              {/* Attendance Table */}
-              <div className="card card-hover overflow-hidden">
-                <div className="p-5 border-b border-slate-200 flex justify-between items-center">
+              {/* Attendance Table — graduation matrix yardstick: card flex-col overflow-hidden with inner overflow-auto */}
+              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="shrink-0 p-5 border-b border-slate-200 flex justify-between items-center">
                   <h3 className="font-semibold text-slate-900">Attendance & Eligibility Detail</h3>
                   <div className="flex gap-4 text-sm text-slate-500">
                     <span>Eligible: <b className="text-green-600">{attendanceReport?.summary?.eligible_students}</b></span>
                     <span>Ineligible: <b className="text-red-600">{attendanceReport?.summary?.ineligible_students}</b></span>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="flex-1 min-h-0 overflow-auto">
                   <table className="data-table w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-[0.68rem] font-bold tracking-[0.08em]">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[0.68rem] font-bold tracking-[0.08em] sticky top-0">
                       <tr>
                         <th className="px-6 py-4">Student</th>
                         <th className="px-6 py-4">Course</th>
@@ -5262,7 +5290,7 @@ const LecturerDashboard = () => {
                   </table>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       ) : null}
@@ -5998,9 +6026,10 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     }
   }
 
+  const isGradCal = form?._template === 'graduation_calendar' || form?.slug === 'graduation-calendar'
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
-      <div className="bg-white w-full max-w-3xl h-full overflow-y-auto shadow-2xl">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm">
+      <div className={`bg-white h-full overflow-y-auto shadow-2xl ${isGradCal ? 'w-[420px] max-w-[92vw]' : 'w-full max-w-3xl'}`}>
         <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">{form ? 'Edit Form' : 'Create Form'}</h3>
           <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100">

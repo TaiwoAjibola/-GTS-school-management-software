@@ -8,7 +8,7 @@ export const lecturerNavItems = [
   { to: '/lecturer/attendance', label: 'Attendance', icon: ClipboardCheck },
   { to: '/lecturer/results', label: 'Results', icon: GraduationCap },
   { to: '/lecturer/graduation', label: 'Graduation', icon: GraduationCap },
-  { to: '/lecturer/assignments', label: 'Assignments', icon: SquarePen },
+  { to: '/lecturer/assignments', label: 'Exams', icon: SquarePen },
   { to: '/lecturer/forms', label: 'Forms', icon: FileText },
   { to: '/lecturer/reports', label: 'Reports', icon: BarChart3 },
   { to: '/lecturer/book-ministry', label: 'Book Ministry', icon: Library },
@@ -38,7 +38,7 @@ export const lecturerNavGroups = [
   {
     label: 'Academics',
     items: [
-      { to: '/lecturer/assignments', label: 'Assignments', icon: SquarePen },
+      { to: '/lecturer/assignments', label: 'Exams', icon: SquarePen },
       { to: '/lecturer/forms', label: 'Forms', icon: FileText },
     ],
   },
