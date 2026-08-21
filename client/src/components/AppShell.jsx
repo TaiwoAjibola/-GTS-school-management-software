@@ -4,32 +4,40 @@ import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 
-const NavItem = ({ item, onNavigate, variant }) => {
-  const isGold = variant === 'gold'
+const NavItem = ({ item, onNavigate }) => {
   return (
     <NavLink
-      key={item.to}
       to={item.to}
       onClick={onNavigate}
       className={({ isActive }) =>
-        isGold
-          ? `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
-              isActive ? 'bg-gold-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'
-            }`
-          : `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
-              isActive ? 'bg-gold-500/15 text-gold-600 border border-gold-500/30 font-medium' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`
+        `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] leading-none transition-all duration-200 ease-out border ${
+          isActive
+            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold shadow-sm'
+            : 'text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-900 hover:border-slate-100 font-medium'
+        }`
       }
     >
-      <item.icon size={16} />
-      <span>{item.label}</span>
+      {({ isActive }) => (
+        <>
+          <span
+            className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 transition-all duration-200 ${
+              isActive
+                ? 'bg-white border border-indigo-200 text-indigo-600 shadow-sm'
+                : 'bg-slate-50 text-slate-500 border border-transparent group-hover:bg-white group-hover:text-slate-700 group-hover:border-slate-200 group-hover:shadow-sm'
+            }`}
+          >
+            <item.icon size={14} strokeWidth={isActive ? 2.4 : 1.9} />
+          </span>
+          <span className="truncate">{item.label}</span>
+        </>
+      )}
     </NavLink>
   )
 }
 
 const NavContent = ({ groups = [], navItems = [], onNavigate }) => {
   return (
-    <nav className="mt-6 space-y-6 overflow-y-auto flex-1 -mx-2 px-2">
+    <nav className="mt-6 space-y-7 overflow-y-auto flex-1 -mx-2 px-2 pr-1 [scrollbar-width:thin]">
       {navItems.length ? (
         <div className="space-y-1">
           {navItems.map((item) => (
@@ -39,7 +47,9 @@ const NavContent = ({ groups = [], navItems = [], onNavigate }) => {
       ) : (
         groups.map((group) => (
           <div key={group.label}>
-            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-400">{group.label}</p>
+            <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              {group.label}
+            </p>
             <div className="space-y-1">
               {group.items.map((item) => (
                 <NavItem key={item.to} item={item} onNavigate={onNavigate} />
@@ -58,67 +68,94 @@ const AppShell = ({ title, navItems = [], groups = [], children }) => {
   const onNavigate = () => setIsOpen(false)
 
   const navContent = (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-11 h-11 rounded-xl overflow-hidden bg-gradient-to-br from-gold-400 to-gold-600 shadow-lg shadow-gold-500/20 flex-shrink-0">
-          <img src="/logo.svg" alt="GTS Logo" className="h-9 w-auto" />
+    <div className="h-full flex flex-col min-h-0">
+      {/* Logo — white with indigo accent */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden shrink-0">
+          <img src="/logo.svg" alt="GTS Logo" className="h-8 w-auto" />
         </div>
-        <div>
-          <p className="font-display text-lg font-bold text-white leading-tight">Grace Theological Seminary</p>
-          <p className="text-xs text-gold-300">Academic Management</p>
+        <div className="min-w-0">
+          <p className="font-display text-[14.5px] font-bold tracking-[-0.03em] text-slate-900 leading-none">
+            Grace Theological Seminary
+          </p>
+          <p className="text-[11px] font-semibold tracking-wide text-slate-500 mt-1">
+            Academic Management
+          </p>
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-white/5 p-3 border border-white/10">
-        <div className="flex items-center gap-2 text-slate-200">
-          <UserCircle2 size={16} className="text-gold-300" />
-          <span className="text-sm font-medium truncate">{user?.fullName}</span>
+      {/* User — light bento */}
+      <div className="mt-5 rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+            <UserCircle2 size={16} strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-slate-900 truncate leading-none">
+              {user?.fullName}
+            </p>
+            <p className="text-xs font-medium capitalize text-slate-500 mt-1 truncate">
+              {user?.role}
+            </p>
+          </div>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm ring-4 ring-emerald-50 shrink-0" aria-hidden />
         </div>
-        <p className="text-xs text-gold-300 mt-1.5 capitalize">{user?.role}</p>
       </div>
 
       <NavContent groups={groups} navItems={navItems} onNavigate={onNavigate} />
 
-      <button
-        onClick={logout}
-        className="mt-4 w-full bg-white/10 hover:bg-white/15 transition-colors text-sm rounded-lg px-3 py-2 flex items-center justify-center gap-2 text-slate-200"
-      >
-        <LogOut size={16} /> Sign Out
-      </button>
+      <div className="mt-4 pt-4 border-t border-slate-100 shrink-0">
+        <button
+          onClick={logout}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2.5 text-[13.5px] font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 shadow-sm transition-all duration-200 ease-out"
+        >
+          <LogOut size={16} className="text-slate-500" /> Sign Out
+        </button>
+        <p className="text-center text-[10px] font-medium tracking-wide text-slate-400 mt-3">© 2026 Grace Theological Seminary</p>
+      </div>
     </div>
   )
 
   return (
-    <div className="h-screen overflow-hidden md:grid md:grid-cols-[264px_1fr]">
-      <aside className="hidden md:flex h-screen bg-slate-950 text-white p-6 border-r border-slate-800 flex-col">
+    <div className="h-screen overflow-hidden md:grid md:grid-cols-[276px_1fr] bg-[#F8FAFC]">
+      {/* Sidebar — LIGHT bento */}
+      <aside className="hidden md:flex h-screen bg-white border-r border-slate-200 p-5 flex-col overflow-hidden shrink-0">
         {navContent}
       </aside>
 
-      <main className="h-screen min-h-0 flex flex-col p-4 md:p-8">
-        <div className="flex items-center justify-between mb-6 gap-4 shrink-0">
-          <div>
-            <h1 className="font-display text-2xl md:text-3xl font-semibold text-slate-900">{title}</h1>
-            <p className="text-sm text-slate-500 mt-1">Welcome back, {user?.fullName?.split(' ')[0] || user?.fullName}</p>
+      {/* Main — single-viewport preserved */}
+      <main className="h-screen min-h-0 flex flex-col overflow-hidden bg-[#F8FAFC] p-4 md:p-6 lg:p-8">
+        <div className="flex items-start justify-between gap-4 shrink-0">
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">
+              {title}
+            </h1>
+            <p className="text-[13px] font-medium text-slate-500 mt-2">
+              Welcome back, {user?.fullName?.split(' ')[0] || user?.fullName}
+              <span className="hidden sm:inline text-slate-300 mx-1.5">—</span>
+              <span className="hidden sm:inline text-slate-500">here&apos;s what&apos;s happening today</span>
+            </p>
           </div>
           <button
             onClick={() => setIsOpen((value) => !value)}
-            className="md:hidden inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-700"
+            aria-label={isOpen ? 'Close navigation' : 'Open navigation'}
+            className="md:hidden inline-flex items-center justify-center rounded-xl bg-white border border-slate-200 px-3 py-2.5 text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 ease-out shrink-0"
           >
             {isOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
 
         {isOpen ? (
-          <div className="md:hidden mb-6 shrink-0 rounded-2xl bg-slate-950 text-white p-4 border border-slate-800 max-h-[40vh] overflow-y-auto">
+          <div className="md:hidden mt-4 mb-6 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-md p-4 max-h-[42vh] overflow-y-auto">
             {navContent}
           </div>
         ) : null}
 
         <motion.div
           className="flex-1 min-h-0 overflow-hidden flex flex-col"
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         >
           {children}
         </motion.div>

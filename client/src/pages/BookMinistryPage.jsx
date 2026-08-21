@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, BookmarkCheck, Library, RefreshCw, Link2, FileText, Shield, Settings, Sliders, ExternalLink } from 'lucide-react'
+import { BookOpen, BookmarkCheck, Library, RefreshCw, Link2, FileText, Shield, Settings, Sliders, ExternalLink, Sparkles, Mail } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import DataTable from '../components/ui/DataTable'
 import Card from '../components/ui/Card'
@@ -106,83 +106,144 @@ export default function BookMinistryPage() {
     return readingRecords.filter((r) => String(r.student_id) === readingStudentFilter)
   }, [readingRecords, readingStudentFilter])
 
+  const isEnabled = settingVal('enabled') === 'true'
+  const notifEmail = settingVal('notification_email')
+
   return (
     <AppShell title="Book Ministry" groups={lecturerNavGroups}>
       {notice ? (
-        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2.5 text-sm font-medium">{notice}</div>
+        <div className="mb-4 rounded-[16px] bg-[#EEF2FF] border border-[#C7D2FE] text-[#3730A3] px-4 py-2.5 text-sm font-semibold flex items-center gap-2 shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-[#4F46E5] animate-pulse shrink-0" />
+          {notice}
+        </div>
       ) : null}
 
       <div className="h-full flex flex-col gap-5 overflow-hidden">
-      {/* Header */}
+      {/* Header — dramatic indigo bento 24px */}
       <div className="shrink-0">
-        <div className="card card-hover p-6">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="ico h-11 w-11"><Library size={22} /></div>
-            <h2 className="section-title">Book Ministry</h2>
-          </div>
-          <p className="section-sub max-w-2xl">
-            Manage library-linked student accounts, borrowing records, reading progress, and access permissions.
-            This module connects GTS student data with the Book Ministry application.
-          </p>
-          <div className="mt-3 flex items-center gap-4 flex-wrap">
-            <Badge tone={settingVal('enabled') === 'true' ? 'emerald' : 'slate'} dot>
-              {settingVal('enabled') === 'true' ? 'Enabled' : 'Disabled'}
-            </Badge>
-            <span className="text-xs text-slate-400">
-              {settingVal('notification_email') ? `Notifications: ${settingVal('notification_email')}` : 'No notification email set'}
-            </span>
+        <div className="card card-hover rounded-[24px] p-6 md:p-7 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
+          {/* indigo top rule */}
+          <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#4F46E5] via-[#8B5CF6] to-[#6366F1]" />
+          {/* soft blobs */}
+          <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[#EEF2FF] blur-3xl opacity-70" />
+          <div className="pointer-events-none absolute -bottom-20 -left-12 h-56 w-56 rounded-full bg-[#F5F3FF] blur-2xl opacity-60" />
+
+          <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3.5">
+                <div className="h-12 w-12 rounded-2xl bg-[#4F46E5] text-white flex items-center justify-center shadow-lg shadow-indigo-200 shrink-0">
+                  <Library size={22} strokeWidth={2} />
+                </div>
+                <div>
+                  <h2 className="font-display text-[22px] md:text-[26px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">Book Ministry</h2>
+                  <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#6366F1] mt-1 flex items-center gap-1.5">
+                    <Sparkles size={11} /> GTS · External Sync
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-[13.5px] font-medium leading-relaxed text-slate-500 max-w-[62ch] font-sans">
+                Manage library-linked student accounts, borrowing records, reading progress, and access permissions. This module connects GTS student data with the Book Ministry application.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                <Badge tone={isEnabled ? 'emerald' : 'slate'} dot className={isEnabled ? '!bg-[#ECFDF5] !text-[#047857] !border-[#6EE7B7]' : '!bg-slate-100 !text-slate-600 !border-slate-200'}>
+                  {isEnabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+                <span className="hidden sm:inline h-4 w-px bg-slate-200" />
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-full px-3 py-1">
+                  <Mail size={12} className="text-[#6366F1]" />
+                  {notifEmail ? <span className="font-mono text-[11px] text-slate-700">{notifEmail}</span> : <span className="italic">No notification email set</span>}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.06em] uppercase text-[#4338CA] bg-[#EEF2FF] border border-[#C7D2FE] rounded-full px-2.5 py-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                  {isEnabled ? 'Sync ready' : 'Sync paused'}
+                </span>
+              </div>
+            </div>
+
+            {/* bento mini metrics */}
+            <div className="hidden lg:flex items-stretch gap-3 shrink-0">
+              <div className="rounded-2xl bg-[#F8FAFC] border border-slate-200 p-3.5 min-w-[132px] flex flex-col justify-center">
+                <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-slate-400">Linked</p>
+                <p className="font-display text-xl font-extrabold tracking-[-0.03em] text-slate-900 mt-1">{stats?.linkedAccounts ?? '—'}</p>
+                <p className="text-[11px] font-medium text-slate-500">accounts</p>
+              </div>
+              <div className="rounded-2xl bg-[#4F46E5] text-white p-3.5 min-w-[132px] flex flex-col justify-center shadow-md shadow-indigo-200">
+                <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-indigo-200">Pending</p>
+                <p className="font-display text-xl font-extrabold tracking-[-0.03em] mt-1">{stats?.pendingRequests ?? '—'}</p>
+                <p className="text-[11px] font-medium text-indigo-100">requests</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 shrink-0">
-        {tabs.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key)}
-            className={`btn btn-sm lift ${activeTab === key ? 'btn-primary' : 'btn-ghost'}`}
-          >
-            <Icon size={14} />
-            {label}
-          </button>
-        ))}
+      {/* Tabs — indigo pill bento */}
+      <div className="shrink-0 flex flex-wrap gap-1.5 p-1.5 rounded-2xl bg-white border border-slate-200 shadow-sm w-fit max-w-full">
+        {tabs.map(({ key, label, icon: Icon }) => {
+          const active = activeTab === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold transition-all duration-200 border cursor-pointer ${
+                active
+                  ? 'bg-[#4F46E5] text-white border-[#4338CA] shadow-md shadow-indigo-200'
+                  : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Icon size={14} strokeWidth={active ? 2.3 : 1.9} />
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
-        <p className="text-slate-500 text-sm">Loading...</p>
-      ) : (
         <div className="flex-1 min-h-0 overflow-auto">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 animate-pulse">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-24 rounded-[24px] bg-white border border-slate-200" />
+            ))}
+          </div>
+          <p className="text-slate-400 text-sm mt-6 font-medium">Loading ministry data…</p>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-auto space-y-5 pr-1 [scrollbar-width:thin]">
         <>
-          {/* Overview */}
+          {/* Overview — bento 5 */}
           {activeTab === 'overview' && stats && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <Card title="Linked Accounts" value={stats.linkedAccounts} accent="sky" icon={<Link2 size={20} />} />
-                <Card title="Active Borrows" value={stats.activeBorrows} accent="emerald" icon={<BookOpen size={20} />} />
-                <Card title="Active Reading" value={stats.activeReading} accent="gold" icon={<BookmarkCheck size={20} />} />
-                <Card title="Active Permissions" value={stats.activePermissions} accent="sky" icon={<Shield size={20} />} />
-                <Card title="Pending Requests" value={stats.pendingRequests} accent="rose" icon={<FileText size={20} />} />
+                <Card title="Linked Accounts" value={stats.linkedAccounts} accent="sky" icon={<Link2 size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="synced via API" />
+                <Card title="Active Borrows" value={stats.activeBorrows} accent="emerald" icon={<BookOpen size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="currently out" />
+                <Card title="Active Reading" value={stats.activeReading} accent="gold" icon={<BookmarkCheck size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="in progress" />
+                <Card title="Active Permissions" value={stats.activePermissions} accent="sky" icon={<Shield size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="granted" />
+                <Card title="Pending Requests" value={stats.pendingRequests} accent="rose" icon={<FileText size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="awaiting review" />
               </div>
 
-              <Card title="Integration Status">
-                <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-slate-500">Book Ministry Feature</p>
-                    <p className="font-medium text-slate-800">{settingVal('enabled') === 'true' ? 'Enabled' : 'Disabled'}</p>
+              <Card title="Integration Status" className="!rounded-[24px] card-hover !border-slate-200">
+                <div className="grid sm:grid-cols-2 gap-0 rounded-2xl border border-slate-200 overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
+                  <div className="p-4 bg-white">
+                    <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-slate-400">Book Ministry Feature</p>
+                    <p className="mt-1 inline-flex items-center gap-2 font-semibold text-slate-900">
+                      <span className={`h-2 w-2 rounded-full ${isEnabled ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]' : 'bg-slate-300'}`} />
+                      {isEnabled ? 'Enabled' : 'Disabled'}
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-slate-500">Max Requests per Student</p>
-                    <p className="font-medium text-slate-800">{settingVal('max_requests_per_student', '5')}</p>
+                  <div className="p-4 bg-[#F8FAFC]">
+                    <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-slate-400">Max Requests per Student</p>
+                    <p className="mt-1 font-mono text-sm font-bold text-slate-800">{settingVal('max_requests_per_student', '5')}</p>
                   </div>
-                  <div>
-                    <p className="text-slate-500">Notification Email</p>
-                    <p className="font-medium text-slate-800">{settingVal('notification_email') || 'Not configured'}</p>
+                  <div className="p-4 bg-[#F8FAFC] sm:bg-white">
+                    <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-slate-400">Notification Email</p>
+                    <p className="mt-1 font-mono text-sm font-medium text-slate-800 truncate">{settingVal('notification_email') || 'Not configured'}</p>
                   </div>
-                  <div>
-                    <p className="text-slate-500">External Sync</p>
-                    <p className="font-medium text-slate-800">Book Ministry App (external)</p>
+                  <div className="p-4 bg-white sm:bg-[#F8FAFC]">
+                    <p className="text-[10px] font-bold tracking-[0.12em] uppercase text-slate-400">External Sync</p>
+                    <p className="mt-1 inline-flex items-center gap-1.5 font-semibold text-[#4338CA]">
+                      <ExternalLink size={13} /> Book Ministry App (external)
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -191,10 +252,13 @@ export default function BookMinistryPage() {
 
           {/* Linked Accounts */}
           {activeTab === 'linked' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="card-title">Linked Accounts</h3>
-                <span className="chip">{linkedAccounts.length} linked</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] text-[#4F46E5] flex items-center justify-center"><Link2 size={14} /></span>
+                  Linked Accounts
+                </h3>
+                <span className="chip !bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full">{linkedAccounts.length} linked</span>
               </div>
               <DataTable
                 data={linkedAccounts}
@@ -204,8 +268,8 @@ export default function BookMinistryPage() {
                 globalSearchPlaceholder="Search student, matric, account…"
                 defaultSort={{ id: 'full_name', dir: 'asc' }}
                 columns={[
-                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (a) => <span className="font-medium text-slate-900">{a.full_name}</span> },
-                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (a) => <span className="font-semibold text-slate-900">{a.full_name}</span> },
+                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no', cell: (a) => <span className="font-mono text-xs bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-lg">{a.matric_no}</span> },
                   {
                     id: 'student_status',
                     header: 'Status',
@@ -218,11 +282,11 @@ export default function BookMinistryPage() {
                     id: 'external_account_id',
                     header: 'External Account ID',
                     accessor: 'external_account_id',
-                    cell: (a) => <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{a.external_account_id}</code>,
+                    cell: (a) => <code className="text-xs font-mono bg-[#EEF2FF] border border-[#C7D2FE] text-[#4338CA] px-1.5 py-0.5 rounded-lg">{a.external_account_id}</code>,
                   },
                   { id: 'external_system', header: 'System', accessor: 'external_system' },
-                  { id: 'linked_at', header: 'Linked At', accessor: 'linked_at', sortType: 'date', cell: (a) => fmtDate(a.linked_at) },
-                  { id: 'last_synced_at', header: 'Last Synced', accessor: 'last_synced_at', sortType: 'date', cell: (a) => (a.last_synced_at ? fmtDate(a.last_synced_at) : null) },
+                  { id: 'linked_at', header: 'Linked At', accessor: 'linked_at', sortType: 'date', cell: (a) => <span className="text-slate-600">{fmtDate(a.linked_at)}</span> },
+                  { id: 'last_synced_at', header: 'Last Synced', accessor: 'last_synced_at', sortType: 'date', cell: (a) => (a.last_synced_at ? <span className="text-slate-600">{fmtDate(a.last_synced_at)}</span> : <span className="text-slate-300">—</span>) },
                 ]}
               />
             </div>
@@ -230,11 +294,14 @@ export default function BookMinistryPage() {
 
           {/* Borrowing */}
           {activeTab === 'borrowing' && (
-            <div>
-              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                <h3 className="card-title">Borrowing History</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-xl bg-[#ECFDF5] border border-emerald-200 text-emerald-700 flex items-center justify-center"><BookOpen size={14} /></span>
+                  Borrowing History
+                </h3>
                 <select
-                  className="select w-auto"
+                  className="select w-auto !rounded-xl !border-slate-200 bg-white text-sm font-medium"
                   value={borrowStudentFilter}
                   onChange={(e) => setBorrowStudentFilter(e.target.value)}
                 >
@@ -252,13 +319,13 @@ export default function BookMinistryPage() {
                 globalSearchPlaceholder="Search student, book, ISBN…"
                 defaultSort={{ id: 'borrowed_at', dir: 'desc' }}
                 columns={[
-                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (b) => <span className="font-medium text-slate-900">{b.full_name}</span> },
-                  { id: 'book_title', header: 'Book Title', accessor: 'book_title' },
+                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (b) => <span className="font-semibold text-slate-900">{b.full_name}</span> },
+                  { id: 'book_title', header: 'Book Title', accessor: 'book_title', cell: (b) => <span className="font-medium text-slate-800">{b.book_title}</span> },
                   { id: 'author', header: 'Author', accessor: 'author' },
-                  { id: 'isbn', header: 'ISBN', accessor: 'isbn' },
-                  { id: 'borrowed_at', header: 'Borrowed', accessor: 'borrowed_at', sortType: 'date', cell: (b) => fmtDate(b.borrowed_at) },
-                  { id: 'due_at', header: 'Due', accessor: 'due_at', sortType: 'date', cell: (b) => (b.due_at ? fmtDate(b.due_at) : null) },
-                  { id: 'returned_at', header: 'Returned', accessor: 'returned_at', sortType: 'date', cell: (b) => (b.returned_at ? fmtDate(b.returned_at) : null) },
+                  { id: 'isbn', header: 'ISBN', accessor: 'isbn', cell: (b) => <span className="font-mono text-xs text-slate-600">{b.isbn}</span> },
+                  { id: 'borrowed_at', header: 'Borrowed', accessor: 'borrowed_at', sortType: 'date', cell: (b) => <span className="text-slate-600">{fmtDate(b.borrowed_at)}</span> },
+                  { id: 'due_at', header: 'Due', accessor: 'due_at', sortType: 'date', cell: (b) => (b.due_at ? <span className="text-slate-600">{fmtDate(b.due_at)}</span> : <span className="text-slate-300">—</span>) },
+                  { id: 'returned_at', header: 'Returned', accessor: 'returned_at', sortType: 'date', cell: (b) => (b.returned_at ? <span className="text-slate-600">{fmtDate(b.returned_at)}</span> : <span className="text-slate-300">—</span>) },
                   {
                     id: 'status',
                     header: 'Status',
@@ -274,11 +341,14 @@ export default function BookMinistryPage() {
 
           {/* Reading Records */}
           {activeTab === 'reading' && (
-            <div>
-              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                <h3 className="card-title">Reading Records</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] text-[#4F46E5] flex items-center justify-center"><BookmarkCheck size={14} /></span>
+                  Reading Records
+                </h3>
                 <select
-                  className="select w-auto"
+                  className="select w-auto !rounded-xl !border-slate-200 bg-white text-sm font-medium"
                   value={readingStudentFilter}
                   onChange={(e) => setReadingStudentFilter(e.target.value)}
                 >
@@ -296,8 +366,8 @@ export default function BookMinistryPage() {
                 globalSearchPlaceholder="Search student, book, author…"
                 defaultSort={{ id: 'started_at', dir: 'desc' }}
                 columns={[
-                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (r) => <span className="font-medium text-slate-900">{r.full_name}</span> },
-                  { id: 'book_title', header: 'Book Title', accessor: 'book_title' },
+                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (r) => <span className="font-semibold text-slate-900">{r.full_name}</span> },
+                  { id: 'book_title', header: 'Book Title', accessor: 'book_title', cell: (r) => <span className="font-medium text-slate-800">{r.book_title}</span> },
                   { id: 'author', header: 'Author', accessor: 'author' },
                   {
                     id: 'progress_percentage',
@@ -306,15 +376,15 @@ export default function BookMinistryPage() {
                     sortType: 'number',
                     cell: (r) => (
                       <div className="flex items-center gap-2">
-                        <div className="w-24 bg-slate-200 rounded-full h-2">
-                          <div className="bg-gold-600 rounded-full h-2 transition-all" style={{ width: `${Math.min(r.progress_percentage || 0, 100)}%` }} />
+                        <div className="w-24 bg-slate-100 border border-slate-200 rounded-full h-2 overflow-hidden">
+                          <div className="bg-[#4F46E5] rounded-full h-2 transition-all" style={{ width: `${Math.min(r.progress_percentage || 0, 100)}%` }} />
                         </div>
-                        <span className="text-xs text-slate-500">{r.progress_percentage || 0}%</span>
+                        <span className="text-xs font-mono font-semibold text-slate-600">{r.progress_percentage || 0}%</span>
                       </div>
                     ),
                   },
-                  { id: 'started_at', header: 'Started', accessor: 'started_at', sortType: 'date', cell: (r) => (r.started_at ? fmtDate(r.started_at) : null) },
-                  { id: 'completed_at', header: 'Completed', accessor: 'completed_at', sortType: 'date', cell: (r) => (r.completed_at ? fmtDate(r.completed_at) : null) },
+                  { id: 'started_at', header: 'Started', accessor: 'started_at', sortType: 'date', cell: (r) => (r.started_at ? <span className="text-slate-600">{fmtDate(r.started_at)}</span> : <span className="text-slate-300">—</span>) },
+                  { id: 'completed_at', header: 'Completed', accessor: 'completed_at', sortType: 'date', cell: (r) => (r.completed_at ? <span className="text-slate-600">{fmtDate(r.completed_at)}</span> : <span className="text-slate-300">—</span>) },
                   {
                     id: 'status',
                     header: 'Status',
@@ -330,10 +400,13 @@ export default function BookMinistryPage() {
 
           {/* Permissions */}
           {activeTab === 'permissions' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="card-title">Library Permissions</h3>
-                <span className="chip">{permissions.length} total</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] text-[#4F46E5] flex items-center justify-center"><Shield size={14} /></span>
+                  Library Permissions
+                </h3>
+                <span className="chip !bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full">{permissions.length} total</span>
               </div>
               <DataTable
                 data={permissions}
@@ -343,16 +416,16 @@ export default function BookMinistryPage() {
                 globalSearchPlaceholder="Search student, permission…"
                 defaultSort={{ id: 'granted_at', dir: 'desc' }}
                 columns={[
-                  { id: 'student_name', header: 'Student', accessor: 'student_name', cell: (p) => <span className="font-medium text-slate-900">{p.student_name}</span> },
-                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+                  { id: 'student_name', header: 'Student', accessor: 'student_name', cell: (p) => <span className="font-semibold text-slate-900">{p.student_name}</span> },
+                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no', cell: (p) => <span className="font-mono text-xs bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-lg">{p.matric_no}</span> },
                   {
                     id: 'permission_type',
                     header: 'Permission',
                     accessor: 'permission_type',
-                    cell: (p) => <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{p.permission_type}</code>,
+                    cell: (p) => <code className="text-xs font-mono bg-[#EEF2FF] border border-[#C7D2FE] text-[#4338CA] px-1.5 py-0.5 rounded-lg">{p.permission_type}</code>,
                   },
-                  { id: 'granted_at', header: 'Granted At', accessor: 'granted_at', sortType: 'date', cell: (p) => fmtDate(p.granted_at) },
-                  { id: 'expires_at', header: 'Expires', accessor: 'expires_at', sortType: 'date', cell: (p) => (p.expires_at ? fmtDate(p.expires_at) : 'Never') },
+                  { id: 'granted_at', header: 'Granted At', accessor: 'granted_at', sortType: 'date', cell: (p) => <span className="text-slate-600">{fmtDate(p.granted_at)}</span> },
+                  { id: 'expires_at', header: 'Expires', accessor: 'expires_at', sortType: 'date', cell: (p) => (p.expires_at ? <span className="text-slate-600">{fmtDate(p.expires_at)}</span> : <span className="text-slate-500 font-medium">Never</span>) },
                   { id: 'granted_by_name', header: 'Granted By', accessor: 'granted_by_name' },
                   {
                     id: 'is_active',
@@ -369,17 +442,20 @@ export default function BookMinistryPage() {
 
           {/* Access Rules */}
           {activeTab === 'access-rules' && (
-            <div>
-              <h3 className="card-title mb-3">Access Rules by Student Status</h3>
+            <div className="space-y-3">
+              <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                <span className="h-7 w-7 rounded-xl bg-[#F5F3FF] border border-violet-200 text-violet-700 flex items-center justify-center"><Sliders size={14} /></span>
+                Access Rules by Student Status
+              </h3>
               <DataTable
                 data={accessRules}
                 rowKey="id"
                 globalSearchPlaceholder="Search status, notes…"
                 defaultSort={{ id: 'student_status', dir: 'asc' }}
                 columns={[
-                  { id: 'student_status', header: 'Student Status', accessor: 'student_status', cell: (r) => <span className="font-medium text-slate-900">{r.student_status}</span> },
-                  { id: 'max_borrow_limit', header: 'Max Borrow Limit', accessor: 'max_borrow_limit', sortType: 'number' },
-                  { id: 'borrowing_days', header: 'Borrowing Days', accessor: 'borrowing_days', sortType: 'number' },
+                  { id: 'student_status', header: 'Student Status', accessor: 'student_status', cell: (r) => <span className="font-semibold text-slate-900">{r.student_status}</span> },
+                  { id: 'max_borrow_limit', header: 'Max Borrow Limit', accessor: 'max_borrow_limit', sortType: 'number', cell: (r) => <span className="font-mono font-semibold text-slate-800">{r.max_borrow_limit}</span> },
+                  { id: 'borrowing_days', header: 'Borrowing Days', accessor: 'borrowing_days', sortType: 'number', cell: (r) => <span className="font-mono font-semibold text-slate-800">{r.borrowing_days}</span> },
                   {
                     id: 'can_request_books',
                     header: 'Can Request Books',
@@ -396,7 +472,7 @@ export default function BookMinistryPage() {
                     filterOptions: ['Yes', 'No'],
                     cell: (r) => (r.digital_access ? <Badge tone="emerald" dot>Yes</Badge> : <Badge tone="rose" dot>No</Badge>),
                   },
-                  { id: 'notes', header: 'Notes', accessor: 'notes', cell: (r) => <span className="text-slate-500 max-w-60 truncate block">{r.notes || null}</span> },
+                  { id: 'notes', header: 'Notes', accessor: 'notes', cell: (r) => <span className="text-slate-500 max-w-60 truncate block">{r.notes || <span className="text-slate-300">—</span>}</span> },
                 ]}
               />
             </div>
@@ -404,10 +480,13 @@ export default function BookMinistryPage() {
 
           {/* Book Requests */}
           {activeTab === 'requests' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="card-title">Book Requests</h3>
-                <span className="chip">{bookRequests.length} requests</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-xl bg-[#FFF7ED] border border-orange-200 text-orange-700 flex items-center justify-center"><FileText size={14} /></span>
+                  Book Requests
+                </h3>
+                <span className="chip !bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full">{bookRequests.length} requests</span>
               </div>
               <DataTable
                 data={bookRequests}
@@ -417,13 +496,13 @@ export default function BookMinistryPage() {
                 globalSearchPlaceholder="Search student, book, ISBN…"
                 defaultSort={{ id: 'created_at', dir: 'desc' }}
                 columns={[
-                  { id: 'student_name', header: 'Student', accessor: 'student_name', cell: (r) => <span className="font-medium text-slate-900">{r.student_name}</span> },
-                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
-                  { id: 'book_title', header: 'Book Title', accessor: 'book_title' },
+                  { id: 'student_name', header: 'Student', accessor: 'student_name', cell: (r) => <span className="font-semibold text-slate-900">{r.student_name}</span> },
+                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no', cell: (r) => <span className="font-mono text-xs bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-lg">{r.matric_no}</span> },
+                  { id: 'book_title', header: 'Book Title', accessor: 'book_title', cell: (r) => <span className="font-medium text-slate-800">{r.book_title}</span> },
                   { id: 'author', header: 'Author', accessor: 'author' },
-                  { id: 'isbn', header: 'ISBN', accessor: 'isbn' },
+                  { id: 'isbn', header: 'ISBN', accessor: 'isbn', cell: (r) => <span className="font-mono text-xs text-slate-600">{r.isbn}</span> },
                   { id: 'requested_by_name', header: 'Requested By', accessor: 'requested_by_name' },
-                  { id: 'created_at', header: 'Date', accessor: 'created_at', sortType: 'date', cell: (r) => fmtDate(r.created_at) },
+                  { id: 'created_at', header: 'Date', accessor: 'created_at', sortType: 'date', cell: (r) => <span className="text-slate-600">{fmtDate(r.created_at)}</span> },
                   {
                     id: 'status',
                     header: 'Status',
@@ -437,19 +516,20 @@ export default function BookMinistryPage() {
             </div>
           )}
 
-          {/* Integration */}
+          {/* Integration — dramatic indigo */}
           {activeTab === 'integration' && (
-            <div className="space-y-6">
-              <div className="card card-hover p-6">
-                <h3 className="card-title flex items-center gap-2 mb-4">
-                  <ExternalLink size={16} />
+            <div className="space-y-5">
+              <div className="card card-hover rounded-[24px] p-6 md:p-7 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]" />
+                <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2.5">
+                  <span className="h-8 w-8 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shadow-md shadow-indigo-200"><ExternalLink size={15} /></span>
                   Book Ministry Application Integration
                 </h3>
-                <p className="section-sub mb-4">
+                <p className="mt-3 text-[13.5px] font-medium leading-relaxed text-slate-500 max-w-[70ch]">
                   GTS Book Ministry is designed to sync with an external Book Ministry application.
                   When the Book Ministry app is ready, it will push data into these GTS endpoints:
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="mt-5 grid sm:grid-cols-2 gap-3">
                   {[
                     { endpoint: 'POST /api/book-ministry/linked-accounts', desc: 'Link a GTS student to their Book Ministry account ID' },
                     { endpoint: 'POST /api/book-ministry/borrowing', desc: 'Record a new book borrowing (sync from external system)' },
@@ -458,22 +538,22 @@ export default function BookMinistryPage() {
                     { endpoint: 'PATCH /api/book-ministry/reading/:id', desc: 'Update reading progress and status' },
                     { endpoint: 'POST /api/book-ministry/requests', desc: 'Create book requests from students' },
                   ].map(({ endpoint, desc }) => (
-                    <div key={endpoint} className="border border-slate-200 rounded-xl p-3">
-                      <code className="text-xs bg-slate-900 text-emerald-300 px-1.5 py-0.5 rounded">{endpoint}</code>
-                      <p className="text-xs text-slate-500 mt-1.5">{desc}</p>
+                    <div key={endpoint} className="rounded-2xl border border-slate-200 bg-[#F8FAFC] p-3.5 hover:border-[#C7D2FE] hover:bg-[#EEF2FF]/50 transition-colors">
+                      <code className="font-mono text-[11px] font-bold bg-[#0F172A] text-indigo-300 px-2 py-1 rounded-lg border border-slate-800">{endpoint}</code>
+                      <p className="text-xs font-medium text-slate-500 mt-2 leading-relaxed">{desc}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <Card title="Configuration">
-                <div className="space-y-4 max-w-lg">
-                  <div className="flex items-center justify-between">
+              <Card title="Configuration" className="!rounded-[24px] card-hover !border-slate-200">
+                <div className="space-y-5 max-w-lg">
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200">
                     <div>
-                      <p className="text-sm font-medium text-slate-800">Feature Enabled</p>
-                      <p className="text-xs text-slate-500">Enable or disable Book Ministry features across GTS</p>
+                      <p className="text-sm font-bold text-slate-900 tracking-[-0.01em]">Feature Enabled</p>
+                      <p className="text-xs font-medium text-slate-500 mt-0.5">Enable or disable Book Ministry features across GTS</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input
                         type="checkbox"
                         className="sr-only peer"
@@ -489,14 +569,14 @@ export default function BookMinistryPage() {
                           }
                         }}
                       />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-900" />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4F46E5] shadow-inner" />
                     </label>
                   </div>
                   <div>
-                    <p className="field-label">Notification Email</p>
+                    <p className="field-label font-semibold tracking-[-0.01em]">Notification Email</p>
                     <div className="flex gap-2">
                       <input
-                        className="input"
+                        className="input !rounded-xl !border-slate-200"
                         defaultValue={settingVal('notification_email')}
                         placeholder="bookministry@example.com"
                         id="notif-email"
@@ -512,20 +592,20 @@ export default function BookMinistryPage() {
                             notify(err?.response?.data?.message || 'Failed to update')
                           }
                         }}
-                        className="btn btn-primary btn-sm lift"
+                        className="btn btn-primary btn-sm lift !bg-[#4F46E5] hover:!bg-[#4338CA] !rounded-xl shrink-0"
                       >
                         Save
                       </button>
                     </div>
                   </div>
                   <div>
-                    <p className="field-label">Max Requests per Student</p>
+                    <p className="field-label font-semibold tracking-[-0.01em]">Max Requests per Student</p>
                     <div className="flex gap-2">
                       <input
                         type="number"
                         min="1"
                         max="100"
-                        className="input w-24"
+                        className="input w-24 !rounded-xl !border-slate-200 font-mono"
                         defaultValue={settingVal('max_requests_per_student', '5')}
                         id="max-req"
                       />
@@ -540,7 +620,7 @@ export default function BookMinistryPage() {
                             notify(err?.response?.data?.message || 'Failed to update')
                           }
                         }}
-                        className="btn btn-primary btn-sm lift"
+                        className="btn btn-primary btn-sm lift !bg-[#4F46E5] hover:!bg-[#4338CA] !rounded-xl"
                       >
                         Save
                       </button>
@@ -549,15 +629,17 @@ export default function BookMinistryPage() {
                 </div>
               </Card>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+              <div className="rounded-[24px] bg-amber-50 border border-amber-200 p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <RefreshCw size={18} className="text-amber-600 mt-0.5 shrink-0" />
+                  <span className="h-8 w-8 rounded-xl bg-amber-100 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+                    <RefreshCw size={16} />
+                  </span>
                   <div>
-                    <p className="text-sm font-semibold text-amber-800">External Data Source</p>
-                    <p className="text-xs text-amber-700 mt-1">
+                    <p className="font-display text-sm font-bold tracking-[-0.02em] text-amber-900">External Data Source</p>
+                    <p className="text-xs font-medium leading-relaxed text-amber-800 mt-1">
                       The borrowing history, reading records, and linked accounts are intended to be populated
                       by the Book Ministry application. When the external app is built, configure it to send data
-                      to the API endpoints listed above. Students are matched via <code className="bg-amber-100 px-1 rounded text-xs">external_account_id</code> linked to their GTS profile.
+                      to the API endpoints listed above. Students are matched via <code className="font-mono bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-lg text-amber-900 text-[11px]">external_account_id</code> linked to their GTS profile.
                     </p>
                   </div>
                 </div>

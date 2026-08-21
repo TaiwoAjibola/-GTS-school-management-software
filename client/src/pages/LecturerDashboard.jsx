@@ -54,7 +54,7 @@ const STATUS_COLORS = {
   Withdrawn: 'bg-gray-200 text-gray-700',
   Transferred: 'bg-sky-100 text-sky-800',
   Graduating: 'bg-sky-200 text-sky-800',
-  Completed: 'bg-sky-100 text-sky-700',
+  Completed: 'bg-sky-100 text-indigo-700',
   Graduated: 'bg-gold-200 text-gold-800',
   Alumni: 'bg-slate-200 text-slate-700',
 }
@@ -1570,7 +1570,7 @@ const LecturerDashboard = () => {
         actions={
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm lift"
             onClick={() => {
               if (section === 'reports') loadReports()
               else { loadCourses(); loadAllStudents(); loadGraduationMatrix(); loadCohorts(); loadLecturers() }
@@ -1580,21 +1580,22 @@ const LecturerDashboard = () => {
           </button>
         }
       />
-      {notice ? <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm shrink-0">{notice}</div> : null}
+      {notice ? <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm shrink-0 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{notice}</div> : null}
 
       {section === 'attendance' ? (
         <div className="flex-1 min-h-0 overflow-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" />
-            <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" />
-            <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" />
+          <div className="bento bento-4 mb-6">
+            <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
+            <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" className="stat-hover" />
+            <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" className="stat-hover" />
           </div>
 
-          <div className="card card-pad card-hover mb-6">
-            <div className="grid lg:grid-cols-1 gap-3 items-center">
-              <div>
-                <h3 className="font-semibold text-slate-900">Current course</h3>
-                <p className="text-sm text-slate-500">
+          <div className="card card-pad card-hover mb-6 border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40">
+            <div className="flex items-start gap-4">
+              <div className="ico h-11 w-11 shrink-0"><BookOpen size={20} className="text-indigo-600" /></div>
+              <div className="min-w-0">
+                <h3 className="font-display font-bold text-slate-900">Current course</h3>
+                <p className="text-sm text-slate-600 mt-1">
                   {selectedCourse
                     ? `${selectedCourse.title} • ${selectedCourse.class_day || 'N/A'} ${selectedCourse.class_time || ''} • ${fmtDateRange(selectedCourse.start_date, selectedCourse.end_date)}`
                     : 'Set one course as current from Courses page to begin attendance'}
@@ -1616,7 +1617,7 @@ const LecturerDashboard = () => {
                 key={tab}
                 type="button"
                 onClick={() => setCoursesTab(tab)}
-                className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${coursesTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${coursesTab === tab ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 {tab === 'courses' ? 'Courses' : tab === 'plans' ? 'Plans' : 'Timeline'}
               </button>
@@ -1628,7 +1629,7 @@ const LecturerDashboard = () => {
         <div className="grid lg:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-6">
           <form onSubmit={createCourse} className="card card-pad card-hover space-y-3">
-            <h3 className="font-semibold text-slate-900">Create Course</h3>
+            <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Course</h3>
 
             <label className="text-sm text-slate-600 block">
               Course Title
@@ -1692,13 +1693,13 @@ const LecturerDashboard = () => {
               </label>
             </div>
 
-            <button className="w-full btn btn-primary py-2">Save Course</button>
+            <button className="w-full btn btn-primary py-2 lift">Save Course</button>
           </form>
 
           {/* Bulk course upload */}
           <div className="card card-pad card-hover space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">Bulk Upload Courses</h3>
+              <h3 className="font-display font-bold text-slate-900 tracking-tight">Bulk Upload Courses</h3>
               <button
                 type="button"
                 onClick={() => downloadTemplate('courses')}
@@ -1708,7 +1709,7 @@ const LecturerDashboard = () => {
               </button>
             </div>
             <input type="file" accept=".xlsx,.xls" onChange={(e) => setCourseUploadFile(e.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
-            <button onClick={uploadCourses} disabled={!courseUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50">
+            <button onClick={uploadCourses} disabled={!courseUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift">
               Upload Courses
             </button>
           </div>
@@ -1746,7 +1747,7 @@ const LecturerDashboard = () => {
                   accessor: 'title',
                   cell: (course) => (
                     <div className="flex items-center gap-2 min-w-0">
-                      <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-gold-700 transition-colors truncate">
+                      <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-indigo-600 transition-colors truncate">
                         {course.title}
                       </Link>
                       {course.is_current ? (
@@ -2051,15 +2052,15 @@ const LecturerDashboard = () => {
 
                   {/* Eligible students summary */}
                   {eligibleStudents.length > 0 ? (
-                    <div className="rounded-xl border border-gold-200 bg-gold-50 p-4">
-                      <p className="text-sm font-medium text-gold-800 mb-1">
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                      <p className="text-sm font-medium text-indigo-800 mb-1">
                         {eligibleStudents.length} Eligible Student{eligibleStudents.length !== 1 ? 's' : ''} for {selectedPlan.year}
                       </p>
-                      <p className="text-xs text-gold-600">
+                      <p className="text-xs text-indigo-600">
                         Includes cohorts {selectedPlan.year - 1}–{selectedPlan.year} plus any student with a prior failed result.
                       </p>
                       <details className="mt-2">
-                        <summary className="text-xs text-gold-700 cursor-pointer select-none">View list</summary>
+                        <summary className="text-xs text-indigo-700 cursor-pointer select-none">View list</summary>
                         <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
                           {eligibleStudents.map((s) => (
                             <div key={s.id} className="flex items-center justify-between text-xs">
@@ -2150,8 +2151,8 @@ const LecturerDashboard = () => {
       {coursesTab === 'timeline' ? (() => {
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         const COURSE_COLORS = [
-          'bg-sky-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500',
-          'bg-amber-500', 'bg-cyan-500', 'bg-fuchsia-500', 'bg-teal-500',
+          'bg-indigo-500', 'bg-violet-500', 'bg-indigo-500', 'bg-indigo-600',
+          'bg-violet-600', 'bg-indigo-400', 'bg-fuchsia-500', 'bg-indigo-600',
         ]
 
         const yearStart = new Date(calendarYear, 0, 1)
@@ -2200,7 +2201,7 @@ const LecturerDashboard = () => {
               {timelinePlanLoading ? (
                 <span className="text-xs text-slate-400 animate-pulse">Loading plan…</span>
               ) : matchedPlan ? (
-                <span className="text-xs rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 font-medium">
+                <span className="text-xs rounded-full bg-sky-100 text-indigo-700 px-3 py-0.5 font-medium">
                   {matchedPlan.name}{matchedPlan.is_active ? ' · Active' : ''}
                 </span>
               ) : (
@@ -2367,7 +2368,7 @@ const LecturerDashboard = () => {
                 type="button"
                 onClick={() => setStudentsTab(key)}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  studentsTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  studentsTab === key ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {label}
@@ -2412,9 +2413,7 @@ const LecturerDashboard = () => {
                           filterType: 'select',
                           filterOptions: ['Prospective'],
                           cell: (s) => (
-                            <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
-                              {s.status}
-                            </span>
+                            <Badge tone="amber" dot>{s.status}</Badge>
                           ),
                         },
                       ]}
@@ -2426,7 +2425,7 @@ const LecturerDashboard = () => {
           <div className="grid xl:grid-cols-[390px_1fr] gap-6">
           <div className="space-y-4 xl:overflow-y-auto xl:pr-1.5" style={{ maxHeight: 'calc(100vh - 200px)' }}>
             <form onSubmit={createStudent} className="card card-pad card-hover space-y-3">
-              <h3 className="font-semibold text-slate-900">Create Student</h3>
+              <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Student</h3>
               <input className="w-full border rounded-lg px-3 py-2" placeholder="Full name" value={studentForm.fullName} onChange={(event) => setStudentForm((prev) => ({ ...prev, fullName: event.target.value }))} required />
               <input className="w-full border rounded-lg px-3 py-2" placeholder="Email" type="email" value={studentForm.email} onChange={(event) => setStudentForm((prev) => ({ ...prev, email: event.target.value }))} required />
               <input className="w-full border rounded-lg px-3 py-2" placeholder="Phone" value={studentForm.phone} onChange={(event) => setStudentForm((prev) => ({ ...prev, phone: event.target.value }))} required />
@@ -2461,11 +2460,11 @@ const LecturerDashboard = () => {
                   </option>
                 ))}
               </select>
-              <button className="w-full btn btn-primary py-2">Create Student</button>
+              <button className="w-full btn btn-primary py-2 lift">Create Student</button>
             </form>
 
             <form onSubmit={createStudentBatch} className="card card-pad card-hover space-y-3">
-              <h3 className="font-semibold text-slate-900">Create Student Batch</h3>
+              <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Student Batch</h3>
               <input
                 className="w-full border rounded-lg px-3 py-2"
                 placeholder="Batch name (e.g. February 2026)"
@@ -2495,7 +2494,7 @@ const LecturerDashboard = () => {
                   />
                 </label>
               </div>
-              <button className="w-full btn btn-primary py-2">Create Batch</button>
+              <button className="w-full btn btn-primary py-2 lift">Create Batch</button>
             </form>
 
             <div className="card card-pad card-hover space-y-3">
@@ -2510,7 +2509,7 @@ const LecturerDashboard = () => {
                 </button>
               </div>
               <input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => setStudentUploadFile(event.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
-              <button onClick={uploadStudents} disabled={!studentUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 flex items-center justify-center gap-2">
+              <button onClick={uploadStudents} disabled={!studentUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift flex items-center justify-center gap-2">
                 <Upload size={16} /> Upload List
               </button>
             </div>
@@ -2552,7 +2551,7 @@ const LecturerDashboard = () => {
                         </select>
                         <div className="flex gap-2">
                           <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
-                          <button type="button" className="rounded-lg bg-slate-200 px-2 py-1 text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
+                          <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -2607,14 +2606,14 @@ const LecturerDashboard = () => {
                 <button
                   type="button"
                   onClick={exportStudentList}
-                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm text-white cursor-pointer"
+                  className="inline-flex items-center gap-2 btn btn-primary px-3 py-2 text-sm cursor-pointer lift"
                 >
                   <Download size={14} /> Export
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowBatchDrawer(true)}
-                  className="rounded-lg bg-slate-200 px-3 py-2 text-sm text-slate-700 cursor-pointer"
+                  className="btn btn-ghost px-3 py-2 text-sm cursor-pointer"
                 >
                   Manage Batches
                 </button>
@@ -2669,21 +2668,19 @@ const LecturerDashboard = () => {
                   accessor: 'status',
                   filterType: 'select',
                   filterOptions: ['Active', 'Prospective', 'Graduating', 'Graduated', 'Alumni', 'On Hold', 'Suspended'],
-                  cell: (student) => (
-                    <button
-                      type="button"
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-gold-300 ${STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'}`}
-                      onClick={() => {
+                  cell: (student) => {
+                    const toneMap = { Active: 'emerald', Prospective: 'amber', Graduating: 'gold', Graduated: 'sky', Alumni: 'slate', 'On Hold': 'amber', Suspended: 'rose', Applied: 'slate', 'Under Review': 'amber', Accepted: 'sky' }
+                    return (
+                    <button type="button" onClick={() => {
                         setQuickStatusStudent(student)
                         setQuickSelectedStatus(null)
                         setQuickStatusReason('')
                         apiClient.get(`/students/${student.id}/next-statuses`).then((r) => setQuickStatusOptions(r.data.nextStatuses || [])).catch(() => setQuickStatusOptions([]))
                         setShowQuickStatus(true)
-                      }}
-                    >
-                      {student.status}
+                      }} className="hover:opacity-90 transition-opacity">
+                      <Badge tone={toneMap[student.status] || 'slate'} dot>{student.status}</Badge>
                     </button>
-                  ),
+                  )},
                 },
                 {
                   id: 'cohort_name',
@@ -3129,7 +3126,7 @@ const LecturerDashboard = () => {
                           </select>
                           <div className="flex gap-2">
                             <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
-                            <button type="button" className="rounded-lg bg-slate-200 px-2 py-1 text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
+                            <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
                           </div>
                         </div>
                       ) : (
@@ -3161,7 +3158,7 @@ const LecturerDashboard = () => {
       {section === 'batches' ? (
         <div className="grid lg:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           <form onSubmit={createStudentBatch} className="card card-pad card-hover space-y-3">
-            <h3 className="font-semibold text-slate-900">Create Student Batch</h3>
+            <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Student Batch</h3>
             <input
               className="w-full border rounded-lg px-3 py-2"
               placeholder="Batch name (e.g. February 2026)"
@@ -3191,7 +3188,7 @@ const LecturerDashboard = () => {
                 />
               </label>
             </div>
-            <button className="w-full btn btn-primary py-2">Create Batch</button>
+            <button className="w-full btn btn-primary py-2 lift">Create Batch</button>
           </form>
 
           <div className="card card-pad card-hover overflow-auto">
@@ -3219,7 +3216,7 @@ const LecturerDashboard = () => {
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={persistCohortOrder} className="btn btn-primary px-3 py-1.5 text-xs">
+                <button type="button" onClick={persistCohortOrder} className="btn btn-primary px-3 py-1.5 text-xs lift">
                   Save Order
                 </button>
               </div>
@@ -3229,7 +3226,7 @@ const LecturerDashboard = () => {
             {(() => {
               const COHORT_STATUS_STYLES = {
                 active: 'bg-emerald-100 text-emerald-700',
-                upcoming: 'bg-sky-100 text-sky-700',
+                upcoming: 'bg-sky-100 text-indigo-700',
                 completed: 'bg-slate-100 text-slate-500',
               }
               const matrixStudentById = Object.fromEntries(
@@ -3301,7 +3298,7 @@ const LecturerDashboard = () => {
                             </select>
                             <div className="flex gap-2">
                               <button type="button" className="btn btn-primary px-2 py-1 text-xs" onClick={() => saveCohortEdit(cohort.id)}>Save</button>
-                              <button type="button" className="rounded-lg bg-slate-200 px-2 py-1 text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
+                              <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => setEditingCohortId(null)}>Cancel</button>
                             </div>
                           </div>
                         ) : (
@@ -3375,7 +3372,7 @@ const LecturerDashboard = () => {
                                           </span>
                                         ) : null}
                                         {inProgress && !needsRetake ? (
-                                          <span className="rounded-full bg-sky-100 text-sky-700 px-2 py-0.5 text-xs">
+                                          <span className="rounded-full bg-sky-100 text-indigo-700 px-2 py-0.5 text-xs">
                                             In progress
                                           </span>
                                         ) : null}
@@ -3386,7 +3383,7 @@ const LecturerDashboard = () => {
                                         ) : null}
                                         <span className={`rounded-full px-2 py-0.5 text-xs ${
                                           student.status === 'Active' ? 'bg-emerald-50 text-emerald-600' :
-                                          student.status === 'Graduating' ? 'bg-gold-100 text-gold-600' :
+                                          student.status === 'Graduating' ? 'bg-indigo-100 text-indigo-700' :
                                           'bg-slate-100 text-slate-500'
                                         }`}>
                                           {student.status}
@@ -3428,16 +3425,13 @@ const LecturerDashboard = () => {
               <>
                 <p className="text-xs font-medium text-slate-600 mb-2">Select new status:</p>
                 <div className="flex flex-wrap gap-1.5 mb-4">
-                  {quickStatusOptions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:ring-2 hover:ring-slate-400 ${STATUS_COLORS[s] || 'bg-slate-100 text-slate-700'}`}
-                      onClick={() => setQuickSelectedStatus(s)}
-                    >
-                      {s}
+                  {quickStatusOptions.map((s) => {
+                    const tm = { Active: 'emerald', Prospective: 'amber', Graduating: 'gold', Graduated: 'sky', Alumni: 'slate', 'On Hold': 'amber', Suspended: 'rose', Applied: 'slate', 'Under Review': 'amber', Accepted: 'sky' }
+                    return (
+                    <button key={s} type="button" onClick={() => setQuickSelectedStatus(s)} className="hover:scale-[1.02] transition-transform">
+                      <Badge tone={tm[s] || 'slate'} dot>{s}</Badge>
                     </button>
-                  ))}
+                  )})}
                   {quickStatusOptions.length === 0 && (
                     <p className="text-xs text-slate-400">No valid next statuses available.</p>
                   )}
@@ -3456,7 +3450,7 @@ const LecturerDashboard = () => {
               <>
                 <p className="text-sm text-slate-600 mb-4">
                   Move from <strong>{quickStatusStudent.status}</strong> →{' '}
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[quickSelectedStatus] || 'bg-slate-100 text-slate-700'}`}>{quickSelectedStatus}</span>
+                  <Badge tone={{ Active: 'emerald', Prospective: 'amber', Graduating: 'gold', Graduated: 'sky', Alumni: 'slate' }[quickSelectedStatus] || 'slate'} dot>{quickSelectedStatus}</Badge>
                 </p>
                 <label className="text-sm text-slate-600 block mb-4">
                   Reason for change
@@ -3945,7 +3939,7 @@ const LecturerDashboard = () => {
                                   min="0"
                                   max="100"
                                   placeholder="Score"
-                                  className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-gold-400 bg-gold-50' : 'border-slate-200'}`}
+                                  className={`w-20 border rounded px-2 py-1 text-xs ${isEdited ? 'border-gold-400 bg-indigo-50' : 'border-slate-200'}`}
                                   value={displayScore}
                                   onChange={(e) => {
                                     const val = e.target.value
@@ -3959,7 +3953,7 @@ const LecturerDashboard = () => {
                               </td>
                               <td className="py-2 px-3">
                                 <select
-                                  className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-gold-400 bg-gold-50' : 'border-slate-200'}`}
+                                  className={`border rounded px-1 py-0.5 text-xs ${isEdited ? 'border-gold-400 bg-indigo-50' : 'border-slate-200'}`}
                                   value={displayStatus}
                                   onChange={(e) => setPlanGridEdits((prev) => ({
                                     ...prev,
@@ -4026,7 +4020,7 @@ const LecturerDashboard = () => {
                         return (
                           <div key={cohort.cohort_id}>
                             <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                              <span className="rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs">{cohort.cohort_name}</span>
+                              <span className="rounded-full bg-sky-100 text-indigo-700 px-3 py-0.5 text-xs">{cohort.cohort_name}</span>
                             </h4>
                             <div className="space-y-3">
                               {filteredCourses.map((course) => (
@@ -4086,31 +4080,31 @@ const LecturerDashboard = () => {
 
       {section === 'graduation' ? (
         <div className="space-y-6 flex-1 min-h-0 overflow-auto">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="card card-pad card-hover flex flex-wrap items-center justify-between gap-3 bg-gradient-to-br from-indigo-50 to-violet-50/60 border-indigo-200">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Graduation</h2>
+              <h2 className="font-display text-xl font-extrabold tracking-tight text-slate-900">Graduation</h2>
               <p className="text-sm text-slate-500 mt-1">Track progress and set up the rector meeting calendar for graduates.</p>
             </div>
             <button
               type="button"
               onClick={openGraduationCalendarTemplate}
-              className="inline-flex items-center gap-2 bg-sky-600 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-sky-700 shadow-sm"
+              className="inline-flex items-center gap-2 btn btn-primary rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm"
             >
               <GraduationCap size={16} />
               Graduation calendar form
             </button>
           </div>
-          <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900">
             <p className="font-semibold">Rector meeting calendar (Calendly-style)</p>
-            <p className="mt-1 text-sky-800/90">
+            <p className="mt-1 text-indigo-800/90">
               Opens a form prefilled with a graduate name dropdown, contact fields, and unique date/time booking slots. Save it, set status to <strong>Active</strong>, then share the public link with graduating students.
             </p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card title="Total Students" value={graduationStatusCounts.total} />
-            <Card title="Graduating" value={graduationStatusCounts.Graduating} />
-            <Card title="Graduated" value={graduationStatusCounts.Graduated} />
-            <Card title="Alumni" value={graduationStatusCounts.Alumni} />
+          <div className="bento bento-4">
+            <Card title="Total Students" value={graduationStatusCounts.total} className="stat-hover" />
+            <Card title="Graduating" value={graduationStatusCounts.Graduating} className="stat-hover" />
+            <Card title="Graduated" value={graduationStatusCounts.Graduated} className="stat-hover" />
+            <Card title="Alumni" value={graduationStatusCounts.Alumni} className="stat-hover" />
           </div>
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -4168,11 +4162,10 @@ const LecturerDashboard = () => {
                   accessor: 'status',
                   filterType: 'select',
                   filterOptions: ['Active', 'Graduating', 'Graduated', 'Alumni'],
-                  cell: (s) => (
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[s.status] || 'bg-slate-100 text-slate-700'}`}>
-                      {s.status}
-                    </span>
-                  ),
+                  cell: (s) => {
+                    const toneMap = { Active: 'emerald', Graduating: 'gold', Graduated: 'sky', Alumni: 'slate' }
+                    return <Badge tone={toneMap[s.status] || 'slate'} dot>{s.status}</Badge>
+                  },
                 },
                 {
                   id: 'completion_pct',
@@ -4182,7 +4175,7 @@ const LecturerDashboard = () => {
                   cell: (s) => (
                     <div className="flex items-center gap-2 min-w-[100px]">
                       <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                        <div className="h-full rounded-full bg-gold-600" style={{ width: `${Math.min(Number(s.completion_pct) || 0, 100)}%` }} />
+                        <div className="h-full rounded-full bg-indigo-600" style={{ width: `${Math.min(Number(s.completion_pct) || 0, 100)}%` }} />
                       </div>
                       <span className="text-xs font-semibold text-slate-700 tabular-nums w-9 text-right">{s.completion_pct}%</span>
                     </div>
@@ -4308,7 +4301,7 @@ const LecturerDashboard = () => {
                 <textarea className="w-full min-h-36 border rounded-lg px-3 py-2" placeholder="Description" value={assignmentForm.description} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, description: event.target.value }))} required />
                 <input className="w-full border rounded-lg px-3 py-2" type="date" value={assignmentForm.dueDate} onChange={(event) => setAssignmentForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
                 <input className="w-full border rounded-lg px-3 py-2" type="file" onChange={(event) => setAssignmentForm((prev) => ({ ...prev, file: event.target.files?.[0] || null }))} />
-                <button className="btn btn-primary px-4 py-2">Send Assignment</button>
+                <button className="btn btn-primary px-4 py-2 lift">Send Assignment</button>
               </form>
 
               <div className="card card-pad card-hover overflow-auto">
@@ -4389,7 +4382,7 @@ const LecturerDashboard = () => {
                               : (prev.examType === 'essay' ? prev.questions : [{ text: '' }]),
                           }))}
                           className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                            examForm.examType === t.key ? 'border-sky-500 bg-sky-50' : 'border-slate-200 hover:bg-slate-50'
+                            examForm.examType === t.key ? 'border-sky-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           <span className="block text-sm font-semibold text-slate-900">{t.label}</span>
@@ -4564,7 +4557,7 @@ const LecturerDashboard = () => {
                 <div className="card card-pad card-hover sticky top-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-slate-900">Student preview</h3>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ${examForm.examType === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ${examForm.examType === 'mcq' ? 'bg-sky-100 text-indigo-700' : 'bg-indigo-50 text-indigo-600'}`}>
                       {examForm.examType === 'mcq' ? 'MCQ' : 'Essay'}
                     </span>
                   </div>
@@ -4576,7 +4569,7 @@ const LecturerDashboard = () => {
                     </div>
                     {examForm.examType === 'mcq' ? (
                       <div className="space-y-3">
-                        <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-sky-800">
                           Students enter their Access ID first, then see questions like this.
                         </div>
                         {examForm.questions.filter((q) => (q.text || '').trim() || (q.options || []).some((o) => (o.label || '').trim())).length === 0 ? (
@@ -4667,7 +4660,7 @@ const LecturerDashboard = () => {
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900">
                           {exam.title}
-                          <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-sky-700' : 'bg-gold-100 text-gold-700'}`}>
+                          <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-indigo-700' : 'bg-indigo-50 text-indigo-600'}`}>
                             {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
                           </span>
                         </p>
@@ -4679,7 +4672,7 @@ const LecturerDashboard = () => {
                           {exam.due_date ? ` • Due ${fmtDate(exam.due_date)}` : ''}
                         </p>
                         {exam.exam_type === 'mcq' && exam.take_url ? (
-                          <p className="text-xs text-sky-700 mt-1 break-all">
+                          <p className="text-xs text-indigo-700 mt-1 break-all">
                             <a href={exam.take_url} target="_blank" rel="noreferrer" className="underline">{exam.take_url}</a>
                             <button
                               type="button"
@@ -4708,7 +4701,7 @@ const LecturerDashboard = () => {
                         <button
                           type="button"
                           onClick={() => { setExamSavedListOpen(false); openExamSubmissions(exam) }}
-                          className="text-xs rounded-lg bg-sky-50 text-sky-700 px-3 py-1.5 hover:bg-sky-100"
+                          className="text-xs rounded-lg bg-indigo-50 text-indigo-700 px-3 py-1.5 hover:bg-sky-100"
                         >
                           Submissions
                         </button>
@@ -4939,7 +4932,7 @@ const LecturerDashboard = () => {
                 onChange={(e) => setLecturerForm((p) => ({ ...p, phone: e.target.value }))}
               />
             </label>
-            <button className="w-full btn btn-primary py-2">Add Lecturer</button>
+            <button className="w-full btn btn-primary py-2 lift">Add Lecturer</button>
           </form>
 
           {/* Lecturers list */}
@@ -5074,7 +5067,7 @@ const LecturerDashboard = () => {
           {settingsTab === 'credentials' ? (
             <div className="max-w-lg">
               {!credentialFormOpen ? (
-                <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-center">
+                <div className="card card-pad card-hover p-8 text-center">
                   <UserCog size={40} className="mx-auto text-slate-300 mb-3" />
                   <p className="text-sm text-slate-500 mb-4">No student credentials have been created.</p>
                   <button type="button" onClick={openCredentialForm}
@@ -5186,10 +5179,10 @@ const LecturerDashboard = () => {
           ) : (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="bento bento-4">
+                <div className="card card-pad card-hover">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-gold-50 rounded-lg text-gold-600"><Users className="w-6 h-6" /></div>
+                    <div className="ico h-10 w-10 text-indigo-600"><Users className="w-5 h-5" /></div>
                     <span className="text-xs font-medium text-slate-500 uppercase">Students</span>
                   </div>
                   <div className="text-2xl font-bold text-slate-900">{reportStats?.students?.total_students || 0}</div>
@@ -5199,27 +5192,27 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="card card-pad card-hover">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-gold-100 rounded-lg text-gold-600"><BookOpen className="w-6 h-6" /></div>
+                    <div className="ico h-10 w-10 text-violet-600"><BookOpen className="w-5 h-5" /></div>
                     <span className="text-xs font-medium text-slate-500 uppercase">Courses</span>
                   </div>
                   <div className="text-2xl font-bold text-slate-900">{reportStats?.courses?.total_courses || 0}</div>
                   <div className="text-xs text-slate-500 mt-2">{reportStats?.courses?.active_courses} Currently active</div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="card card-pad card-hover">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><ClipboardCheck className="w-6 h-6" /></div>
+                    <div className="ico h-10 w-10 text-indigo-600"><ClipboardCheck className="w-5 h-5" /></div>
                     <span className="text-xs font-medium text-slate-500 uppercase">Attendance</span>
                   </div>
                   <div className="text-2xl font-bold text-slate-900">{attendanceReport?.summary?.avg_attendance_rate || 0}%</div>
                   <div className="text-xs text-slate-500 mt-2">Average across all sessions</div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="card card-pad card-hover">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><GraduationCap className="w-6 h-6" /></div>
+                    <div className="ico h-10 w-10 text-emerald-600"><GraduationCap className="w-5 h-5" /></div>
                     <span className="text-xs font-medium text-slate-500 uppercase">Graduation</span>
                   </div>
                   <div className="text-2xl font-bold text-slate-900">{reportStats?.students?.graduating_students || 0}</div>
@@ -5228,7 +5221,7 @@ const LecturerDashboard = () => {
               </div>
 
               {/* Attendance Table */}
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="card card-hover overflow-hidden">
                 <div className="p-5 border-b border-slate-200 flex justify-between items-center">
                   <h3 className="font-semibold text-slate-900">Attendance & Eligibility Detail</h3>
                   <div className="flex gap-4 text-sm text-slate-500">
@@ -5238,7 +5231,7 @@ const LecturerDashboard = () => {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="data-table w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-[11px] font-semibold tracking-wider">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[0.68rem] font-bold tracking-[0.08em]">
                       <tr>
                         <th className="px-6 py-4">Student</th>
                         <th className="px-6 py-4">Course</th>
@@ -5283,7 +5276,7 @@ const LecturerDashboard = () => {
           {prospectiveStudentsLoading ? (
             <p className="text-sm text-slate-500">Loading...</p>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="card card-hover overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="data-table w-full text-sm">
                   <thead>
@@ -5369,7 +5362,7 @@ const LecturerDashboard = () => {
                       {form.description && <p className="text-sm text-slate-500 mt-1">{form.description}</p>}
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         {form.maps_to_student && (
-                          <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-sky-100 text-sky-700">
+                          <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-sky-100 text-indigo-700">
                             Student Application
                           </span>
                         )}
@@ -5383,7 +5376,7 @@ const LecturerDashboard = () => {
                         <span>{form.fields?.length || 0} fields</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <code className="text-xs bg-sky-50 text-sky-700 px-2 py-1 rounded-lg border border-sky-200 break-all">
+                        <code className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg border border-sky-200 break-all">
                           {window.location.origin}/forms/{form.slug}
                         </code>
                         <button
@@ -5396,7 +5389,7 @@ const LecturerDashboard = () => {
                           className={`text-xs rounded-lg px-2.5 py-1.5 shrink-0 transition-colors ${
                             copiedFormId === form.id
                               ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-sky-100 text-sky-700 hover:bg-sky-200'
+                              : 'bg-sky-100 text-indigo-700 hover:bg-sky-200'
                           }`}
                           title="Copy public link"
                         >
@@ -5427,7 +5420,7 @@ const LecturerDashboard = () => {
                       <button
                         type="button"
                         onClick={() => { setEditingForm(form); setFormBuilderOpen(true) }}
-                        className="text-xs bg-sky-100 text-sky-700 rounded-lg px-3 py-1.5 hover:bg-sky-200"
+                        className="text-xs bg-sky-100 text-indigo-700 rounded-lg px-3 py-1.5 hover:bg-sky-200"
                       >
                         Edit
                       </button>
@@ -5443,7 +5436,7 @@ const LecturerDashboard = () => {
                 </div>
               ))}
               {!forms.length && !formsLoading && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
+                <div className="card card-pad card-hover p-12 text-center">
                   <p className="text-slate-500">No forms yet. Create your first form to get started.</p>
                 </div>
               )}
@@ -5476,7 +5469,7 @@ const LecturerDashboard = () => {
                               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                                 sub.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                                 sub.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                sub.status === 'reviewed' ? 'bg-sky-100 text-sky-700' :
+                                sub.status === 'reviewed' ? 'bg-sky-100 text-indigo-700' :
                                 'bg-slate-100 text-slate-600'
                               }`}>
                                 {sub.status}
@@ -6462,7 +6455,7 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                                             )
                                           }
                                           className={`rounded-lg px-2.5 py-1 text-xs border ${
-                                            active ? 'bg-sky-600 text-white border-sky-600' : 'border-slate-200 text-slate-600'
+                                            active ? 'bg-indigo-600 text-white border-sky-600' : 'border-slate-200 text-slate-600'
                                           }`}
                                         >
                                           {dayName}

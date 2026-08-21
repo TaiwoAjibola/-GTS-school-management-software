@@ -1,6 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, Pencil, Users, X, XCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  ClipboardList,
+  Pencil,
+  Users,
+  X,
+  XCircle,
+  CalendarDays,
+  Clock3,
+  Award,
+  GraduationCap,
+  Sparkles,
+  Search,
+  Layers,
+  Mail,
+  Send,
+  Copy,
+  ShieldAlert,
+} from 'lucide-react'
 import AppShell from '../components/AppShell'
 import apiClient from '../api/client'
 import { lecturerNavGroups } from '../constants/lecturerNav'
@@ -11,7 +31,7 @@ import Badge from '../components/ui/Badge'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-const statusBadge = (label, active, tone = 'slate') => (
+const statusBadge = (label, active, tone = 'sky') => (
   active ? (
     <Badge key={label} tone={tone} dot>{label}</Badge>
   ) : (
@@ -119,7 +139,6 @@ export default function CoursePage() {
       setMaterials(nextMaterials)
       if (studentsRes.status === 'fulfilled') setAllStudents(studentsRes.value.data)
 
-      // Extract plan dates for this course from the active Year Plan
       if (activePlanRes.status === 'fulfilled' && activePlanRes.value.data) {
         const activePlan = activePlanRes.value.data
         const planItem = (activePlan.items || []).find((item) => Number(item.course_id) === Number(courseId))
@@ -138,7 +157,6 @@ export default function CoursePage() {
             const exists = nextBatches.some((b) => String(b.id) === String(prev))
             if (exists) return prev
           }
-          // Prefer the ongoing batch as the default selection
           const ongoing = nextBatches.find((b) => b.status === 'ongoing')
           return String((ongoing ?? nextBatches[0]).id)
         })
@@ -294,7 +312,21 @@ export default function CoursePage() {
   if (loading) {
     return (
       <AppShell title="Course" groups={lecturerNavGroups}>
-        <p className="text-slate-500 text-sm">Loading...</p>
+        <div className="h-full flex flex-col gap-5 overflow-hidden">
+          <div className="shrink-0 space-y-4">
+            <div className="h-8 w-36 skeleton rounded-full" />
+            <div className="h-28 skeleton rounded-[1.5rem]" />
+            <div className="grid lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-8 h-48 skeleton rounded-[1.5rem]" />
+              <div className="lg:col-span-4 grid grid-cols-3 lg:grid-cols-1 gap-3">
+                <div className="h-24 skeleton rounded-[1.5rem]" />
+                <div className="h-24 skeleton rounded-[1.5rem]" />
+                <div className="h-24 skeleton rounded-[1.5rem]" />
+              </div>
+            </div>
+          </div>
+          <p className="text-slate-500 text-sm font-mono">Loading course…</p>
+        </div>
       </AppShell>
     )
   }
@@ -302,10 +334,17 @@ export default function CoursePage() {
   if (!course) {
     return (
       <AppShell title="Course Not Found" groups={lecturerNavGroups}>
-        <p className="text-slate-500 text-sm">{loadError || 'Course not found.'}</p>
-        <Link to="/lecturer/courses" className="text-slate-900 underline text-sm">
-          Back to Courses
-        </Link>
+        <div className="card card-hover max-w-lg mx-auto mt-10 text-center">
+          <div className="card-pad py-10">
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+              <ShieldAlert size={22} />
+            </div>
+            <p className="text-slate-500 text-sm font-mono">{loadError || 'Course not found.'}</p>
+            <Link to="/lecturer/courses" className="btn btn-primary mt-4">
+              <ArrowLeft size={14} /> Back to Courses
+            </Link>
+          </div>
+        </div>
       </AppShell>
     )
   }
@@ -314,18 +353,36 @@ export default function CoursePage() {
     <AppShell title={course.title} groups={lecturerNavGroups}>
       <div className="h-full flex flex-col gap-5 overflow-hidden">
       {notice ? (
-        <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm shrink-0">{notice}</div>
+        <div className="shrink-0 flex items-center gap-3 rounded-2xl bg-indigo-600 text-white px-4 py-3 text-sm font-medium shadow-lg shadow-indigo-200">
+          <span className="h-7 w-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <Sparkles size={14} className="text-white" />
+          </span>
+          <span className="flex-1 min-w-0 truncate">{notice}</span>
+          <button type="button" onClick={() => setNotice('')} className="h-7 w-7 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center shrink-0 transition-colors">
+            <X size={14} />
+          </button>
+        </div>
       ) : null}
 
-      {/* Header */}
+      {/* Header — dramatic indigo bento */}
       <div className="shrink-0 space-y-4">
-        <button
-          type="button"
-          onClick={() => navigate('/lecturer/courses')}
-          className="btn btn-ghost btn-sm lift"
-        >
-          <ArrowLeft size={15} /> Back to Courses
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/lecturer/courses')}
+            className="btn btn-ghost btn-sm"
+          >
+            <ArrowLeft size={15} /> Back to Courses
+          </button>
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700">
+              <Layers size={12} /> {batches.length} batches
+            </span>
+            {course.course_code ? (
+              <span className="font-mono text-[11px] font-bold tracking-widest uppercase rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">{course.course_code}</span>
+            ) : null}
+          </div>
+        </div>
 
         <PageHeader
           title={course.title}
@@ -342,203 +399,299 @@ export default function CoursePage() {
           }
         />
 
-        <section className="card card-hover">
-          <div className="card-pad space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              {course.course_code ? <Badge tone="slate">{course.course_code}</Badge> : null}
-              {statusBadge('Assignment', course.has_assignment, 'sky')}
-              {statusBadge('Exam', course.has_exam, 'gold')}
-            </div>
+        {/* Bento hero: meta + stats */}
+        <div className="grid lg:grid-cols-12 gap-4">
+          {/* Course meta — 8 col */}
+          <section className="card card-hover lg:col-span-8 overflow-hidden flex flex-col">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-violet-500 to-indigo-600" />
+            <div className="card-pad space-y-5 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                {course.course_code ? <Badge tone="slate" className="font-mono tracking-widest text-[11px]">{course.course_code}</Badge> : null}
+                {statusBadge('Assignment', course.has_assignment, 'sky')}
+                {statusBadge('Exam', course.has_exam, 'gold')}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                  <CalendarDays size={12} /> {course.duration_weeks} weeks
+                </span>
+              </div>
 
-            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5 border-t border-[var(--gts-line)] pt-5">
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Duration</p>
-                <p className="text-sm font-medium text-slate-800 mt-1">{course.duration_weeks} weeks</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Schedule</p>
-                <p className="text-sm font-medium text-slate-800 mt-1">
-                  {course.class_day || '—'} {course.class_time ? `at ${course.class_time}` : ''}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Course Date Range</p>
-                <p className="text-sm font-medium text-slate-800 mt-1">
-                  {fmtDateRange(course.start_date, course.end_date)}
-                </p>
-              </div>
-              {planDates ? (
-                <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide">Year Plan Dates</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">
-                    {fmtDateRange(planDates.start_date, planDates.end_date)}
-                    <span className="ml-1.5 text-[10px] text-sky-500 font-normal">({planDates.planName})</span>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-indigo-50 bg-gradient-to-br from-indigo-50/70 to-white p-3.5 group hover:border-indigo-100 transition-colors">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="h-7 w-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                      <Clock3 size={13} />
+                    </span>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-indigo-600">Duration</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 ml-9">{course.duration_weeks} weeks</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 hover:border-slate-200 transition-colors">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="h-7 w-7 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
+                      <CalendarDays size={13} />
+                    </span>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-slate-500">Schedule</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 ml-9 truncate">
+                    {course.class_day || '—'} {course.class_time ? `· ${course.class_time}` : ''}
                   </p>
                 </div>
-              ) : null}
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Min. Attendance</p>
-                <p className="text-sm font-medium text-slate-800 mt-1">{course.min_attendance_required} classes</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Lecturer</p>
-                <p className="text-sm font-medium text-slate-800 mt-1">
-                  {course.lecturer_name || course.assigned_lecturer || '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Secondary Lecturer</p>
-                <p className="text-sm font-medium text-slate-800 mt-1">
-                  {course.secondary_lecturer_name || '—'}
-                </p>
-              </div>
-            </div>
 
-            {/* Stats row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-t border-[var(--gts-line)] pt-5">
-              <Card value={enrolledCount} title="Currently Enrolled" icon={<Users size={20} />} accent="sky" />
-              <Card value={passCount} title="Passed" icon={<CheckCircle2 size={20} />} accent="emerald" />
-              <Card value={failCount} title="Failed" icon={<XCircle size={20} />} accent="rose" />
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 hover:border-slate-200 transition-colors">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="h-7 w-7 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
+                      <CalendarDays size={13} />
+                    </span>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-slate-500">Course Date Range</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 ml-9 font-mono text-xs">{fmtDateRange(course.start_date, course.end_date)}</p>
+                </div>
+
+                {planDates ? (
+                  <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-3.5">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="h-7 w-7 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0">
+                        <Sparkles size={13} />
+                      </span>
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-violet-600">Year Plan Dates</p>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900 ml-9 font-mono text-xs">
+                      {fmtDateRange(planDates.start_date, planDates.end_date)}
+                      <span className="ml-1.5 inline-flex items-center rounded-full bg-violet-600 px-2 py-0.5 text-[10px] leading-none font-bold text-white tracking-wide">{planDates.planName}</span>
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 hover:border-slate-200 transition-colors">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="h-7 w-7 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
+                      <Award size={13} />
+                    </span>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-slate-500">Min. Attendance</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 ml-9">{course.min_attendance_required} classes</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 hover:border-slate-200 transition-colors">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="h-7 w-7 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
+                      <GraduationCap size={13} />
+                    </span>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-slate-500">Lecturer</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 ml-9 truncate">{course.lecturer_name || course.assigned_lecturer || '—'}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 hover:border-slate-200 transition-colors sm:col-span-2 lg:col-span-3 xl:col-span-1">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="h-7 w-7 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
+                      <Users size={13} />
+                    </span>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-slate-500">Secondary Lecturer</p>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 ml-9 truncate">{course.secondary_lecturer_name || '—'}</p>
+                </div>
+              </div>
+
+              {course.secondary_lecturer_name || course.lecturer_notes ? (
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 flex items-start gap-3">
+                  <span className="h-8 w-8 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
+                    <BookOpen size={14} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold tracking-widest uppercase text-indigo-600">Lecturer Notes</p>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed">{course.lecturer_notes || editLecturerNotes || 'No notes'}</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
+          </section>
+
+          {/* Stats — 4 col bento stack */}
+          <div className="lg:col-span-4 grid grid-cols-3 lg:grid-cols-1 gap-3">
+            <Card value={enrolledCount} title="Currently Enrolled" icon={<Users size={20} />} accent="sky" className="stat-hover !p-0 !border-indigo-100 hover:!border-indigo-200 shadow-sm hover:shadow-md transition-all" />
+            <Card value={passCount} title="Passed" icon={<CheckCircle2 size={20} />} accent="emerald" className="stat-hover shadow-sm hover:shadow-md transition-all" />
+            <Card value={failCount} title="Failed" icon={<XCircle size={20} />} accent="rose" className="stat-hover shadow-sm hover:shadow-md transition-all" />
           </div>
-        </section>
+        </div>
       </div>
 
       {/* Plan dates banner */}
       {planDates && !currentBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 shrink-0">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-400 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-sky-800">
+        <div className="shrink-0 flex items-center gap-3 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white px-5 py-3.5 shadow-sm">
+          <span className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+            <Sparkles size={16} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold tracking-tight text-indigo-900" style={{ fontFamily: 'var(--font-display)' }}>
               Scheduled in Year Plan: {fmtDateRange(planDates.start_date, planDates.end_date)}
             </p>
-            <p className="text-xs text-sky-600 mt-0.5">
+            <p className="text-xs font-medium text-indigo-600 mt-0.5">
               {planDates.planName}
             </p>
           </div>
+          <Badge tone="slate" className="ml-auto hidden sm:inline-flex font-mono">PLAN</Badge>
         </div>
       ) : null}
 
       {/* Current session banner */}
       {currentBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 shrink-0">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-          <div>
-            <p className="text-sm font-semibold text-emerald-800">
+        <div className="shrink-0 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white px-5 py-3.5 shadow-sm">
+          <span className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-200 relative">
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
+            <Clock3 size={16} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold tracking-tight text-emerald-900" style={{ fontFamily: 'var(--font-display)' }}>
               Currently in session: {currentBatch.name || `Batch #${currentBatch.id}`}
             </p>
-            <p className="text-xs text-emerald-600 mt-0.5">
-              {fmtDateRange(currentBatch.start_date, currentBatch.end_date)} &mdash; {currentBatch.active_student_count ?? 0} active students
+            <p className="text-xs font-medium text-emerald-700 mt-0.5 font-mono">
+              {fmtDateRange(currentBatch.start_date, currentBatch.end_date)} · {currentBatch.active_student_count ?? 0} active students
             </p>
           </div>
+          <span className="ml-auto hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE
+          </span>
         </div>
       ) : upcomingBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gold-200 bg-gold-50 px-5 py-3 shrink-0">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gold-500 shrink-0" />
+        <div className="shrink-0 flex items-center gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-white px-5 py-3.5 shadow-sm">
+          <span className="h-9 w-9 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-violet-200">
+            <CalendarDays size={16} />
+          </span>
           <div>
-            <p className="text-sm font-semibold text-gold-800">
+            <p className="text-sm font-bold tracking-tight text-violet-900" style={{ fontFamily: 'var(--font-display)' }}>
               Upcoming: {upcomingBatch.name || `Batch #${upcomingBatch.id}`}
             </p>
-            <p className="text-xs text-gold-600 mt-0.5">
+            <p className="text-xs font-medium text-violet-700 mt-0.5">
               Starts {fmtDate(upcomingBatch.start_date)}
             </p>
           </div>
+          <Badge tone="amber" className="ml-auto hidden sm:inline-flex">UPCOMING</Badge>
         </div>
       ) : batches.length > 0 ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 shrink-0">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-400 shrink-0" />
-          <p className="text-sm text-slate-600">No session currently in progress.</p>
+        <div className="shrink-0 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-sm">
+          <span className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+            <Clock3 size={16} />
+          </span>
+          <p className="text-sm font-medium text-slate-600">No session currently in progress.</p>
+          <Badge tone="slate" className="ml-auto hidden sm:inline-flex">IDLE</Badge>
         </div>
       ) : null}
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit shrink-0">
+      {/* Tabs — indigo pill */}
+      <div className="shrink-0 flex flex-wrap gap-1.5 bg-white border border-slate-200 rounded-2xl p-1.5 w-fit shadow-sm">
         {[
-          { key: 'current', label: 'Active Students', icon: Users },
-          { key: 'history', label: 'History', icon: ClipboardList },
-          { key: 'waiting', label: 'Awaiting Re-enrollment', icon: Users },
-          { key: 'materials', label: 'Materials', icon: BookOpen },
-          { key: 'assignments', label: 'Assignments', icon: BookOpen },
-        ].map(({ key, label, icon: Icon }) => (
+          { key: 'current', label: 'Active Students', icon: Users, count: enrolledStudentIds.size },
+          { key: 'history', label: 'History', icon: ClipboardList, count: allEnrollments.length },
+          { key: 'waiting', label: 'Awaiting Re-enrollment', icon: ShieldAlert, count: waitingReenrollmentStudents.length },
+          { key: 'materials', label: 'Materials', icon: BookOpen, count: materials.length },
+          { key: 'assignments', label: 'Assignments', icon: Layers, count: assignments.length },
+        ].map(({ key, label, icon: Icon, count }) => (
           <button
             key={key}
             type="button"
             onClick={() => setActiveTab(key)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+              activeTab === key
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
             <Icon size={14} />
             {label}
+            <span className={`hidden sm:inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold min-w-5 h-5 leading-none ${activeTab === key ? 'bg-white text-indigo-600' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+              {count}
+            </span>
           </button>
         ))}
       </div>
 
       {/* Current batch tab */}
       {activeTab === 'current' ? (
-        <Card title="Active Students" action={<span className="text-sm text-slate-500">{enrolledStudentIds.size} enrolled</span>} className="flex-1 min-h-0 overflow-auto">
-            <table className="data-table w-full text-sm">
-              <thead className="text-left text-slate-500">
-                <tr>
-                  <th className="pb-2">Student</th>
-                  <th>Matric</th>
-                  <th>Batch</th>
-                  <th>Result</th>
-                  <th>Score</th>
-                  <th>Notes</th>
-                  <th className="w-20">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allEnrollments.filter((e) => e.enrollment_status === 'active').map((e) => (
-                  <tr key={e.enrollment_id} className="border-t border-slate-200">
-                    <td className="py-3">
-                      <Link
-                        to={`/lecturer/students/${e.student_id}`}
-                        className="font-medium text-slate-900 hover:underline"
-                      >
-                        {e.full_name}
-                      </Link>
-                    </td>
-                    <td>{e.matric_no || <span className="italic text-slate-400">pending</span>}</td>
-                    <td>{e.cohort_name || <span className="text-slate-300">—</span>}</td>
-                    <td>{resultCell({ result_status: e.result_status, enrollment_status: e.enrollment_status })}</td>
-                    <td>{e.score ?? '—'}</td>
-                    <td className="max-w-50 truncate text-slate-500">{e.notes || '—'}</td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => setWithdrawTarget(e)}
-                        className="text-xs text-red-500 hover:text-red-700 font-medium"
-                      >
-                        Withdraw
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {enrolledStudentIds.size === 0 ? (
+        <Card title="Active Students" action={<span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500"><span className="h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />{enrolledStudentIds.size} enrolled</span>} className="flex-1 min-h-0 overflow-auto !p-0 border-slate-200 shadow-sm">
+          <div className="p-5 pb-0">
+            <div className="overflow-auto rounded-2xl border border-slate-200">
+              <table className="data-table w-full text-sm">
+                <thead className="text-left text-slate-500">
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      No students currently enrolled in this course.
-                    </td>
+                    <th className="pb-2">Student</th>
+                    <th>Matric</th>
+                    <th>Batch</th>
+                    <th>Result</th>
+                    <th>Score</th>
+                    <th>Notes</th>
+                    <th className="w-20">Action</th>
                   </tr>
-                ) : null}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {allEnrollments.filter((e) => e.enrollment_status === 'active').map((e) => (
+                    <tr key={e.enrollment_id} className="border-t border-slate-200">
+                      <td className="py-3">
+                        <Link
+                          to={`/lecturer/students/${e.student_id}`}
+                          className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
+                        >
+                          {e.full_name}
+                        </Link>
+                      </td>
+                      <td><span className="font-mono text-xs font-medium text-slate-700">{e.matric_no || <span className="italic text-slate-400">pending</span>}</span></td>
+                      <td>{e.cohort_name ? <Badge tone="slate">{e.cohort_name}</Badge> : <span className="text-slate-300">—</span>}</td>
+                      <td>{resultCell({ result_status: e.result_status, enrollment_status: e.enrollment_status })}</td>
+                      <td><span className="font-mono text-sm font-semibold text-slate-900">{e.score ?? '—'}</span></td>
+                      <td className="max-w-50 truncate text-slate-500">{e.notes || '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => setWithdrawTarget(e)}
+                          className="btn btn-danger btn-sm"
+                        >
+                          Withdraw
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {enrolledStudentIds.size === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="h-12 w-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400">
+                            <Users size={20} />
+                          </span>
+                          <p className="text-sm font-medium text-slate-400">No students currently enrolled in this course.</p>
+                          <p className="text-xs text-slate-400">Use the enroll panel below to add students.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-          {/* Enroll students */}
-          <div className="border-t border-slate-100 mt-5 pt-5">
-            <h4 className="font-semibold text-slate-900 text-sm mb-3">Enroll Students</h4>
+          {/* Enroll students — indigo bento block */}
+          <div className="m-5 mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/30 p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200 shrink-0">
+                <Sparkles size={16} />
+              </span>
+              <div>
+                <h4 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Enroll Students</h4>
+                <p className="text-xs text-slate-500">Add new students to this course</p>
+              </div>
+              <span className="ml-auto hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white border border-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 shadow-sm">
+                {unenrolledStudents.length} available
+              </span>
+            </div>
 
             {/* Copy from another course */}
             {otherCourses.length > 0 ? (
-              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                  Quick Copy — Use Students From Another Course
+              <div className="rounded-2xl border border-indigo-200 bg-white p-3.5 shadow-sm">
+                <p className="text-[11px] font-bold tracking-widest uppercase text-indigo-600 mb-2 flex items-center gap-1.5">
+                  <Copy size={12} /> Quick Copy — Use Students From Another Course
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <select
-                    className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
+                    className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm flex-1 min-w-40 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                     value={copySourceCourseId}
                     onChange={(e) => setCopySourceCourseId(e.target.value)}
                   >
@@ -570,7 +723,7 @@ export default function CoursePage() {
                         setCopying(false)
                       }
                     }}
-                    className="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50 shrink-0"
+                    className="btn btn-primary shrink-0 disabled:opacity-50"
                   >
                     {copying ? 'Copying…' : 'Copy Students'}
                   </button>
@@ -579,29 +732,38 @@ export default function CoursePage() {
             ) : null}
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              <select
-                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
-                value={enrollCohortFilter}
-                onChange={(e) => { setEnrollCohortFilter(e.target.value); setSelectedEnrollIds(new Set()) }}
-              >
-                <option value="">All Cohorts</option>
-                {enrollCohorts.map((c) => (
-                  <option key={c.id} value={String(c.id)}>{c.name}</option>
-                ))}
-              </select>
-              <input
-                className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
-                placeholder="Search by name or matric…"
-                value={enrollSearch}
-                onChange={(e) => { setEnrollSearch(e.target.value); setSelectedEnrollIds(new Set()) }}
-              />
+            <div className="grid sm:grid-cols-2 gap-2">
+              <div className="relative">
+                <select
+                  className="w-full appearance-none border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+                  value={enrollCohortFilter}
+                  onChange={(e) => { setEnrollCohortFilter(e.target.value); setSelectedEnrollIds(new Set()) }}
+                >
+                  <option value="">All Cohorts</option>
+                  {enrollCohorts.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+                <Layers size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+              <div className="relative">
+                <input
+                  className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+                  placeholder="Search by name or matric…"
+                  value={enrollSearch}
+                  onChange={(e) => { setEnrollSearch(e.target.value); setSelectedEnrollIds(new Set()) }}
+                />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
             </div>
 
             {/* Bulk action bar */}
             {selectedEnrollIds.size > 0 ? (
-              <div className="flex items-center justify-between bg-slate-900 text-white rounded-xl px-4 py-2 mb-3 text-sm">
-                <span>{selectedEnrollIds.size} student{selectedEnrollIds.size !== 1 ? 's' : ''} selected</span>
+              <div className="flex items-center justify-between bg-indigo-600 text-white rounded-2xl px-4 py-3 text-sm shadow-lg shadow-indigo-200">
+                <span className="font-semibold flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-xl bg-white text-indigo-600 flex items-center justify-center font-bold text-xs">{selectedEnrollIds.size}</span>
+                  {selectedEnrollIds.size} student{selectedEnrollIds.size !== 1 ? 's' : ''} selected
+                </span>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -618,14 +780,14 @@ export default function CoursePage() {
                         notify(err?.response?.data?.message || 'Bulk enroll failed')
                       }
                     }}
-                    className="bg-emerald-500 hover:bg-emerald-600 rounded-lg px-3 py-1 text-xs font-medium"
+                    className="bg-white text-indigo-600 hover:bg-indigo-50 rounded-xl px-4 py-1.5 text-xs font-bold shadow-sm transition-colors"
                   >
                     Enroll Selected ({selectedEnrollIds.size})
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedEnrollIds(new Set())}
-                    className="bg-white/20 hover:bg-white/30 rounded-lg px-3 py-1 text-xs"
+                    className="bg-white/15 hover:bg-white/25 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors"
                   >
                     Clear
                   </button>
@@ -635,13 +797,13 @@ export default function CoursePage() {
 
             {/* Student list with checkboxes */}
             {(enrollSearch.length > 0 || enrollCohortFilter !== '') ? (
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="border border-indigo-100 rounded-2xl overflow-hidden bg-white shadow-sm">
                 {/* Select all header */}
                 {unenrolledStudents.length > 0 ? (
-                  <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 border-b border-indigo-100 text-xs font-semibold text-indigo-700">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded"
+                      className="w-4 h-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                       checked={unenrolledStudents.every((s) => selectedEnrollIds.has(s.id))}
                       onChange={(e) => {
                         if (e.target.checked) {
@@ -652,15 +814,16 @@ export default function CoursePage() {
                       }}
                     />
                     Select all {unenrolledStudents.length > 50 ? `(showing ${Math.min(unenrolledStudents.length, 100)})` : `(${unenrolledStudents.length})`}
+                    <span className="ml-auto text-indigo-600 font-normal">Tap to select</span>
                   </div>
                 ) : null}
-                <div className="max-h-72 overflow-y-auto">
+                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
                   {unenrolledStudents.slice(0, 100).map((s) => (
-                    <div key={s.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                    <div key={s.id} className="flex items-center justify-between px-4 py-3 hover:bg-indigo-50/50 transition-colors group">
                       <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded shrink-0"
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 shrink-0"
                           checked={selectedEnrollIds.has(s.id)}
                           onChange={(e) => {
                             setSelectedEnrollIds((prev) => {
@@ -671,8 +834,8 @@ export default function CoursePage() {
                           }}
                         />
                         <div className="min-w-0">
-                          <span className="text-sm font-medium text-slate-900">{s.full_name}</span>
-                          {s.matric_no ? <span className="text-xs text-slate-500 ml-2">{s.matric_no}</span> : null}
+                          <span className="text-sm font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">{s.full_name}</span>
+                          {s.matric_no ? <span className="font-mono text-xs text-slate-500 ml-2 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">{s.matric_no}</span> : null}
                           {s.cohort_name ? <span className="text-xs text-slate-400 ml-2">· {s.cohort_name}</span> : null}
                         </div>
                       </label>
@@ -687,121 +850,229 @@ export default function CoursePage() {
                             notify(err?.response?.data?.message || 'Enrollment failed')
                           }
                         }}
-                        className="text-xs bg-slate-900 text-white rounded-lg px-3 py-1 shrink-0 ml-2"
+                        className="btn btn-primary btn-sm shrink-0 ml-2"
                       >
                         Enroll
                       </button>
                     </div>
                   ))}
                   {unenrolledStudents.length === 0 ? (
-                    <p className="text-sm text-slate-400 p-3">No matching students to enroll.</p>
+                    <div className="p-8 text-center">
+                      <p className="text-sm font-medium text-slate-400">No matching students to enroll.</p>
+                      <p className="text-xs text-slate-400 mt-1">Try another cohort or search term.</p>
+                    </div>
                   ) : null}
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-slate-400">Select a cohort or search to find students to enroll.</p>
+              <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-6 text-center">
+                <div className="mx-auto h-10 w-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-500 mb-2">
+                  <Search size={16} />
+                </div>
+                <p className="text-sm font-medium text-slate-600">Select a cohort or search to find students to enroll.</p>
+                <p className="text-xs text-slate-400 mt-1">Use the filters above to discover available students.</p>
+              </div>
             )}
           </div>
       </Card>
       ) : null}
 
-      {/* Materials tab */}
+      {/* Materials tab — bento */}
       {activeTab === 'materials' ? (
-        <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
-          <form onSubmit={uploadMaterial} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-slate-900">Upload Course Material</h3>
-            <p className="text-sm text-slate-500">Upload general materials or assign a section number.</p>
+        <div className="grid lg:grid-cols-[380px_1fr] gap-4 flex-1 min-h-0 overflow-auto">
+          <form onSubmit={uploadMaterial} className="card card-hover h-fit !p-0 overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-violet-500 to-indigo-600" />
+            <div className="p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <span className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+                  <Send size={16} />
+                </span>
+                <div>
+                  <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Upload Course Material</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">Upload general materials or assign a section number.</p>
+                </div>
+              </div>
 
-            <label className="text-sm text-slate-600 block">
-              Title
-              <input
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                value={materialForm.title}
-                onChange={(e) => setMaterialForm((p) => ({ ...p, title: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="block">
+                <span className="field-label">Title</span>
+                <input
+                  className="input"
+                  value={materialForm.title}
+                  onChange={(e) => setMaterialForm((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. Week 3 — Data Modelling"
+                  required
+                />
+              </label>
 
-            <label className="text-sm text-slate-600 block">
-              Description
-              <textarea
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                rows={3}
-                value={materialForm.description}
-                onChange={(e) => setMaterialForm((p) => ({ ...p, description: e.target.value }))}
-              />
-            </label>
+              <label className="block">
+                <span className="field-label">Description</span>
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  value={materialForm.description}
+                  onChange={(e) => setMaterialForm((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="Brief description for students…"
+                />
+              </label>
 
-            <label className="text-sm text-slate-600 block">
-              Section Number (optional)
-              <input
-                type="number"
-                min="1"
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                value={materialForm.sectionNumber}
-                onChange={(e) => setMaterialForm((p) => ({ ...p, sectionNumber: e.target.value }))}
-                placeholder="e.g. 1"
-              />
-            </label>
+              <label className="block">
+                <span className="field-label">Section Number <span className="font-normal text-slate-400">(optional)</span></span>
+                <input
+                  type="number"
+                  min="1"
+                  className="input"
+                  value={materialForm.sectionNumber}
+                  onChange={(e) => setMaterialForm((p) => ({ ...p, sectionNumber: e.target.value }))}
+                  placeholder="e.g. 1"
+                />
+              </label>
 
-            <label className="text-sm text-slate-600 block">
-              PDF/File
-              <input
-                type="file"
-                className="mt-1 w-full border rounded-lg px-3 py-2"
-                onChange={(e) => setMaterialForm((p) => ({ ...p, file: e.target.files?.[0] || null }))}
-                required
-              />
-            </label>
+              <label className="block">
+                <span className="field-label">PDF / File</span>
+                <input
+                  type="file"
+                  className="input py-2 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-indigo-700 hover:file:bg-indigo-100 file:transition-colors"
+                  onChange={(e) => setMaterialForm((p) => ({ ...p, file: e.target.files?.[0] || null }))}
+                  required
+                />
+              </label>
 
-            <button className="w-full bg-slate-900 text-white rounded-xl py-2">Upload Material</button>
+              <button className="btn btn-primary w-full justify-center py-3 text-sm">
+                <Send size={14} /> Upload Material
+              </button>
+            </div>
           </form>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-            <h3 className="font-semibold text-slate-900 mb-4">Stored Materials</h3>
+          <div className="card !p-0 overflow-hidden flex flex-col min-h-0">
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3 border-b border-slate-100">
+              <h3 className="card-title flex items-center gap-2">
+                <span className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                  <BookOpen size={14} />
+                </span>
+                Stored Materials
+              </h3>
+              <Badge tone="slate" className="font-mono">{materials.length} files</Badge>
+            </div>
+            <div className="overflow-auto flex-1">
+              <table className="data-table w-full text-sm">
+                <thead className="text-left text-slate-500">
+                  <tr>
+                    <th className="pb-2">Title</th>
+                    <th>Scope</th>
+                    <th>Uploaded</th>
+                    <th>File</th>
+                    <th>Notify Active Students</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {materials.map((material) => (
+                    <tr key={material.id} className="border-t border-slate-200">
+                      <td className="py-3">
+                        <p className="font-semibold text-slate-900">{material.title}</p>
+                        {material.description ? <p className="text-xs text-slate-500 mt-0.5 max-w-64 truncate">{material.description}</p> : null}
+                      </td>
+                      <td>{material.section_number ? <Badge tone="sky">Section {material.section_number}</Badge> : <Badge tone="slate">General</Badge>}</td>
+                      <td className="whitespace-nowrap font-mono text-xs text-slate-600">{fmtDate(material.created_at)}</td>
+                      <td>
+                        <a
+                          href={`${apiBase}${material.material_url}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Open
+                        </a>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => sendMaterial(material.id)}
+                          className="btn btn-primary btn-sm"
+                        >
+                          <Mail size={12} /> Send Email
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!materials.length ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="h-12 w-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-400">
+                            <BookOpen size={20} />
+                          </span>
+                          <p className="text-sm font-medium text-slate-400">No materials uploaded yet.</p>
+                          <p className="text-xs text-slate-400">Upload your first file to share with active students.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Awaiting re-enrollment tab */}
+      {activeTab === 'waiting' ? (
+        <div className="card !p-0 overflow-hidden flex flex-col flex-1 min-h-0">
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3 border-b border-slate-100 shrink-0">
+            <h3 className="card-title flex items-center gap-2">
+              <span className="h-8 w-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                <ShieldAlert size={14} />
+              </span>
+              Students Awaiting Re-enrollment
+            </h3>
+            <Badge tone="amber">{waitingReenrollmentStudents.length} waiting</Badge>
+          </div>
+          <div className="overflow-auto flex-1">
             <table className="data-table w-full text-sm">
               <thead className="text-left text-slate-500">
                 <tr>
-                  <th className="pb-2">Title</th>
-                  <th>Scope</th>
-                  <th>Uploaded</th>
-                  <th>File</th>
-                  <th>Notify Active Students</th>
+                  <th className="pb-2">Student</th>
+                  <th>Matric</th>
+                  <th>Last Batch</th>
+                  <th>Last Dates</th>
+                  <th>Last Result</th>
+                  <th>Score</th>
+                  <th>Notes</th>
                 </tr>
               </thead>
               <tbody>
-                {materials.map((material) => (
-                  <tr key={material.id} className="border-t border-slate-200">
+                {waitingReenrollmentStudents.map((entry) => (
+                  <tr key={`waiting-${entry.enrollment_id}`} className="border-t border-slate-200">
                     <td className="py-3">
-                      <p className="font-medium text-slate-900">{material.title}</p>
-                      {material.description ? <p className="text-xs text-slate-500 mt-0.5">{material.description}</p> : null}
-                    </td>
-                    <td>{material.section_number ? `Section ${material.section_number}` : 'General'}</td>
-                    <td className="whitespace-nowrap">{fmtDate(material.created_at)}</td>
-                    <td>
-                      <a
-                        href={`${apiBase}${material.material_url}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-slate-900 underline"
+                      <Link
+                        to={`/lecturer/students/${entry.student_id}`}
+                        className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
                       >
-                        Open
-                      </a>
+                        {entry.full_name}
+                      </Link>
                     </td>
+                    <td><span className="font-mono text-xs font-medium bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">{entry.matric_no}</span></td>
+                    <td><Badge tone="slate">#{entry.batch_id || '—'}</Badge></td>
+                    <td className="whitespace-nowrap font-mono text-xs text-slate-600">{fmtDateRange(entry.batch_start, entry.batch_end)}</td>
                     <td>
-                      <button
-                        type="button"
-                        onClick={() => sendMaterial(material.id)}
-                        className="rounded-lg bg-slate-900 text-white px-3 py-2"
-                      >
-                        Send Email
-                      </button>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-xs font-bold text-rose-700">
+                        <XCircle size={12} /> Fail
+                      </span>
                     </td>
+                    <td><span className="font-mono font-semibold text-slate-900">{entry.score ?? '—'}</span></td>
+                    <td className="max-w-55 truncate text-slate-500">{entry.notes || '—'}</td>
                   </tr>
                 ))}
-                {!materials.length ? (
+                {!waitingReenrollmentStudents.length ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400">No materials uploaded yet.</td>
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="h-12 w-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                          <CheckCircle2 size={20} />
+                        </span>
+                        <p className="text-sm font-medium text-slate-500">No students are currently waiting for re-enrollment.</p>
+                        <p className="text-xs text-slate-400">All failed students have been re-enrolled or are active.</p>
+                      </div>
+                    </td>
                   </tr>
                 ) : null}
               </tbody>
@@ -810,61 +1081,15 @@ export default function CoursePage() {
         </div>
       ) : null}
 
-      {/* Awaiting re-enrollment tab */}
-      {activeTab === 'waiting' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto flex-1 min-h-0">
-          <h3 className="font-semibold text-slate-900 mb-4">Students Awaiting Re-enrollment</h3>
-          <table className="data-table w-full text-sm">
-            <thead className="text-left text-slate-500">
-              <tr>
-                <th className="pb-2">Student</th>
-                <th>Matric</th>
-                <th>Last Batch</th>
-                <th>Last Dates</th>
-                <th>Last Result</th>
-                <th>Score</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {waitingReenrollmentStudents.map((entry) => (
-                <tr key={`waiting-${entry.enrollment_id}`} className="border-t border-slate-200">
-                  <td className="py-3">
-                    <Link
-                      to={`/lecturer/students/${entry.student_id}`}
-                      className="font-medium text-slate-900 hover:underline"
-                    >
-                      {entry.full_name}
-                    </Link>
-                  </td>
-                  <td>{entry.matric_no}</td>
-                  <td>{entry.batch_id ? `#${entry.batch_id}` : '—'}</td>
-                  <td className="whitespace-nowrap">{fmtDateRange(entry.batch_start, entry.batch_end)}</td>
-                  <td>
-                    <span className="text-red-500 font-semibold">Fail</span>
-                  </td>
-                  <td>{entry.score ?? '—'}</td>
-                  <td className="max-w-55 truncate text-slate-500">{entry.notes || '—'}</td>
-                </tr>
-              ))}
-              {!waitingReenrollmentStudents.length ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No students are currently waiting for re-enrollment.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
       {/* All students history tab */}
       {activeTab === 'history' ? (
-        <div className="space-y-4 flex-1 min-h-0 overflow-auto">
-          <h3 className="font-semibold text-slate-900">All-Time Enrollment History</h3>
+        <div className="space-y-4 flex-1 min-h-0 overflow-auto pr-1">
+          <div className="flex items-center gap-3">
+            <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem' }}>All-Time Enrollment History</h3>
+            <span className="h-px flex-1 bg-slate-200" />
+            <Badge tone="slate" className="font-mono">{allEnrollments.length} records</Badge>
+          </div>
           {(() => {
-            // Group enrollments by cohort
             const grouped = {}
             const noCohortKey = '__none__'
             for (const e of allEnrollments) {
@@ -875,50 +1100,55 @@ export default function CoursePage() {
             const sections = Object.values(grouped)
             if (!sections.length) {
               return (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                  <p className="py-8 text-center text-slate-400">No enrollment history yet.</p>
+                <div className="card text-center py-12">
+                  <p className="text-sm text-slate-400">No enrollment history yet.</p>
                 </div>
               )
             }
             return sections.map(({ cohortName, rows }) => (
-              <div key={cohortName} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-                <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <span className="rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs">{cohortName}</span>
-                  <span className="text-slate-400 text-xs font-normal">{rows.length} student{rows.length !== 1 ? 's' : ''}</span>
-                </h4>
-                <table className="data-table w-full text-sm">
-                  <thead className="text-left text-slate-500">
-                    <tr>
-                      <th className="pb-2">Student</th>
-                      <th>Matric</th>
-                      <th>Batch</th>
-                      <th>Dates</th>
-                      <th>Enrolment</th>
-                      <th>Result</th>
-                      <th>Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((e) => (
-                      <tr key={e.enrollment_id} className="border-t border-slate-200">
-                        <td className="py-3">
-                          <Link
-                            to={`/lecturer/students/${e.student_id}`}
-                            className="font-medium text-slate-900 hover:underline"
-                          >
-                            {e.full_name}
-                          </Link>
-                        </td>
-                        <td>{e.matric_no || <span className="text-slate-400">—</span>}</td>
-                        <td>{e.batch_id ? `#${e.batch_id}` : '—'}</td>
-                        <td className="whitespace-nowrap">{fmtDateRange(e.batch_start, e.batch_end)}</td>
-                        <td>{e.enrollment_status}</td>
-                        <td>{resultCell({ result_status: e.result_status })}</td>
-                        <td>{e.score ?? '—'}</td>
+              <div key={cohortName} className="card !p-0 overflow-hidden">
+                <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
+                    <Layers size={12} /> {cohortName}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500">{rows.length} student{rows.length !== 1 ? 's' : ''}</span>
+                  <span className="ml-auto h-2 w-2 rounded-full bg-indigo-400" />
+                </div>
+                <div className="overflow-auto">
+                  <table className="data-table w-full text-sm">
+                    <thead className="text-left text-slate-500">
+                      <tr>
+                        <th className="pb-2">Student</th>
+                        <th>Matric</th>
+                        <th>Batch</th>
+                        <th>Dates</th>
+                        <th>Enrolment</th>
+                        <th>Result</th>
+                        <th>Score</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {rows.map((e) => (
+                        <tr key={e.enrollment_id} className="border-t border-slate-200">
+                          <td className="py-3">
+                            <Link
+                              to={`/lecturer/students/${e.student_id}`}
+                              className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
+                            >
+                              {e.full_name}
+                            </Link>
+                          </td>
+                          <td><span className="font-mono text-xs font-medium text-slate-700">{e.matric_no || <span className="text-slate-400">—</span>}</span></td>
+                          <td><Badge tone="slate">#{e.batch_id || '—'}</Badge></td>
+                          <td className="whitespace-nowrap font-mono text-xs text-slate-600">{fmtDateRange(e.batch_start, e.batch_end)}</td>
+                          <td><Badge tone={e.enrollment_status === 'active' ? 'sky' : 'slate'} dot={e.enrollment_status === 'active'}>{e.enrollment_status}</Badge></td>
+                          <td>{resultCell({ result_status: e.result_status })}</td>
+                          <td><span className="font-mono font-semibold">{e.score ?? '—'}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ))
           })()}
@@ -927,70 +1157,92 @@ export default function CoursePage() {
 
       {/* Assignments tab */}
       {activeTab === 'assignments' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto flex-1 min-h-0">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900">Assignment History</h3>
-            {!course.has_assignment ? (
-              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1">
-                Assignments disabled for this course
+        <div className="card !p-0 overflow-hidden flex flex-col flex-1 min-h-0">
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3 border-b border-slate-100 shrink-0">
+            <h3 className="card-title flex items-center gap-2">
+              <span className="h-8 w-8 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600">
+                <ClipboardList size={14} />
               </span>
-            ) : null}
+              Assignment History
+            </h3>
+            {!course.has_assignment ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
+                <ShieldAlert size={12} /> Assignments disabled for this course
+              </span>
+            ) : (
+              <Badge tone="slate" className="font-mono">{assignments.length} assignments</Badge>
+            )}
           </div>
-          <table className="data-table w-full text-sm">
-            <thead className="text-left text-slate-500">
-              <tr>
-                <th className="pb-2">Title</th>
-                <th>Batch</th>
-                <th>Due Date</th>
-                <th>Created</th>
-                <th>Sent To</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.map((a) => (
-                <tr key={a.id} className="border-t border-slate-200">
-                  <td className="py-3 font-medium">{a.title}</td>
-                  <td>{a.batch_id ? `#${a.batch_id}` : '—'}</td>
-                  <td>{fmtDate(a.due_date)}</td>
-                  <td className="whitespace-nowrap">{fmtDate(a.created_at)}</td>
-                  <td>{a.delivery_count} students</td>
-                </tr>
-              ))}
-              {!assignments.length ? (
+          <div className="overflow-auto flex-1">
+            <table className="data-table w-full text-sm">
+              <thead className="text-left text-slate-500">
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400">
-                    No assignments created yet.
-                  </td>
+                  <th className="pb-2">Title</th>
+                  <th>Batch</th>
+                  <th>Due Date</th>
+                  <th>Created</th>
+                  <th>Sent To</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {assignments.map((a) => (
+                  <tr key={a.id} className="border-t border-slate-200">
+                    <td className="py-3 font-semibold text-slate-900">{a.title}</td>
+                    <td><Badge tone="slate">#{a.batch_id || '—'}</Badge></td>
+                    <td className="font-mono text-xs text-slate-600">{fmtDate(a.due_date)}</td>
+                    <td className="whitespace-nowrap font-mono text-xs text-slate-600">{fmtDate(a.created_at)}</td>
+                    <td><span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700"><Users size={12} /> {a.delivery_count} students</span></td>
+                  </tr>
+                ))}
+                {!assignments.length ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="h-12 w-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400">
+                          <ClipboardList size={20} />
+                        </span>
+                        <p className="text-sm font-medium text-slate-400">No assignments created yet.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 
       {/* Edit panel */}
       {/* Withdraw modal */}
       {withdrawTarget ? (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setWithdrawTarget(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-slate-900 mb-1">Withdraw Student</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Remove <strong>{withdrawTarget.full_name}</strong> from this course? Their enrollment will be marked as withdrawn.
-            </p>
-            <label className="text-sm text-slate-600 block mb-4">
-              Reason (optional)
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setWithdrawTarget(null)}>
+          <div className="bg-white rounded-[1.5rem] shadow-2xl p-6 max-w-md w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="h-1 -mx-6 -mt-6 mb-6 bg-gradient-to-r from-rose-500 via-orange-500 to-rose-600" />
+            <div className="flex items-start gap-3 mb-1">
+              <span className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                <XCircle size={18} />
+              </span>
+              <div>
+                <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Withdraw Student</h3>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                  Remove <strong className="text-slate-900">{withdrawTarget.full_name}</strong> from this course? Their enrollment will be marked as withdrawn.
+                </p>
+              </div>
+            </div>
+            <label className="block mt-4">
+              <span className="field-label">Reason <span className="font-normal text-slate-400">(optional)</span></span>
               <input
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                className="input"
                 placeholder="e.g. Student requested withdrawal, transferred, etc."
                 value={withdrawReason}
                 onChange={(e) => setWithdrawReason(e.target.value)}
               />
             </label>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 mt-5">
               <button
                 type="button"
                 onClick={() => { setWithdrawTarget(null); setWithdrawReason('') }}
-                className="bg-slate-100 text-slate-700 rounded-lg px-4 py-2 text-sm"
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
@@ -1011,7 +1263,7 @@ export default function CoursePage() {
                     setWithdrawing(false)
                   }
                 }}
-                className="bg-red-500 text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+                className="btn bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 shadow-md shadow-rose-200"
               >
                 {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
               </button>
@@ -1021,39 +1273,44 @@ export default function CoursePage() {
       ) : null}
 
       {editing && editForm ? (
-        <div className="fixed right-0 top-0 h-full w-105 bg-white border-l border-slate-200 shadow-2xl z-50 overflow-y-auto">
-          <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900">Edit Course</h3>
-            <button type="button" onClick={() => setEditing(false)} className="rounded-lg p-1 hover:bg-slate-100">
+        <div className="fixed right-0 top-0 h-full w-[420px] max-w-[92vw] bg-white border-l border-slate-200 shadow-2xl z-50 overflow-y-auto">
+          <div className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="h-8 w-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
+                <Pencil size={14} />
+              </span>
+              <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Edit Course</h3>
+            </div>
+            <button type="button" onClick={() => setEditing(false)} className="h-8 w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors">
               <X size={18} />
             </button>
           </div>
 
           <form onSubmit={saveCourse} className="p-5 space-y-4">
-            <label className="text-sm text-slate-600 block">
-              Title
+            <label className="block">
+              <span className="field-label">Title</span>
               <input
-                className="mt-1 w-full border rounded-lg px-3 py-2"
+                className="input"
                 value={editForm.title || ''}
                 onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
                 required
               />
             </label>
 
-            <label className="text-sm text-slate-600 block">
-              Description
+            <label className="block">
+              <span className="field-label">Description</span>
               <textarea
-                className="mt-1 w-full border rounded-lg px-3 py-2"
+                className="textarea"
                 rows={3}
                 value={editForm.description || ''}
                 onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
               />
             </label>
 
-            <label className="text-sm text-slate-600 block">
-              Lecturer Notes
+            <label className="block">
+              <span className="field-label">Lecturer Notes</span>
               <textarea
-                className="mt-1 w-full border rounded-lg px-3 py-2"
+                className="textarea"
                 rows={2}
                 value={editLecturerNotes}
                 onChange={(e) => setEditLecturerNotes(e.target.value)}
@@ -1062,18 +1319,18 @@ export default function CoursePage() {
             </label>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm text-slate-600 block">
-                Course Code
+              <label className="block">
+                <span className="field-label">Course Code</span>
                 <input
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="input font-mono text-sm"
                   value={editForm.course_code || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, course_code: e.target.value }))}
                 />
               </label>
-              <label className="text-sm text-slate-600 block">
-                Lecturer
+              <label className="block">
+                <span className="field-label">Lecturer</span>
                 <select
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="select"
                   value={editForm.lecturer_name || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, lecturer_name: e.target.value }))}
                 >
@@ -1083,10 +1340,10 @@ export default function CoursePage() {
                   ))}
                 </select>
               </label>
-              <label className="text-sm text-slate-600 block">
-                Secondary Lecturer
+              <label className="block col-span-2">
+                <span className="field-label">Secondary Lecturer</span>
                 <select
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="select"
                   value={editSecondaryLecturerId}
                   onChange={(e) => setEditSecondaryLecturerId(e.target.value)}
                 >
@@ -1099,23 +1356,23 @@ export default function CoursePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm text-slate-600 block">
-                Duration (weeks)
+              <label className="block">
+                <span className="field-label">Duration (weeks)</span>
                 <input
                   type="number"
                   min="1"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="input"
                   value={editForm.duration_weeks || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, duration_weeks: e.target.value }))}
                   required
                 />
               </label>
-              <label className="text-sm text-slate-600 block">
-                Min. Attendance
+              <label className="block">
+                <span className="field-label">Min. Attendance</span>
                 <input
                   type="number"
                   min="0"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="input"
                   value={editForm.min_attendance_required || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, min_attendance_required: e.target.value }))}
                   required
@@ -1124,10 +1381,10 @@ export default function CoursePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm text-slate-600 block">
-                Class Day
+              <label className="block">
+                <span className="field-label">Class Day</span>
                 <select
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="select"
                   value={editForm.class_day || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, class_day: e.target.value }))}
                 >
@@ -1135,46 +1392,46 @@ export default function CoursePage() {
                   {DAYS.map((d) => <option key={d}>{d}</option>)}
                 </select>
               </label>
-              <label className="text-sm text-slate-600 block">
-                Class Time
+              <label className="block">
+                <span className="field-label">Class Time</span>
                 <input
                   type="time"
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  className="input"
                   value={editForm.class_time || ''}
                   onChange={(e) => setEditForm((p) => ({ ...p, class_time: e.target.value }))}
                 />
               </label>
             </div>
 
-            <div className="border rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-slate-700">Course Features</p>
-              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
+              <p className="text-sm font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Course Features</p>
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700 cursor-pointer group">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded"
+                  className="w-5 h-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                   checked={Boolean(editForm.has_assignment)}
                   onChange={(e) => setEditForm((p) => ({ ...p, has_assignment: e.target.checked }))}
                 />
-                Has Assignments
+                <span className="flex items-center gap-2"><ClipboardList size={14} className="text-indigo-500" /> Has Assignments</span>
               </label>
-              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded"
+                  className="w-5 h-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                   checked={Boolean(editForm.has_exam)}
                   onChange={(e) => setEditForm((p) => ({ ...p, has_exam: e.target.checked }))}
                 />
-                Has Exam
+                <span className="flex items-center gap-2"><Award size={14} className="text-violet-500" /> Has Exam</span>
               </label>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <button type="submit" className="bg-slate-900 text-white rounded-xl py-2">
+              <button type="submit" className="btn btn-primary py-3">
                 Save Changes
               </button>
               <button
                 type="button"
-                className="bg-slate-100 text-slate-700 rounded-xl py-2"
+                className="btn btn-ghost py-3"
                 onClick={() => setEditing(false)}
               >
                 Cancel
