@@ -94,7 +94,7 @@ const AppShell = ({ title, navItems = [], groups = [], children }) => {
         {navContent}
       </aside>
 
-      <main className="h-screen min-h-0 flex flex-col overflow-hidden p-4 md:p-8">
+      <main className="h-screen min-h-0 flex flex-col p-4 md:p-8">
         <div className="flex items-center justify-between mb-6 gap-4 shrink-0">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-semibold text-slate-900">{title}</h1>
