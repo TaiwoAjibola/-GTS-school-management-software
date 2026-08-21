@@ -2403,7 +2403,7 @@ const LecturerDashboard = () => {
             </div>
           ) : (
           <div className="grid xl:grid-cols-[390px_1fr] gap-6">
-          <div className="space-y-6">
+          <div className="space-y-4 xl:overflow-y-auto xl:pr-1.5" style={{ maxHeight: 'calc(100vh - 200px)' }}>
             <form onSubmit={createStudent} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
               <h3 className="font-semibold text-slate-900">Create Student</h3>
               <input className="w-full border rounded-lg px-3 py-2" placeholder="Full name" value={studentForm.fullName} onChange={(event) => setStudentForm((prev) => ({ ...prev, fullName: event.target.value }))} required />
