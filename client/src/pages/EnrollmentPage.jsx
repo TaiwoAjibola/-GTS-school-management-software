@@ -179,14 +179,15 @@ export default function EnrollmentPage() {
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="h-full flex flex-col gap-5 overflow-hidden">
+      <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Enrollment Management</h1>
           <p className="text-sm text-slate-500 mt-1">Enroll students from each batch into courses</p>
         </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="flex-1 min-h-0 overflow-auto space-y-5">
         {selectedCourse ? (
           <>
             <div className="bg-white border border-slate-200 rounded-2xl p-4">
@@ -422,6 +423,7 @@ export default function EnrollmentPage() {
             No courses available. Create a course in the Courses section first.
           </div>
         )}
+      </div>
       </div>
     </AppShell>
   )

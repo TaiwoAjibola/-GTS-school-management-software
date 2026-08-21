@@ -110,8 +110,9 @@ export default function BookMinistryPage() {
         <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div>
       ) : null}
 
+      <div className="h-full flex flex-col gap-5 overflow-hidden">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 shrink-0">
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-1">
             <Library size={24} className="text-slate-700" />
@@ -132,7 +133,7 @@ export default function BookMinistryPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 shrink-0 bg-slate-100 rounded-xl p-1 w-fit">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -151,6 +152,7 @@ export default function BookMinistryPage() {
       {loading ? (
         <p className="text-slate-500 text-sm">Loading...</p>
       ) : (
+        <div className="flex-1 min-h-0 overflow-auto">
         <>
           {/* Overview */}
           {activeTab === 'overview' && stats && (
@@ -571,7 +573,9 @@ export default function BookMinistryPage() {
             </div>
           )}
         </>
+        </div>
       )}
+      </div>
     </AppShell>
   )
 }

@@ -1560,10 +1560,11 @@ const LecturerDashboard = () => {
 
   return (
     <AppShell title={sectionTitle} groups={lecturerNavGroups}>
-      {notice ? <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div> : null}
+      <div className="h-full flex flex-col gap-5 overflow-hidden">
+      {notice ? <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm shrink-0">{notice}</div> : null}
 
       {section === 'attendance' ? (
-        <>
+        <div className="flex-1 min-h-0 overflow-auto">
           <div className="grid sm:grid-cols-3 gap-4 mb-6">
             <Card title="My Courses" value={courses.length} />
             <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} />
@@ -1583,11 +1584,12 @@ const LecturerDashboard = () => {
               </div>
             </div>
           </div>
-        </>
+        </div>
+
       ) : null}
 
       {section === 'courses' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           {/* Tab switcher */}
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
             {['courses', 'plans', 'timeline'].map((tab) => (
@@ -2276,7 +2278,7 @@ const LecturerDashboard = () => {
 ) : null}
 
       {section === 'courses' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mt-6 overflow-auto">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mt-6 overflow-auto flex-1 min-h-0">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h3 className="font-semibold text-slate-900">Course History by Batch</h3>
             <select className="border rounded-lg px-3 py-2 text-sm" value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)}>
@@ -2335,7 +2337,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'students' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
             {[
               { key: 'students', label: 'All Students' },
@@ -3138,7 +3140,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'batches' ? (
-        <div className="grid lg:grid-cols-[390px_1fr] gap-6">
+        <div className="grid lg:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           <form onSubmit={createStudentBatch} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
             <h3 className="font-semibold text-slate-900">Create Student Batch</h3>
             <input
@@ -3581,7 +3583,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'attendance' ? (
-        <div className="grid xl:grid-cols-[390px_1fr] gap-6">
+        <div className="grid xl:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
               <div>
@@ -3782,7 +3784,7 @@ const LecturerDashboard = () => {
         }
 
         return (
-          <div className="space-y-5">
+          <div className="space-y-5 flex-1 min-h-0 overflow-auto">
             {/* Tab bar */}
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
               {[{ key: 'input', label: 'Enter Results' }, { key: 'history', label: 'History' }].map(({ key, label }) => (
@@ -4064,7 +4066,7 @@ const LecturerDashboard = () => {
       })() : null}
 
       {section === 'graduation' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Graduation</h2>
@@ -4248,7 +4250,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'assignments' ? (
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 min-h-0 overflow-auto">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
               {['assignments', 'exams'].map((tab) => (
@@ -4871,7 +4873,7 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
       {section === 'lecturers' ? (
-        <div className="grid lg:grid-cols-[360px_1fr] gap-6">
+        <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           {/* Create lecturer form */}
           <form
             className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 self-start"
@@ -5026,11 +5028,13 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'email-process' ? (
+        <div className="flex-1 min-h-0 overflow-auto">
         <EmailProcesses notify={notify} />
+        </div>
       ) : null}
 
       {section === 'settings' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
             {[
               { key: 'credentials', label: 'Credentials' },
@@ -5125,7 +5129,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'reports' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           {/* Filter Header */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-wrap gap-4 items-center justify-between">
             <div>
@@ -5251,7 +5255,7 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
       {section === 'prospective-students' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Prospective Students</h2>
             <p className="text-sm text-slate-500 mt-1">Students created from approved form submissions.</p>
@@ -5308,7 +5312,7 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'forms' ? (
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
           {/* Forms header */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
@@ -5677,6 +5681,7 @@ const LecturerDashboard = () => {
           </div>
         )
       })() : null}
+      </div>
     </AppShell>
   )
 }

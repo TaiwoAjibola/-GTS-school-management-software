@@ -99,13 +99,15 @@ const StudentDashboard = () => {
 
   return (
     <AppShell title={title} navItems={navItems}>
-      <div className="grid sm:grid-cols-4 gap-4 mb-6">
+      <div className="h-full flex flex-col gap-5 overflow-hidden">
+        <div className="grid sm:grid-cols-4 gap-4 shrink-0">
         <Card title="Enrolled Courses" value={courses.length} />
         <Card title="Assignments" value={assignments.length} />
         <Card title="Exams" value={exams.length} />
         <Card title="Results" value={results.length} />
       </div>
 
+      <div className="flex-1 min-h-0 overflow-auto">
       {section === 'courses' ? (
         <div className="grid gap-4">
           {attendanceSummary.map(({ course, progressInfo, progressPct }) => (
@@ -255,6 +257,8 @@ const StudentDashboard = () => {
           </ul>
         </div>
       ) : null}
+      </div>
+      </div>
     </AppShell>
   )
 }

@@ -310,12 +310,13 @@ export default function CoursePage() {
 
   return (
     <AppShell title={course.title} groups={lecturerNavGroups}>
+      <div className="h-full flex flex-col gap-5 overflow-hidden">
       {notice ? (
-        <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm">{notice}</div>
+        <div className="mb-4 rounded-lg bg-emerald-100 text-emerald-800 px-4 py-2 text-sm shrink-0">{notice}</div>
       ) : null}
 
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 shrink-0">
         <button
           type="button"
           onClick={() => navigate('/lecturer/courses')}
@@ -416,7 +417,7 @@ export default function CoursePage() {
 
       {/* Plan dates banner */}
       {planDates && !currentBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3">
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 shrink-0">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-400 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-sky-800">
@@ -431,7 +432,7 @@ export default function CoursePage() {
 
       {/* Current session banner */}
       {currentBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3">
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 shrink-0">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
           <div>
             <p className="text-sm font-semibold text-emerald-800">
@@ -443,7 +444,7 @@ export default function CoursePage() {
           </div>
         </div>
       ) : upcomingBatch ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gold-200 bg-gold-50 px-5 py-3">
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gold-200 bg-gold-50 px-5 py-3 shrink-0">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-gold-500 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-gold-800">
@@ -455,14 +456,14 @@ export default function CoursePage() {
           </div>
         </div>
       ) : batches.length > 0 ? (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3">
+        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 shrink-0">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-400 shrink-0" />
           <p className="text-sm text-slate-600">No session currently in progress.</p>
         </div>
       ) : null}
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit shrink-0">
         {[
           { key: 'current', label: 'Active Students', icon: Users },
           { key: 'history', label: 'History', icon: ClipboardList },
@@ -486,7 +487,7 @@ export default function CoursePage() {
 
       {/* Current batch tab */}
       {activeTab === 'current' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto flex-1 min-h-0">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h3 className="font-semibold text-slate-900">Active Students</h3>
             <span className="text-sm text-slate-500">{enrolledStudentIds.size} enrolled</span>
@@ -721,7 +722,7 @@ export default function CoursePage() {
 
       {/* Materials tab */}
       {activeTab === 'materials' ? (
-        <div className="grid lg:grid-cols-[360px_1fr] gap-6">
+        <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
           <form onSubmit={uploadMaterial} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
             <h3 className="font-semibold text-slate-900">Upload Course Material</h3>
             <p className="text-sm text-slate-500">Upload general materials or assign a section number.</p>
@@ -826,7 +827,7 @@ export default function CoursePage() {
 
       {/* Awaiting re-enrollment tab */}
       {activeTab === 'waiting' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto flex-1 min-h-0">
           <h3 className="font-semibold text-slate-900 mb-4">Students Awaiting Re-enrollment</h3>
           <table className="data-table w-full text-sm">
             <thead className="text-left text-slate-500">
@@ -875,7 +876,7 @@ export default function CoursePage() {
 
       {/* All students history tab */}
       {activeTab === 'history' ? (
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 min-h-0 overflow-auto">
           <h3 className="font-semibold text-slate-900">All-Time Enrollment History</h3>
           {(() => {
             // Group enrollments by cohort
@@ -941,7 +942,7 @@ export default function CoursePage() {
 
       {/* Assignments tab */}
       {activeTab === 'assignments' ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto flex-1 min-h-0">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900">Assignment History</h3>
             {!course.has_assignment ? (
@@ -1197,6 +1198,7 @@ export default function CoursePage() {
           </form>
         </div>
       ) : null}
+      </div>
     </AppShell>
   )
 }

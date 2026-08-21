@@ -214,21 +214,22 @@ export default function StudentProfilePage() {
 
   return (
     <AppShell title={student.full_name} groups={lecturerNavGroups}>
+      <div className="h-full flex flex-col gap-5 overflow-hidden">
       {loadError ? (
-        <div className="mb-4 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm">{loadError}</div>
+        <div className="shrink-0 rounded-lg bg-amber-100 text-amber-800 px-4 py-2 text-sm">{loadError}</div>
       ) : null}
 
       {/* Back */}
       <button
         type="button"
         onClick={() => navigate('/lecturer/students')}
-        className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 mb-5"
+        className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 shrink-0"
       >
         <ArrowLeft size={15} /> Back to Students
       </button>
 
       {/* Student header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm shrink-0">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4">
             <div
@@ -453,7 +454,7 @@ export default function StudentProfilePage() {
       )}
 
       {/* Status Pipeline */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm mb-6">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm shrink-0">
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Student Lifecycle Pipeline</h3>
         <div className="flex items-center gap-1 overflow-x-auto pb-2">
           {ALL_STATUSES.map((s, i, arr) => {
@@ -501,7 +502,7 @@ export default function StudentProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 shrink-0 bg-slate-100 rounded-xl p-1 w-fit">
         {[
           { key: 'path', label: 'Graduation Path' },
           { key: 'history', label: 'Enrollment History' },
@@ -522,6 +523,7 @@ export default function StudentProfilePage() {
       </div>
 
       {/* Graduation path */}
+      <div className="flex-1 min-h-0 overflow-auto">
       {activeTab === 'path' ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <h3 className="font-semibold text-slate-900 mb-4">All Modules — Graduation Path</h3>
@@ -814,6 +816,8 @@ export default function StudentProfilePage() {
           </div>
         </div>
       ) : null}
+      </div>
+      </div>
     </AppShell>
   )
 }
