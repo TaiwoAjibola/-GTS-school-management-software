@@ -3,6 +3,7 @@ import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, Gra
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
+import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { lecturerNavGroups } from '../constants/lecturerNav'
@@ -616,15 +617,9 @@ const LecturerDashboard = () => {
       result = result.filter((student) => student.status === studentStatusFilter)
     }
 
-    if (!studentSearch.trim()) return result
-    const lower = studentSearch.toLowerCase()
-    return result.filter(
-      (student) =>
-        student.full_name.toLowerCase().includes(lower) ||
-        student.email.toLowerCase().includes(lower) ||
-        student.matric_no.toLowerCase().includes(lower)
-    )
-  }, [allStudents, studentSearch, studentCohortFilter, studentStatusFilter])
+    // Column/global search is handled by DataTable — keep only toolbar filters here
+    return result
+  }, [allStudents, studentCohortFilter, studentStatusFilter])
 
   const filteredGraduationStudents = useMemo(() => {
     const query = graduationSearch.trim().toLowerCase()
@@ -1698,133 +1693,143 @@ const LecturerDashboard = () => {
           </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between gap-3 p-5 pb-3">
-              <div className="flex items-center gap-3">
-                <h3 className="font-semibold text-slate-900 text-base">Course List</h3>
-                <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
-              </div>
-              <div className="relative w-64">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search courses..."
-                  value={courseSearch}
-                  onChange={(e) => setCourseSearch(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-slate-50 focus:bg-white focus:border-slate-300 transition-colors outline-none"
-                />
-              </div>
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="font-semibold text-slate-900 text-base">Course List</h3>
+              <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-y border-slate-100 bg-slate-50/50">
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Code</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Course Title</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Lecturer</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Schedule</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Duration</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Attendance</th>
-                    <th className="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
-                    <th className="text-right px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {courses.filter((c) => {
-                    if (!courseSearch) return true
-                    const q = courseSearch.toLowerCase()
-                    return c.title?.toLowerCase().includes(q) || c.course_code?.toLowerCase().includes(q) || c.lecturer_name?.toLowerCase().includes(q)
-                  }).map((course) => (
-                    <tr key={course.id} className={`group hover:bg-slate-50 transition-colors ${course.is_current ? 'bg-amber-50/40' : ''}`}>
-                      <td className="px-4 py-3.5">
-                        <span className="font-mono text-xs font-medium text-slate-500 bg-slate-100 rounded-md px-2 py-0.5">{course.course_code || '—'}</span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-gold-700 transition-colors">
-                          {course.title}
-                        </Link>
-                        {course.is_current && (
-                          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            Current
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600">{course.lecturer_name || course.assigned_lecturer || <span className="text-slate-300">—</span>}</td>
-                      <td className="px-4 py-3.5">
-                        {course.class_day || course.class_time ? (
-                          <div className="flex flex-col">
-                            {course.class_day && <span className="text-slate-700 font-medium">{course.class_day}</span>}
-                            {course.class_time && <span className="text-xs text-slate-400">{course.class_time}</span>}
-                          </div>
-                        ) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex flex-col">
-                          <span className="text-slate-700 text-xs">{fmtDateRange(course.start_date, course.end_date)}</span>
-                          <span className="text-[11px] text-slate-400">{course.duration_weeks} week{course.duration_weeks !== 1 ? 's' : ''}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {course.min_attendance_required ? (
-                          <span className="text-slate-700">{course.min_attendance_required}%</span>
-                        ) : <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        {course.is_current ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Active
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setCourseAsCurrent(course.id)}
-                            className="rounded-lg px-2.5 py-1 text-[11px] font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
-                          >
-                            Set active
-                          </button>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Link
-                            to={`/lecturer/courses/${course.id}`}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                            title="View course"
-                          >
-                            <BookOpen size={15} />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => deleteCourse(course.id, course.title)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
-                            title="Delete course"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {!courses.filter((c) => {
-                    if (!courseSearch) return true
-                    const q = courseSearch.toLowerCase()
-                    return c.title?.toLowerCase().includes(q) || c.course_code?.toLowerCase().includes(q) || c.lecturer_name?.toLowerCase().includes(q)
-                  }).length ? (
-                    <tr>
-                      <td colSpan={8} className="py-12 text-center">
-                        <BookOpen size={32} className="mx-auto text-slate-200 mb-2" />
-                        <p className="text-sm text-slate-400">
-                          {courseSearch ? 'No courses match your search.' : 'No courses yet. Create one using the form.'}
-                        </p>
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              data={courses}
+              rowKey="id"
+              initialPageSize={25}
+              emptyMessage="No courses yet. Create one using the form."
+              emptyIcon={<BookOpen size={32} />}
+              rowClassName={(course) => (course.is_current ? '!bg-amber-50/50' : '')}
+              globalSearchPlaceholder="Search code, title, lecturer…"
+              defaultSort={{ id: 'title', dir: 'asc' }}
+              columns={[
+                {
+                  id: 'course_code',
+                  header: 'Code',
+                  accessor: 'course_code',
+                  width: '110px',
+                  cell: (course) => (
+                    <span className="font-mono text-xs font-medium text-slate-600 bg-slate-100 rounded-md px-2 py-0.5">
+                      {course.course_code || '—'}
+                    </span>
+                  ),
+                },
+                {
+                  id: 'title',
+                  header: 'Course Title',
+                  accessor: 'title',
+                  cell: (course) => (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Link to={`/lecturer/courses/${course.id}`} className="font-medium text-slate-900 hover:text-gold-700 transition-colors truncate">
+                        {course.title}
+                      </Link>
+                      {course.is_current ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          Current
+                        </span>
+                      ) : null}
+                    </div>
+                  ),
+                },
+                {
+                  id: 'lecturer',
+                  header: 'Lecturer',
+                  accessor: (c) => c.lecturer_name || c.assigned_lecturer || '',
+                  cell: (c) => c.lecturer_name || c.assigned_lecturer || null,
+                },
+                {
+                  id: 'schedule',
+                  header: 'Schedule',
+                  accessor: (c) => [c.class_day, c.class_time].filter(Boolean).join(' '),
+                  cell: (course) => (
+                    course.class_day || course.class_time ? (
+                      <div className="flex flex-col">
+                        {course.class_day ? <span className="text-slate-700 font-medium">{course.class_day}</span> : null}
+                        {course.class_time ? <span className="text-xs text-slate-400">{course.class_time}</span> : null}
+                      </div>
+                    ) : null
+                  ),
+                },
+                {
+                  id: 'duration',
+                  header: 'Duration',
+                  accessor: 'duration_weeks',
+                  sortType: 'number',
+                  cell: (course) => (
+                    <div className="flex flex-col">
+                      <span className="text-slate-700 text-xs">{fmtDateRange(course.start_date, course.end_date)}</span>
+                      <span className="text-[11px] text-slate-400">{course.duration_weeks} week{course.duration_weeks !== 1 ? 's' : ''}</span>
+                    </div>
+                  ),
+                },
+                {
+                  id: 'attendance',
+                  header: 'Attendance',
+                  accessor: 'min_attendance_required',
+                  sortType: 'number',
+                  width: '110px',
+                  cell: (c) => (c.min_attendance_required != null ? `${c.min_attendance_required}%` : null),
+                },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  accessor: (c) => (c.is_current ? 'Active' : 'Inactive'),
+                  filterType: 'select',
+                  filterOptions: ['Active', 'Inactive'],
+                  align: 'center',
+                  width: '120px',
+                  cell: (course) => (
+                    course.is_current ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Active
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setCourseAsCurrent(course.id)}
+                        className="rounded-lg px-2.5 py-1 text-[11px] font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
+                      >
+                        Set active
+                      </button>
+                    )
+                  ),
+                },
+                {
+                  id: 'actions',
+                  header: '',
+                  filterable: false,
+                  sortable: false,
+                  align: 'right',
+                  width: '90px',
+                  cell: (course) => (
+                    <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <Link
+                        to={`/lecturer/courses/${course.id}`}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                        title="View course"
+                      >
+                        <BookOpen size={15} />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => deleteCourse(course.id, course.title)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                        title="Delete course"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
         </div>
       ) : null}
@@ -2283,32 +2288,49 @@ const LecturerDashboard = () => {
               ))}
             </select>
           </div>
-          <table className="w-full text-sm">
-            <thead className="text-left text-slate-500">
-              <tr><th className="pb-2">Student</th><th>Matric</th><th>Enrollment</th><th>Result</th><th>Score</th><th>Notes</th></tr>
-            </thead>
-            <tbody>
-              {batchStudents.map((student) => (
-                <tr key={student.id} className="border-t border-slate-200">
-                  <td className="py-3">
-                    <Link to={`/lecturer/students/${student.student_id}`} className="font-medium text-slate-900 hover:underline">
-                      {student.full_name}
-                    </Link>
-                  </td>
-                  <td>{student.matric_no}</td>
-                  <td>{student.status}</td>
-                  <td>{student.result_status || '-'}</td>
-                  <td>{student.score ?? '-'}</td>
-                  <td>{student.notes || '-'}</td>
-                </tr>
-              ))}
-              {!batchStudents.length ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-500">No students found for selected batch.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+          <DataTable
+            data={batchStudents}
+            rowKey="id"
+            initialPageSize={25}
+            emptyMessage="No students found for selected batch."
+            globalSearchPlaceholder="Search student, matric, status…"
+            defaultSort={{ id: 'full_name', dir: 'asc' }}
+            columns={[
+              {
+                id: 'full_name',
+                header: 'Student',
+                accessor: 'full_name',
+                cell: (student) => (
+                  <Link to={`/lecturer/students/${student.student_id}`} className="font-medium text-slate-900 hover:underline">
+                    {student.full_name}
+                  </Link>
+                ),
+              },
+              { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+              {
+                id: 'status',
+                header: 'Enrollment',
+                accessor: 'status',
+                filterType: 'select',
+                filterOptions: [...new Set(batchStudents.map((s) => s.status).filter(Boolean))],
+              },
+              {
+                id: 'result_status',
+                header: 'Result',
+                accessor: 'result_status',
+                filterType: 'select',
+                filterOptions: ['Pass', 'Fail', 'Pending'],
+              },
+              {
+                id: 'score',
+                header: 'Score',
+                accessor: 'score',
+                sortType: 'number',
+                cell: (s) => (s.score != null ? s.score : null),
+              },
+              { id: 'notes', header: 'Notes', accessor: 'notes' },
+            ]}
+          />
         </div>
       ) : null}
 
@@ -2341,46 +2363,41 @@ const LecturerDashboard = () => {
               {prospectiveStudentsLoading ? (
                 <p className="text-sm text-slate-500">Loading...</p>
               ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="text-left px-4 py-3 font-medium text-slate-700">Name</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-700">Email</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-700">Form</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-700">Cohort</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-700">Submitted</th>
-                          <th className="text-left px-4 py-3 font-medium text-slate-700">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {prospectiveStudents.map((s) => (
-                          <tr key={s.student_id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="px-4 py-3 font-medium text-slate-900">{s.full_name}</td>
-                            <td className="px-4 py-3 text-slate-600">{s.email}</td>
-                            <td className="px-4 py-3 text-slate-600">{s.form_title || '-'}</td>
-                            <td className="px-4 py-3 text-slate-600">{s.cohort_name || '-'}</td>
-                            <td className="px-4 py-3 text-slate-500 text-xs">
-                              {s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '-'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
-                                {s.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                        {!prospectiveStudents.length && (
-                          <tr>
-                            <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                              No prospective students yet.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                <div>
+                    <DataTable
+                      data={prospectiveStudents}
+                      rowKey="student_id"
+                      initialPageSize={25}
+                      emptyMessage="No prospective students yet."
+                      emptyIcon={<UserPlus size={32} />}
+                      globalSearchPlaceholder="Search name, email, form…"
+                      defaultSort={{ id: 'submitted_at', dir: 'desc' }}
+                      columns={[
+                        { id: 'full_name', header: 'Name', accessor: 'full_name', cell: (s) => <span className="font-medium text-slate-900">{s.full_name}</span> },
+                        { id: 'email', header: 'Email', accessor: 'email' },
+                        { id: 'form_title', header: 'Form', accessor: 'form_title' },
+                        { id: 'cohort_name', header: 'Cohort', accessor: 'cohort_name' },
+                        {
+                          id: 'submitted_at',
+                          header: 'Submitted',
+                          accessor: 'submitted_at',
+                          sortType: 'date',
+                          cell: (s) => (s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : null),
+                        },
+                        {
+                          id: 'status',
+                          header: 'Status',
+                          accessor: 'status',
+                          filterType: 'select',
+                          filterOptions: ['Prospective'],
+                          cell: (s) => (
+                            <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                              {s.status}
+                            </span>
+                          ),
+                        },
+                      ]}
+                    />
                 </div>
               )}
             </div>
@@ -2537,10 +2554,10 @@ const LecturerDashboard = () => {
 
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-            <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <h3 className="font-semibold text-slate-900">Student Directory</h3>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   className="border rounded-lg px-3 py-2 text-sm"
                   value={studentCohortFilter}
@@ -2566,96 +2583,121 @@ const LecturerDashboard = () => {
                   <option value="Graduated">Graduated</option>
                   <option value="Alumni">Alumni</option>
                 </select>
-                <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Search name/email/matric" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} />
                 <button
                   type="button"
                   onClick={exportStudentList}
-                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm text-white"
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm text-white cursor-pointer"
                 >
                   <Download size={14} /> Export
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowBatchDrawer(true)}
-                  className="rounded-lg bg-slate-200 px-3 py-2 text-sm text-slate-700"
+                  className="rounded-lg bg-slate-200 px-3 py-2 text-sm text-slate-700 cursor-pointer"
                 >
                   Manage Batches
                 </button>
               </div>
             </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
-              <thead className="text-left text-slate-500 bg-slate-50">
-                <tr>
-                  <th className="pb-2 pt-2 px-3 font-medium"></th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Name</th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Matric</th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Phone</th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Email</th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Status</th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Batch</th>
-                  <th className="pb-2 pt-2 px-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.map((student) => (
-                  <tr key={student.id} className="border-t border-slate-200 hover:bg-slate-50">
-                    <td className="py-3 px-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
-                        {student.profile_image_url ? (
-                          <img src={student.profile_image_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-bold text-slate-500">{(student.full_name || '?')[0].toUpperCase()}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <Link to={`/lecturer/students/${student.id}`} className="font-medium text-slate-900 hover:underline">
-                        {student.full_name}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-3 whitespace-nowrap">{student.matric_no || <span className="text-slate-400 text-xs italic">pending</span>}</td>
-                    <td className="py-3 px-3 whitespace-nowrap">{student.phone || '—'}</td>
-                    <td className="py-3 px-3 whitespace-nowrap">{student.email}</td>
-                    <td className="py-3 px-3 whitespace-nowrap">
+            <DataTable
+              data={filteredStudents}
+              rowKey="id"
+              initialPageSize={25}
+              emptyMessage="No students match these filters."
+              emptyIcon={<Users size={32} />}
+              globalSearchPlaceholder="Search name, email, matric, phone…"
+              defaultSort={{ id: 'full_name', dir: 'asc' }}
+              columns={[
+                {
+                  id: 'avatar',
+                  header: '',
+                  filterable: false,
+                  sortable: false,
+                  width: '52px',
+                  cell: (student) => (
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
+                      {student.profile_image_url ? (
+                        <img src={student.profile_image_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-slate-500">{(student.full_name || '?')[0].toUpperCase()}</span>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  id: 'full_name',
+                  header: 'Name',
+                  accessor: 'full_name',
+                  cell: (student) => (
+                    <Link to={`/lecturer/students/${student.id}`} className="font-medium text-slate-900 hover:underline">
+                      {student.full_name}
+                    </Link>
+                  ),
+                },
+                {
+                  id: 'matric_no',
+                  header: 'Matric',
+                  accessor: 'matric_no',
+                  cell: (s) => s.matric_no || <span className="text-slate-400 text-xs italic">pending</span>,
+                },
+                { id: 'phone', header: 'Phone', accessor: 'phone' },
+                { id: 'email', header: 'Email', accessor: 'email' },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  accessor: 'status',
+                  filterType: 'select',
+                  filterOptions: ['Active', 'Prospective', 'Graduating', 'Graduated', 'Alumni', 'On Hold', 'Suspended'],
+                  cell: (student) => (
+                    <button
+                      type="button"
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-gold-300 ${STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'}`}
+                      onClick={() => {
+                        setQuickStatusStudent(student)
+                        setQuickSelectedStatus(null)
+                        setQuickStatusReason('')
+                        apiClient.get(`/students/${student.id}/next-statuses`).then((r) => setQuickStatusOptions(r.data.nextStatuses || [])).catch(() => setQuickStatusOptions([]))
+                        setShowQuickStatus(true)
+                      }}
+                    >
+                      {student.status}
+                    </button>
+                  ),
+                },
+                {
+                  id: 'cohort_name',
+                  header: 'Batch',
+                  accessor: 'cohort_name',
+                  filterType: 'select',
+                  filterOptions: cohorts.map((c) => c.name).filter(Boolean),
+                },
+                {
+                  id: 'actions',
+                  header: 'Actions',
+                  filterable: false,
+                  sortable: false,
+                  align: 'right',
+                  cell: (student) => (
+                    <div className="flex items-center justify-end gap-2">
+                      <button type="button" onClick={() => openStudentPanel(student)} className="rounded-lg px-3 py-1.5 bg-slate-100 text-slate-700 text-xs hover:bg-slate-200 cursor-pointer">View</button>
                       <button
                         type="button"
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-all hover:ring-2 hover:ring-slate-300 ${STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-700'}`}
-                        onClick={() => {
-                          setQuickStatusStudent(student)
-                          setQuickSelectedStatus(null)
-                          setQuickStatusReason('')
-                          apiClient.get(`/students/${student.id}/next-statuses`).then((r) => setQuickStatusOptions(r.data.nextStatuses || [])).catch(() => setQuickStatusOptions([]))
-                          setShowQuickStatus(true)
+                        className="rounded-lg px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 text-xs hover:bg-red-100 cursor-pointer"
+                        onClick={async () => {
+                          if (!window.confirm(`Delete ${student.full_name}? This cannot be undone.`)) return
+                          try {
+                            await apiClient.delete(`/students/${student.id}`)
+                            setAllStudents((prev) => prev.filter((s) => s.id !== student.id))
+                          } catch (err) {
+                            alert(err?.response?.data?.message || 'Delete failed')
+                          }
                         }}
-                      >
-                        {student.status}
-                      </button>
-                    </td>
-                    <td className="py-3 px-3 whitespace-nowrap">{student.cohort_name || <span className="text-slate-400">—</span>}</td>
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openStudentPanel(student)} className="rounded-lg px-3 py-1.5 bg-slate-100 text-slate-700 text-xs hover:bg-slate-200">View</button>
-                        <button
-                          type="button"
-                          className="rounded-lg px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 text-xs hover:bg-red-100"
-                          onClick={async () => {
-                            if (!window.confirm(`Delete ${student.full_name}? This cannot be undone.`)) return
-                            try {
-                              await apiClient.delete(`/students/${student.id}`)
-                              setAllStudents((prev) => prev.filter((s) => s.id !== student.id))
-                            } catch (err) {
-                              alert(err?.response?.data?.message || 'Delete failed')
-                            }
-                          }}
-                        >Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
+                      >Delete</button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
 
           {selectedStudent && studentEditForm ? (
@@ -4049,135 +4091,158 @@ const LecturerDashboard = () => {
             <Card title="Graduated" value={graduationStatusCounts.Graduated} />
             <Card title="Alumni" value={graduationStatusCounts.Alumni} />
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <h3 className="font-semibold text-slate-900">Graduation Matrix</h3>
-              <div className="flex items-center gap-2">
-                <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Search name/email/matric" value={graduationSearch} onChange={(event) => setGraduationSearch(event.target.value)} />
-                <select className="border rounded-lg px-3 py-2 text-sm" value={graduationSortBy} onChange={(event) => setGraduationSortBy(event.target.value)}>
-                  <option value="progress">Sort: Progress</option>
-                  <option value="name">Sort: Name</option>
-                  <option value="status">Sort: Status</option>
+              <div className="flex flex-wrap items-center gap-2">
+                {['all', 'Active', 'Graduating', 'Graduated', 'Alumni'].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setGraduationStatusFilter(value)}
+                    className={`rounded-full px-3 py-1 text-xs border cursor-pointer ${graduationStatusFilter === value ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
+                  >
+                    {value === 'all' ? 'All Statuses' : value}
+                  </button>
+                ))}
+                <select
+                  className="rounded-full px-3 py-1 text-xs border bg-white text-slate-600"
+                  value={graduationCohortFilter}
+                  onChange={(event) => setGraduationCohortFilter(event.target.value)}
+                >
+                  <option value="">All Batches</option>
+                  {cohorts.map((cohort) => (
+                    <option key={cohort.id} value={String(cohort.id)}>
+                      {cohort.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              {['all', 'Active', 'Graduating', 'Graduated', 'Alumni'].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGraduationStatusFilter(value)}
-                  className={`rounded-full px-3 py-1 text-xs border ${graduationStatusFilter === value ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
-                >
-                  {value === 'all' ? 'All Statuses' : value}
-                </button>
-              ))}
-              <select
-                className="rounded-full px-3 py-1 text-xs border bg-white text-slate-600"
-                value={graduationCohortFilter}
-                onChange={(event) => setGraduationCohortFilter(event.target.value)}
-              >
-                <option value="">All Batches</option>
-                {cohorts.map((cohort) => (
-                  <option key={cohort.id} value={String(cohort.id)}>
-                    {cohort.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <table className="w-full text-sm min-w-275">
-              <thead className="text-left text-slate-500">
-                <tr>
-                  <th className="pb-2 sticky left-0 bg-white">Student</th>
-                  <th>Matric</th>
-                  <th>Status</th>
-                  <th>Progress</th>
-                  <th>Passed</th>
-                  <th>Remaining</th>
-                  {graduationMatrix.courses.map((course) => (
-                    <th key={course.id} className="whitespace-nowrap">
-                      <Link to={`/lecturer/courses/${course.id}`} className="hover:underline text-slate-700">
-                        {course.course_code || course.title}
-                      </Link>
-                    </th>
-                  ))}
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredGraduationStudents.map((student) => (
-                  <tr key={student.id} className="border-t border-slate-200">
-                    <td className="py-3 sticky left-0 bg-white">
-                      <Link to={`/lecturer/students/${student.id}`} className="font-medium text-slate-900 hover:underline">
-                        {student.full_name}
-                      </Link>
-                    </td>
-                    <td>{student.matric_no}</td>
-                    <td>{student.status}</td>
-                    <td>{student.completion_pct}%</td>
-                    <td>{student.passed}</td>
-                    <td>{student.remaining}</td>
-                    {graduationMatrix.courses.map((course) => {
-                      const info = student.courses?.[course.id]
-                      const isCurrent = info?.enrollment_status === 'active'
-                      const content = info?.result_status === 'Pass'
-                        ? <span className="text-emerald-600 font-semibold">✓</span>
-                        : info?.result_status === 'Fail'
-                        ? <span className="text-red-500 font-semibold">✗</span>
-                        : info?.enrollment_status === 'active'
-                        ? <span className="text-sky-600">⏳</span>
-                        : <span className="text-slate-300">—</span>
-                      return (
-                        <td key={`${student.id}-${course.id}`} className={`text-center ${isCurrent ? 'bg-amber-50' : ''}`}>
-                          {content}
-                        </td>
-                      )
-                    })}
-                    <td>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className="rounded-lg p-2 bg-slate-100 text-slate-700"
-                          onClick={() => setOpenGraduationActionFor((prev) => (prev === student.id ? null : student.id))}
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                        {openGraduationActionFor === student.id ? (
-                          <div className="absolute right-0 mt-2 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
-                            <button type="button" className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50" onClick={() => openGradVetting(student, 'Graduating')}>
-                              Mark as Graduating
-                            </button>
-                            <button
-                              type="button"
-                              className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40"
-                              disabled={student.remaining > 0 || student.failed > 0}
-                              onClick={() => openGradVetting(student, 'Graduated')}
-                            >
-                              Mark as Graduated
-                            </button>
-                            <button
-                              type="button"
-                              className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40"
-                              disabled={student.status !== 'Graduated'}
-                              onClick={() => { updateStudentLifecycle(student, 'Alumni'); setOpenGraduationActionFor(null) }}
-                            >
-                              Mark as Alumni
-                            </button>
-                          </div>
-                        ) : null}
+            <DataTable
+              data={filteredGraduationStudents}
+              rowKey="id"
+              initialPageSize={25}
+              maxHeight="70vh"
+              emptyMessage="No students match the current filters."
+              emptyIcon={<GraduationCap size={32} />}
+              globalSearchPlaceholder="Search name, matric, status…"
+              defaultSort={{ id: 'completion_pct', dir: 'desc' }}
+              columns={[
+                {
+                  id: 'full_name',
+                  header: 'Student',
+                  accessor: 'full_name',
+                  cell: (student) => (
+                    <Link to={`/lecturer/students/${student.id}`} className="font-medium text-slate-900 hover:underline">
+                      {student.full_name}
+                    </Link>
+                  ),
+                },
+                { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  accessor: 'status',
+                  filterType: 'select',
+                  filterOptions: ['Active', 'Graduating', 'Graduated', 'Alumni'],
+                  cell: (s) => (
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[s.status] || 'bg-slate-100 text-slate-700'}`}>
+                      {s.status}
+                    </span>
+                  ),
+                },
+                {
+                  id: 'completion_pct',
+                  header: 'Progress',
+                  accessor: 'completion_pct',
+                  sortType: 'number',
+                  cell: (s) => (
+                    <div className="flex items-center gap-2 min-w-[100px]">
+                      <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                        <div className="h-full rounded-full bg-gold-600" style={{ width: `${Math.min(Number(s.completion_pct) || 0, 100)}%` }} />
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {!filteredGraduationStudents.length ? (
-                  <tr>
-                    <td colSpan={7 + (graduationMatrix.courses?.length || 0)} className="py-6 text-center text-slate-500">No students match the current filters.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+                      <span className="text-xs font-semibold text-slate-700 tabular-nums w-9 text-right">{s.completion_pct}%</span>
+                    </div>
+                  ),
+                },
+                { id: 'passed', header: 'Passed', accessor: 'passed', sortType: 'number', align: 'center' },
+                { id: 'remaining', header: 'Remaining', accessor: 'remaining', sortType: 'number', align: 'center' },
+                ...(graduationMatrix.courses || []).map((course) => ({
+                  id: `course_${course.id}`,
+                  header: course.course_code || course.title,
+                  accessor: (student) => {
+                    const info = student.courses?.[course.id]
+                    if (info?.result_status === 'Pass') return 'Pass'
+                    if (info?.result_status === 'Fail') return 'Fail'
+                    if (info?.enrollment_status === 'active') return 'Active'
+                    return ''
+                  },
+                  filterType: 'select',
+                  filterOptions: ['Pass', 'Fail', 'Active'],
+                  align: 'center',
+                  sortable: true,
+                  cell: (student) => {
+                    const info = student.courses?.[course.id]
+                    const isCurrent = info?.enrollment_status === 'active'
+                    const content = info?.result_status === 'Pass'
+                      ? <span className="text-emerald-600 font-semibold">✓</span>
+                      : info?.result_status === 'Fail'
+                      ? <span className="text-red-500 font-semibold">✗</span>
+                      : info?.enrollment_status === 'active'
+                      ? <span className="text-sky-600 font-medium text-xs">In progress</span>
+                      : null
+                    return (
+                      <span className={`inline-flex min-w-[2rem] justify-center rounded-md px-1 ${isCurrent ? 'bg-amber-50' : ''}`}>
+                        {content}
+                      </span>
+                    )
+                  },
+                })),
+                {
+                  id: 'actions',
+                  header: 'Action',
+                  filterable: false,
+                  sortable: false,
+                  align: 'right',
+                  cell: (student) => (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+                        onClick={() => setOpenGraduationActionFor((prev) => (prev === student.id ? null : student.id))}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                      {openGraduationActionFor === student.id ? (
+                        <div className="absolute right-0 mt-2 z-30 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                          <button type="button" className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer" onClick={() => openGradVetting(student, 'Graduating')}>
+                            Mark as Graduating
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                            disabled={student.remaining > 0 || student.failed > 0}
+                            onClick={() => openGradVetting(student, 'Graduated')}
+                          >
+                            Mark as Graduated
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                            disabled={student.status !== 'Graduated'}
+                            onClick={() => { updateStudentLifecycle(student, 'Alumni'); setOpenGraduationActionFor(null) }}
+                          >
+                            Mark as Alumni
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
         </div>
       ) : null}

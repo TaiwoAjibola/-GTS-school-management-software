@@ -113,9 +113,7 @@ input:focus, select:focus, textarea:focus {
   outline: none;
 }
 
-/* ─── Data tables (GTS brand) ───────────────────────────────────────────
-   Global polish for every <table> — density, hierarchy, warm gold accents.
-   Tailwind utilities on individual cells still win when present. */
+/* ─── Data tables (GTS brand) ─────────────────────────────────────────── */
 table {
   width: 100%;
   border-collapse: separate;
@@ -125,23 +123,68 @@ table {
   color: #352f2a;
 }
 
-/* Soft shell when a table is the direct child of a scroll container */
-.overflow-x-auto:has(> table),
-.overflow-auto:has(> table) {
-  border: 1px solid #e7e0d3;
-  border-radius: 0.9rem;
-  background: #fffdf9;
-  box-shadow: 0 1px 0 rgba(33, 29, 25, 0.03);
+/* DataTable component */
+.dt-root {
+  --dt-header: linear-gradient(180deg, #fbf6ea 0%, #f4f0e9 100%);
+  --dt-row: #fffdf9;
+  --dt-row-alt: #faf7f1;
+  --dt-hover: #f8f1e0;
+  --dt-border: #e7e0d3;
 }
 
-/* Cards that wrap a bare table (common dashboard pattern) */
-.bg-white:has(> table),
-.bg-white:has(> .overflow-x-auto > table),
-.bg-white:has(> .overflow-auto > table) {
-  /* keep existing card styles; table inside inherits shell via overflow wrapper */
+.dt-table thead th {
+  background: var(--dt-header);
+  border-bottom: 1px solid var(--dt-border);
+  white-space: nowrap;
+  vertical-align: middle;
+  font-weight: 650;
+  color: #6e6352;
 }
 
-thead th {
+.dt-table thead tr.dt-filter-row th {
+  background: #f7f1e4;
+  position: sticky;
+  top: 2.6rem;
+  z-index: 15;
+  box-shadow: inset 0 -1px 0 var(--dt-border);
+}
+
+.dt-table tbody tr.dt-row {
+  background: var(--dt-row);
+  transition: background-color 0.15s ease;
+}
+
+.dt-table tbody tr.dt-row:nth-child(even) {
+  background: var(--dt-row-alt);
+}
+
+.dt-table tbody tr.dt-row:hover {
+  background: var(--dt-hover);
+}
+
+.dt-table tbody td {
+  vertical-align: middle;
+  border-bottom: 1px solid #efe9df;
+}
+
+.dt-table tbody tr:last-child td {
+  border-bottom-color: transparent;
+}
+
+.dt-table tbody td a {
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.dt-table tbody td a:hover {
+  color: #8a6f3d;
+}
+
+.dt-table tbody td .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Legacy plain tables (not yet migrated) still get a baseline polish */
+thead:not(.dt-table thead) th {
   text-align: left;
   font-size: 0.6875rem;
   font-weight: 650;
@@ -150,70 +193,27 @@ thead th {
   color: #6e6352;
   background: linear-gradient(180deg, #fbf6ea 0%, #f4f0e9 100%);
   border-bottom: 1px solid #e7e0d3;
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 1rem;
   white-space: nowrap;
-  vertical-align: middle;
-  position: sticky;
-  top: 0;
-  z-index: 2;
 }
 
-/* First/last header cells pick up rounded shell corners */
-.overflow-x-auto:has(> table) thead th:first-child,
-.overflow-auto:has(> table) thead th:first-child {
-  border-top-left-radius: 0.85rem;
+tbody:not(.dt-table tbody) tr {
+  background: #fffdf9;
+  transition: background-color 0.15s ease;
 }
-.overflow-x-auto:has(> table) thead th:last-child,
-.overflow-auto:has(> table) thead th:last-child {
-  border-top-right-radius: 0.85rem;
+tbody:not(.dt-table tbody) tr:nth-child(even) {
+  background: #faf7f1;
 }
-
-tbody td {
-  padding: 0.9rem 1rem;
+tbody:not(.dt-table tbody) tr:hover {
+  background: #f8f1e0;
+}
+tbody:not(.dt-table tbody) td {
+  padding: 0.85rem 1rem;
   border-bottom: 1px solid #efe9df;
   vertical-align: middle;
   color: #514840;
-  background-color: transparent;
-  transition: color 0.15s ease;
 }
 
-tbody tr {
-  background-color: #fffdf9;
-  transition: background-color 0.15s ease;
-}
-
-/* Zebra for long scans — on the row so Tailwind row tints still win when set */
-tbody tr:nth-child(even) {
-  background-color: #fbf9f5;
-}
-
-tbody tr:last-child td {
-  border-bottom-color: transparent;
-}
-
-tbody tr:hover {
-  background-color: rgba(251, 246, 234, 0.95);
-}
-
-tbody tr:hover td {
-  color: #211d19;
-}
-
-/* Primary text cells (names, titles) */
-tbody td .font-medium,
-tbody td a.font-medium {
-  color: #211d19;
-}
-
-tbody td a {
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-tbody td a:hover {
-  color: #8a6f3d;
-}
-
-/* Sticky first column (graduation matrix etc.) */
 td.sticky,
 th.sticky {
   background-clip: padding-box;
@@ -228,27 +228,9 @@ tbody td.sticky {
   box-shadow: 1px 0 0 #e7e0d3;
 }
 
-/* Compact numeric / mono chips inside tables stay crisp */
-tbody td .font-mono {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Empty / muted placeholders */
-tbody td .text-slate-300,
-tbody td .text-slate-400 {
-  font-style: normal;
-}
-
-/* Action columns — keep controls from stretching */
-tbody td:has(button),
-tbody td:has(a.inline-flex) {
-  white-space: nowrap;
-}
-
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  tbody td,
-  tbody td a {
+  .dt-table tbody tr.dt-row,
+  tbody tr {
     transition: none;
   }
 }

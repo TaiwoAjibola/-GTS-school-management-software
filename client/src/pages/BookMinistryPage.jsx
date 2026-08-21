@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, BookmarkCheck, Library, RefreshCw, Link2, FileText, Shield, Settings, Sliders, ExternalLink } from 'lucide-react'
 import AppShell from '../components/AppShell'
+import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate } from '../utils/formatDate'
@@ -195,49 +196,47 @@ export default function BookMinistryPage() {
 
           {/* Linked Accounts */}
           {activeTab === 'linked' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-slate-900">Linked Accounts</h3>
                 <span className="text-xs text-slate-500">{linkedAccounts.length} linked</span>
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Student</th>
-                    <th>Matric</th>
-                    <th>Status</th>
-                    <th>External Account ID</th>
-                    <th>System</th>
-                    <th>Linked At</th>
-                    <th>Last Synced</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linkedAccounts.map((a) => (
-                    <tr key={a.id} className="border-t border-slate-200">
-                      <td className="py-3 font-medium text-slate-900">{a.full_name}</td>
-                      <td>{a.matric_no || '—'}</td>
-                      <td>{statusBadge(a.student_status, { Active: 'bg-emerald-100 text-emerald-800', Graduating: 'bg-sky-100 text-sky-800', Graduated: 'bg-gold-100 text-gold-800' })}</td>
-                      <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{a.external_account_id}</code></td>
-                      <td>{a.external_system}</td>
-                      <td className="whitespace-nowrap">{fmtDate(a.linked_at)}</td>
-                      <td className="whitespace-nowrap">{a.last_synced_at ? fmtDate(a.last_synced_at) : '—'}</td>
-                    </tr>
-                  ))}
-                  {!linkedAccounts.length && (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">No linked accounts. Sync data from the Book Ministry app to populate.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <DataTable
+                data={linkedAccounts}
+                rowKey="id"
+                initialPageSize={25}
+                emptyMessage="No linked accounts. Sync data from the Book Ministry app to populate."
+                globalSearchPlaceholder="Search student, matric, account…"
+                defaultSort={{ id: 'full_name', dir: 'asc' }}
+                columns={[
+                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (a) => <span className="font-medium text-slate-900">{a.full_name}</span> },
+                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+                  {
+                    id: 'student_status',
+                    header: 'Status',
+                    accessor: 'student_status',
+                    filterType: 'select',
+                    filterOptions: ['Active', 'Graduating', 'Graduated'],
+                    cell: (a) => statusBadge(a.student_status, { Active: 'bg-emerald-100 text-emerald-800', Graduating: 'bg-sky-100 text-sky-800', Graduated: 'bg-gold-100 text-gold-800' }),
+                  },
+                  {
+                    id: 'external_account_id',
+                    header: 'External Account ID',
+                    accessor: 'external_account_id',
+                    cell: (a) => <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{a.external_account_id}</code>,
+                  },
+                  { id: 'external_system', header: 'System', accessor: 'external_system' },
+                  { id: 'linked_at', header: 'Linked At', accessor: 'linked_at', sortType: 'date', cell: (a) => fmtDate(a.linked_at) },
+                  { id: 'last_synced_at', header: 'Last Synced', accessor: 'last_synced_at', sortType: 'date', cell: (a) => (a.last_synced_at ? fmtDate(a.last_synced_at) : null) },
+                ]}
+              />
             </div>
           )}
 
           {/* Borrowing */}
           {activeTab === 'borrowing' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                 <h3 className="font-semibold text-slate-900">Borrowing History</h3>
                 <select
                   className="border rounded-lg px-3 py-2 text-sm"
@@ -250,46 +249,38 @@ export default function BookMinistryPage() {
                   ))}
                 </select>
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Student</th>
-                    <th>Book Title</th>
-                    <th>Author</th>
-                    <th>ISBN</th>
-                    <th>Borrowed</th>
-                    <th>Due</th>
-                    <th>Returned</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredBorrowing.map((b) => (
-                    <tr key={b.id} className="border-t border-slate-200">
-                      <td className="py-3 font-medium text-slate-900">{b.full_name}</td>
-                      <td>{b.book_title}</td>
-                      <td className="text-slate-500">{b.author || '—'}</td>
-                      <td>{b.isbn || '—'}</td>
-                      <td className="whitespace-nowrap">{fmtDate(b.borrowed_at)}</td>
-                      <td className="whitespace-nowrap">{b.due_at ? fmtDate(b.due_at) : '—'}</td>
-                      <td className="whitespace-nowrap">{b.returned_at ? fmtDate(b.returned_at) : '—'}</td>
-                      <td>{statusBadge(b.status, { borrowed: 'bg-sky-100 text-sky-800', returned: 'bg-emerald-100 text-emerald-800', overdue: 'bg-red-100 text-red-800', lost: 'bg-slate-200 text-slate-700' })}</td>
-                    </tr>
-                  ))}
-                  {!filteredBorrowing.length && (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">No borrowing records yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <DataTable
+                data={filteredBorrowing}
+                rowKey="id"
+                initialPageSize={25}
+                emptyMessage="No borrowing records yet."
+                globalSearchPlaceholder="Search student, book, ISBN…"
+                defaultSort={{ id: 'borrowed_at', dir: 'desc' }}
+                columns={[
+                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (b) => <span className="font-medium text-slate-900">{b.full_name}</span> },
+                  { id: 'book_title', header: 'Book Title', accessor: 'book_title' },
+                  { id: 'author', header: 'Author', accessor: 'author' },
+                  { id: 'isbn', header: 'ISBN', accessor: 'isbn' },
+                  { id: 'borrowed_at', header: 'Borrowed', accessor: 'borrowed_at', sortType: 'date', cell: (b) => fmtDate(b.borrowed_at) },
+                  { id: 'due_at', header: 'Due', accessor: 'due_at', sortType: 'date', cell: (b) => (b.due_at ? fmtDate(b.due_at) : null) },
+                  { id: 'returned_at', header: 'Returned', accessor: 'returned_at', sortType: 'date', cell: (b) => (b.returned_at ? fmtDate(b.returned_at) : null) },
+                  {
+                    id: 'status',
+                    header: 'Status',
+                    accessor: 'status',
+                    filterType: 'select',
+                    filterOptions: ['borrowed', 'returned', 'overdue', 'lost'],
+                    cell: (b) => statusBadge(b.status, { borrowed: 'bg-sky-100 text-sky-800', returned: 'bg-emerald-100 text-emerald-800', overdue: 'bg-red-100 text-red-800', lost: 'bg-slate-200 text-slate-700' }),
+                  },
+                ]}
+              />
             </div>
           )}
 
           {/* Reading Records */}
           {activeTab === 'reading' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                 <h3 className="font-semibold text-slate-900">Reading Records</h3>
                 <select
                   className="border rounded-lg px-3 py-2 text-sm"
@@ -302,162 +293,152 @@ export default function BookMinistryPage() {
                   ))}
                 </select>
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Student</th>
-                    <th>Book Title</th>
-                    <th>Author</th>
-                    <th>Progress</th>
-                    <th>Started</th>
-                    <th>Completed</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReading.map((r) => (
-                    <tr key={r.id} className="border-t border-slate-200">
-                      <td className="py-3 font-medium text-slate-900">{r.full_name}</td>
-                      <td>{r.book_title}</td>
-                      <td className="text-slate-500">{r.author || '—'}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 bg-slate-200 rounded-full h-2">
-                            <div
-                              className="bg-slate-900 rounded-full h-2 transition-all"
-                              style={{ width: `${Math.min(r.progress_percentage || 0, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-slate-500">{r.progress_percentage || 0}%</span>
+              <DataTable
+                data={filteredReading}
+                rowKey="id"
+                initialPageSize={25}
+                emptyMessage="No reading records yet."
+                globalSearchPlaceholder="Search student, book, author…"
+                defaultSort={{ id: 'started_at', dir: 'desc' }}
+                columns={[
+                  { id: 'full_name', header: 'Student', accessor: 'full_name', cell: (r) => <span className="font-medium text-slate-900">{r.full_name}</span> },
+                  { id: 'book_title', header: 'Book Title', accessor: 'book_title' },
+                  { id: 'author', header: 'Author', accessor: 'author' },
+                  {
+                    id: 'progress_percentage',
+                    header: 'Progress',
+                    accessor: 'progress_percentage',
+                    sortType: 'number',
+                    cell: (r) => (
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 bg-slate-200 rounded-full h-2">
+                          <div className="bg-gold-600 rounded-full h-2 transition-all" style={{ width: `${Math.min(r.progress_percentage || 0, 100)}%` }} />
                         </div>
-                      </td>
-                      <td className="whitespace-nowrap">{r.started_at ? fmtDate(r.started_at) : '—'}</td>
-                      <td className="whitespace-nowrap">{r.completed_at ? fmtDate(r.completed_at) : '—'}</td>
-                      <td>{statusBadge(r.status, { reading: 'bg-sky-100 text-sky-800', completed: 'bg-emerald-100 text-emerald-800', paused: 'bg-amber-100 text-amber-800', abandoned: 'bg-slate-100 text-slate-500' })}</td>
-                    </tr>
-                  ))}
-                  {!filteredReading.length && (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">No reading records yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                        <span className="text-xs text-slate-500">{r.progress_percentage || 0}%</span>
+                      </div>
+                    ),
+                  },
+                  { id: 'started_at', header: 'Started', accessor: 'started_at', sortType: 'date', cell: (r) => (r.started_at ? fmtDate(r.started_at) : null) },
+                  { id: 'completed_at', header: 'Completed', accessor: 'completed_at', sortType: 'date', cell: (r) => (r.completed_at ? fmtDate(r.completed_at) : null) },
+                  {
+                    id: 'status',
+                    header: 'Status',
+                    accessor: 'status',
+                    filterType: 'select',
+                    filterOptions: ['reading', 'completed', 'paused', 'abandoned'],
+                    cell: (r) => statusBadge(r.status, { reading: 'bg-sky-100 text-sky-800', completed: 'bg-emerald-100 text-emerald-800', paused: 'bg-amber-100 text-amber-800', abandoned: 'bg-slate-100 text-slate-500' }),
+                  },
+                ]}
+              />
             </div>
           )}
 
           {/* Permissions */}
           {activeTab === 'permissions' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-slate-900">Library Permissions</h3>
                 <span className="text-xs text-slate-500">{permissions.length} total</span>
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Student</th>
-                    <th>Matric</th>
-                    <th>Permission</th>
-                    <th>Granted At</th>
-                    <th>Expires</th>
-                    <th>Granted By</th>
-                    <th>Active</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {permissions.map((p) => (
-                    <tr key={p.id} className="border-t border-slate-200">
-                      <td className="py-3 font-medium text-slate-900">{p.student_name}</td>
-                      <td>{p.matric_no || '—'}</td>
-                      <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{p.permission_type}</code></td>
-                      <td className="whitespace-nowrap">{fmtDate(p.granted_at)}</td>
-                      <td className="whitespace-nowrap">{p.expires_at ? fmtDate(p.expires_at) : 'Never'}</td>
-                      <td>{p.granted_by_name || '—'}</td>
-                      <td>{statusBadge(p.is_active ? 'active' : 'revoked', { active: 'bg-emerald-100 text-emerald-800', revoked: 'bg-slate-100 text-slate-500' })}</td>
-                    </tr>
-                  ))}
-                  {!permissions.length && (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">No permissions assigned yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <DataTable
+                data={permissions}
+                rowKey="id"
+                initialPageSize={25}
+                emptyMessage="No permissions assigned yet."
+                globalSearchPlaceholder="Search student, permission…"
+                defaultSort={{ id: 'granted_at', dir: 'desc' }}
+                columns={[
+                  { id: 'student_name', header: 'Student', accessor: 'student_name', cell: (p) => <span className="font-medium text-slate-900">{p.student_name}</span> },
+                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+                  {
+                    id: 'permission_type',
+                    header: 'Permission',
+                    accessor: 'permission_type',
+                    cell: (p) => <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{p.permission_type}</code>,
+                  },
+                  { id: 'granted_at', header: 'Granted At', accessor: 'granted_at', sortType: 'date', cell: (p) => fmtDate(p.granted_at) },
+                  { id: 'expires_at', header: 'Expires', accessor: 'expires_at', sortType: 'date', cell: (p) => (p.expires_at ? fmtDate(p.expires_at) : 'Never') },
+                  { id: 'granted_by_name', header: 'Granted By', accessor: 'granted_by_name' },
+                  {
+                    id: 'is_active',
+                    header: 'Active',
+                    accessor: (p) => (p.is_active ? 'active' : 'revoked'),
+                    filterType: 'select',
+                    filterOptions: ['active', 'revoked'],
+                    cell: (p) => statusBadge(p.is_active ? 'active' : 'revoked', { active: 'bg-emerald-100 text-emerald-800', revoked: 'bg-slate-100 text-slate-500' }),
+                  },
+                ]}
+              />
             </div>
           )}
 
           {/* Access Rules */}
           {activeTab === 'access-rules' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <h3 className="font-semibold text-slate-900 mb-4">Access Rules by Student Status</h3>
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Student Status</th>
-                    <th>Max Borrow Limit</th>
-                    <th>Borrowing Days</th>
-                    <th>Can Request Books</th>
-                    <th>Digital Access</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accessRules.map((r) => (
-                    <tr key={r.id} className="border-t border-slate-200">
-                      <td className="py-3 font-medium text-slate-900">{r.student_status}</td>
-                      <td>{r.max_borrow_limit}</td>
-                      <td>{r.borrowing_days}</td>
-                      <td>{r.can_request_books ? <span className="text-emerald-600 font-medium">Yes</span> : <span className="text-red-500 font-medium">No</span>}</td>
-                      <td>{r.digital_access ? <span className="text-emerald-600 font-medium">Yes</span> : <span className="text-red-500 font-medium">No</span>}</td>
-                      <td className="text-slate-500 max-w-60 truncate">{r.notes || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-3">Access Rules by Student Status</h3>
+              <DataTable
+                data={accessRules}
+                rowKey="id"
+                globalSearchPlaceholder="Search status, notes…"
+                defaultSort={{ id: 'student_status', dir: 'asc' }}
+                columns={[
+                  { id: 'student_status', header: 'Student Status', accessor: 'student_status', cell: (r) => <span className="font-medium text-slate-900">{r.student_status}</span> },
+                  { id: 'max_borrow_limit', header: 'Max Borrow Limit', accessor: 'max_borrow_limit', sortType: 'number' },
+                  { id: 'borrowing_days', header: 'Borrowing Days', accessor: 'borrowing_days', sortType: 'number' },
+                  {
+                    id: 'can_request_books',
+                    header: 'Can Request Books',
+                    accessor: (r) => (r.can_request_books ? 'Yes' : 'No'),
+                    filterType: 'select',
+                    filterOptions: ['Yes', 'No'],
+                    cell: (r) => (r.can_request_books ? <span className="text-emerald-600 font-medium">Yes</span> : <span className="text-red-500 font-medium">No</span>),
+                  },
+                  {
+                    id: 'digital_access',
+                    header: 'Digital Access',
+                    accessor: (r) => (r.digital_access ? 'Yes' : 'No'),
+                    filterType: 'select',
+                    filterOptions: ['Yes', 'No'],
+                    cell: (r) => (r.digital_access ? <span className="text-emerald-600 font-medium">Yes</span> : <span className="text-red-500 font-medium">No</span>),
+                  },
+                  { id: 'notes', header: 'Notes', accessor: 'notes', cell: (r) => <span className="text-slate-500 max-w-60 truncate block">{r.notes || null}</span> },
+                ]}
+              />
             </div>
           )}
 
-          {/* Book Requests (from 012) */}
+          {/* Book Requests */}
           {activeTab === 'requests' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
-              <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-slate-900">Book Requests</h3>
                 <span className="text-xs text-slate-500">{bookRequests.length} requests</span>
               </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="pb-2">Student</th>
-                    <th>Matric</th>
-                    <th>Book Title</th>
-                    <th>Author</th>
-                    <th>ISBN</th>
-                    <th>Requested By</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookRequests.map((r) => (
-                    <tr key={r.id} className="border-t border-slate-200">
-                      <td className="py-3 font-medium text-slate-900">{r.student_name}</td>
-                      <td>{r.matric_no || '—'}</td>
-                      <td>{r.book_title}</td>
-                      <td className="text-slate-500">{r.author || '—'}</td>
-                      <td>{r.isbn || '—'}</td>
-                      <td>{r.requested_by_name || '—'}</td>
-                      <td className="whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                      <td>{statusBadge(r.status, { pending: 'bg-amber-100 text-amber-800', approved: 'bg-sky-100 text-sky-800', fulfilled: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-slate-100 text-slate-500' })}</td>
-                    </tr>
-                  ))}
-                  {!bookRequests.length && (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">No book requests yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <DataTable
+                data={bookRequests}
+                rowKey="id"
+                initialPageSize={25}
+                emptyMessage="No book requests yet."
+                globalSearchPlaceholder="Search student, book, ISBN…"
+                defaultSort={{ id: 'created_at', dir: 'desc' }}
+                columns={[
+                  { id: 'student_name', header: 'Student', accessor: 'student_name', cell: (r) => <span className="font-medium text-slate-900">{r.student_name}</span> },
+                  { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
+                  { id: 'book_title', header: 'Book Title', accessor: 'book_title' },
+                  { id: 'author', header: 'Author', accessor: 'author' },
+                  { id: 'isbn', header: 'ISBN', accessor: 'isbn' },
+                  { id: 'requested_by_name', header: 'Requested By', accessor: 'requested_by_name' },
+                  { id: 'created_at', header: 'Date', accessor: 'created_at', sortType: 'date', cell: (r) => fmtDate(r.created_at) },
+                  {
+                    id: 'status',
+                    header: 'Status',
+                    accessor: 'status',
+                    filterType: 'select',
+                    filterOptions: ['pending', 'approved', 'fulfilled', 'cancelled'],
+                    cell: (r) => statusBadge(r.status, { pending: 'bg-amber-100 text-amber-800', approved: 'bg-sky-100 text-sky-800', fulfilled: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-slate-100 text-slate-500' }),
+                  },
+                ]}
+              />
             </div>
           )}
 
