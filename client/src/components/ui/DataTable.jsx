@@ -69,7 +69,7 @@ export default function DataTable({
   defaultSort = null, // { id, dir: 'asc'|'desc' }
   density = 'comfortable', // comfortable | compact
   stickyHeader = true,
-  maxHeight = 'min(60vh, 560px)', // keep body scroll inside the table, not the page
+  maxHeight = 'min(100vh - 340px, 820px)', // fill viewport (minus chrome) so the TABLE body scrolls, not the page
   rowClassName,
   onRowClick,
   className = '',
@@ -190,7 +190,7 @@ export default function DataTable({
     ? undefined
     : maxHeight
       ? { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight }
-      : { maxHeight: 'min(60vh, 560px)' }
+      : { maxHeight: 'min(100vh - 340px, 820px)' }
 
   return (
     <div

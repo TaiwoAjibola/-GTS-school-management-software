@@ -115,7 +115,7 @@ const AppShell = ({ title, navItems = [], groups = [], children }) => {
         ) : null}
 
         <motion.div
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+          className="flex-1 min-h-0 overflow-hidden"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
