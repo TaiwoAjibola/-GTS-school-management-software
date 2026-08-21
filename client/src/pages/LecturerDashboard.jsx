@@ -1566,12 +1566,12 @@ const LecturerDashboard = () => {
 
   return (
     <AppShell title={sectionTitle} groups={lecturerNavGroups}>
-      <div className="h-full flex flex-col gap-5 overflow-hidden">
+      <div className="h-full flex flex-col gap-4 overflow-hidden">
       {notice ? <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm shrink-0 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{notice}</div> : null}
 
       {section === 'attendance' ? (
-        <div className="flex-1 min-h-0 overflow-auto">
-          <div className="bento bento-4 mb-6">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="bento bento-4 gap-4">
             <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
             <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" className="stat-hover" />
             <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" className="stat-hover" />
@@ -1608,16 +1608,15 @@ const LecturerDashboard = () => {
               </div>
             ) : null}
           </div>
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
           {/* ── COURSES TAB ── */}
           {coursesTab === 'courses' ? (
-          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-auto">
-              <div className="h-full flex flex-col">
-            <div className="flex items-center gap-3 mb-3">
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden isolate rounded-[24px]">
+            <div className="shrink-0 flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-white rounded-t-[24px]">
               <h3 className="font-semibold text-slate-900 text-base">Course List</h3>
               <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
             </div>
+            <div className="flex-1 min-h-0 overflow-auto">
             <DataTable
               data={courses}
               rowKey="id"
@@ -1751,7 +1750,6 @@ const LecturerDashboard = () => {
               ]}
               fillHeight
             />
-              </div>
             </div>
           </div>
       ) : null}
@@ -1833,7 +1831,7 @@ const LecturerDashboard = () => {
         }
         return (
            <div className="flex-1 min-h-0 overflow-auto">
-           <div className="grid lg:grid-cols-[320px_1fr] gap-6">
+           <div className="grid lg:grid-cols-[320px_1fr] gap-4">
              {/* Left: create + list */}
              <div className="space-y-4">
                {/* Create plan form */}
@@ -2012,27 +2010,27 @@ const LecturerDashboard = () => {
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-slate-700">Planned Courses</p>
                       <table className="data-table w-full text-sm">
-                        <thead className="text-left text-slate-500 border-b border-slate-200">
+                        <thead className="text-left text-slate-500 border-b border-slate-200 bg-[#F8FAFC] sticky top-0">
                           <tr>
-                            <th className="pb-2">Code</th>
-                            <th className="pb-2">Course</th>
-                            <th className="pb-2">Lecturer</th>
-                            <th className="pb-2">Start</th>
-                            <th className="pb-2">End</th>
-                            <th className="pb-2">Weeks</th>
-                            <th />
+                            <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Code</th>
+                            <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Course</th>
+                            <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Lecturer</th>
+                            <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Start</th>
+                            <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">End</th>
+                            <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Weeks</th>
+                            <th className="px-4 py-3" />
                           </tr>
                         </thead>
                         <tbody>
                           {selectedPlan.items.map((item) => (
-                            <tr key={item.id} className="border-t border-slate-100">
-                              <td className="py-2 text-slate-500">{item.course_code || '-'}</td>
-                              <td className="py-2 font-medium text-slate-900">{item.course_title}</td>
-                              <td className="py-2 text-slate-600">{item.lecturer_name || '-'}</td>
-                              <td className="py-2 text-slate-600">{item.start_date ? new Date(item.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
-                              <td className="py-2 text-slate-600">{item.end_date ? new Date(item.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
-                              <td className="py-2 text-slate-600">{item.duration_weeks}w</td>
-                              <td className="py-2">
+                            <tr key={item.id} className="border-t border-slate-100 hover:bg-[#EEF2FF] [&>td]:hover:bg-transparent hover:shadow-[inset_3px_0_0_#6366f1]">
+                              <td className="px-4 py-3 text-slate-500">{item.course_code || '-'}</td>
+                              <td className="px-4 py-3 font-medium text-slate-900">{item.course_title}</td>
+                              <td className="px-4 py-3 text-slate-600">{item.lecturer_name || '-'}</td>
+                              <td className="px-4 py-3 text-slate-600">{item.start_date ? new Date(item.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                              <td className="px-4 py-3 text-slate-600">{item.end_date ? new Date(item.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                              <td className="px-4 py-3 text-slate-600">{item.duration_weeks}w</td>
+                              <td className="px-4 py-3">
                                 <button type="button" onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
                               </td>
                             </tr>
@@ -3474,24 +3472,30 @@ const LecturerDashboard = () => {
 
       {section === 'attendance' ? (
         <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
-          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden isolate rounded-[24px]">
+            <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 bg-white rounded-t-[24px]">
               <h3 className="font-semibold text-slate-900">Attendance Summary by Student</h3>
               <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{attendanceSummary.length} students</span>
             </div>
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="data-table w-full text-sm">
-                <thead className="text-left text-slate-500 sticky top-0 bg-white">
-                  <tr><th className="pb-2 px-4">Name</th><th>Present</th><th>Absent</th><th>Rate</th><th>Eligible</th></tr>
+                <thead className="text-left text-slate-500 sticky top-0 bg-[#F8FAFC] z-10">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Name</th>
+                    <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Present</th>
+                    <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Absent</th>
+                    <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Rate</th>
+                    <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Eligible</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {attendanceSummary.map((student) => (
-                    <tr key={student.student_id} className="border-t border-slate-200">
-                      <td className="py-3 px-4">{student.full_name}</td>
-                      <td>{student.present_count}</td>
-                      <td>{student.absent_count}</td>
-                      <td>{student.attendance_rate}%</td>
-                      <td className={student.eligible ? 'text-emerald-600' : 'text-amber-600'}>{student.eligible ? 'Eligible' : 'Not Eligible'}</td>
+                    <tr key={student.student_id} className="border-t border-slate-100 hover:bg-[#EEF2FF] [&>td]:hover:bg-transparent hover:shadow-[inset_3px_0_0_#6366f1] transition-colors">
+                      <td className="px-4 py-3">{student.full_name}</td>
+                      <td className="px-4 py-3">{student.present_count}</td>
+                      <td className="px-4 py-3">{student.absent_count}</td>
+                      <td className="px-4 py-3">{student.attendance_rate}%</td>
+                      <td className={`px-4 py-3 ${student.eligible ? 'text-emerald-600' : 'text-amber-600'}`}>{student.eligible ? 'Eligible' : 'Not Eligible'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4083,7 +4087,7 @@ const LecturerDashboard = () => {
           </div>
 
           {examsTab === 'assignments' ? (
-            <div className="flex-1 min-h-0 grid xl:grid-cols-[390px_1fr] gap-6 overflow-hidden">
+            <div className="flex-1 min-h-0 grid xl:grid-cols-[390px_1fr] gap-4 overflow-hidden">
               <form onSubmit={createAssignment} className="card card-pad card-hover space-y-3 overflow-auto">
                 <h3 className="font-semibold text-slate-900">Create Assignment</h3>
                 <p className="text-sm text-slate-500">Assignments are sent only to students who are eligible from attendance.</p>
@@ -4094,22 +4098,27 @@ const LecturerDashboard = () => {
                 <button className="btn btn-primary px-4 py-2 lift">Send Assignment</button>
               </form>
 
-              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div className="shrink-0 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden isolate rounded-[24px]">
+                <div className="shrink-0 px-5 py-4 border-b border-slate-100 bg-white rounded-t-[24px] flex items-center justify-between">
                   <h3 className="font-semibold text-slate-900">Eligible Students ({eligibleStudents.length})</h3>
                 </div>
-                <div className="flex-1 min-h-0 overflow-auto p-4">
+                <div className="flex-1 min-h-0 overflow-auto">
                   <table className="data-table w-full text-sm">
-                    <thead className="text-left text-slate-500">
-                      <tr><th className="pb-2">Name</th><th>Matric</th><th>Email</th><th>Attendance</th></tr>
+                    <thead className="text-left text-slate-500 sticky top-0 bg-[#F8FAFC]">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Name</th>
+                        <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Matric</th>
+                        <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Email</th>
+                        <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Attendance</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {eligibleStudents.map((student) => (
-                        <tr key={student.id} className="border-t border-slate-200">
-                          <td className="py-3">{student.full_name}</td>
-                          <td>{student.matric_no}</td>
-                          <td>{student.email}</td>
-                          <td>{student.attendance_count}/{student.min_attendance_required}</td>
+                        <tr key={student.id} className="border-t border-slate-100 hover:bg-[#EEF2FF] [&>td]:hover:bg-transparent hover:shadow-[inset_3px_0_0_#6366f1] transition-colors">
+                          <td className="px-4 py-3">{student.full_name}</td>
+                          <td className="px-4 py-3">{student.matric_no}</td>
+                          <td className="px-4 py-3">{student.email}</td>
+                          <td className="px-4 py-3">{student.attendance_count}/{student.min_attendance_required}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -4134,7 +4143,7 @@ const LecturerDashboard = () => {
                 </button>
               </div>
 
-              <div className="flex-1 min-h-0 grid xl:grid-cols-[1.15fr_0.85fr] gap-6 overflow-auto">
+              <div className="flex-1 min-h-0 grid xl:grid-cols-[1.15fr_0.85fr] gap-4 overflow-auto">
                 <form onSubmit={createExam} className="card card-pad card-hover space-y-4">
                   <div>
                     <p className="text-sm font-medium text-slate-700 mb-1.5">Course</p>
@@ -4711,7 +4720,7 @@ const LecturerDashboard = () => {
       ) : null}
       {section === 'lecturers' ? (
         <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
-          <div className="grid lg:grid-cols-[360px_1fr] gap-6 flex-1 min-h-0 overflow-hidden">
+          <div className="grid lg:grid-cols-[360px_1fr] gap-4 flex-1 min-h-0 overflow-hidden">
             {/* Create lecturer form — shrink-0, self-start with overflow-auto */}
             <form
               className="card card-pad card-hover space-y-3 self-start overflow-auto max-h-full"
@@ -5012,7 +5021,7 @@ const LecturerDashboard = () => {
           ) : (
             <div className="flex-1 min-h-0 overflow-auto space-y-4 pr-1">
               {/* Summary Cards */}
-              <div className="bento bento-4">
+              <div className="bento bento-4 gap-4">
                 <div className="card card-pad card-hover">
                   <div className="flex items-center justify-between mb-4">
                     <div className="ico h-10 w-10 text-indigo-600"><Users className="w-5 h-5" /></div>
@@ -5054,33 +5063,33 @@ const LecturerDashboard = () => {
               </div>
 
               {/* Attendance Table — graduation matrix yardstick: card flex-col overflow-hidden with inner overflow-auto */}
-              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div className="shrink-0 p-5 border-b border-slate-200 flex justify-between items-center">
+              <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden isolate rounded-[24px]">
+                <div className="shrink-0 px-5 py-4 border-b border-slate-200 bg-white rounded-t-[24px] flex justify-between items-center">
                   <h3 className="font-semibold text-slate-900">Attendance & Eligibility Detail</h3>
-                  <div className="flex gap-4 text-sm text-slate-500">
+                  <div className="flex gap-2 text-sm text-slate-500">
                     <span>Eligible: <b className="text-green-600">{attendanceReport?.summary?.eligible_students}</b></span>
                     <span>Ineligible: <b className="text-red-600">{attendanceReport?.summary?.ineligible_students}</b></span>
                   </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-auto">
                   <table className="data-table w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-[0.68rem] font-bold tracking-[0.08em] sticky top-0">
+                    <thead className="bg-[#F8FAFC] text-[#64748B] uppercase text-[0.68rem] font-bold tracking-[0.08em] sticky top-0">
                       <tr>
-                        <th className="px-6 py-4">Student</th>
-                        <th className="px-6 py-4">Course</th>
-                        <th className="px-6 py-4">Sessions</th>
-                        <th className="px-6 py-4">Present</th>
-                        <th className="px-6 py-4">Status</th>
+                        <th className="px-4 py-3">Student</th>
+                        <th className="px-4 py-3">Course</th>
+                        <th className="px-4 py-3">Sessions</th>
+                        <th className="px-4 py-3">Present</th>
+                        <th className="px-4 py-3">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {attendanceReport?.data?.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4 font-medium text-slate-900">{row.full_name}</td>
-                          <td className="px-6 py-4 text-slate-600">{row.course_title}</td>
-                          <td className="px-6 py-4">{row.total_sessions}</td>
-                          <td className="px-6 py-4">{row.present_count}</td>
-                          <td className="px-6 py-4">
+                        <tr key={idx} className="hover:bg-[#EEF2FF] [&>td]:hover:bg-transparent hover:shadow-[inset_3px_0_0_#6366f1] transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-900">{row.full_name}</td>
+                          <td className="px-4 py-3 text-slate-600">{row.course_title}</td>
+                          <td className="px-4 py-3">{row.total_sessions}</td>
+                          <td className="px-4 py-3">{row.present_count}</td>
+                          <td className="px-4 py-3">
                             <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase ${
                               row.eligibility_status === 'Eligible'
                                 ? 'bg-green-100 text-green-700'
@@ -6115,8 +6124,8 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                     />
                   </label>
 
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                       <input
                         type="checkbox"
                         className="w-4 h-4 rounded"

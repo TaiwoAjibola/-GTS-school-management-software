@@ -118,17 +118,17 @@ export default function BookMinistryPage() {
         </div>
       ) : null}
 
-      <div className="h-full flex flex-col gap-5 overflow-hidden">
+      <div className="h-full flex flex-col gap-4 overflow-hidden">
       {/* Header — dramatic indigo bento 24px */}
       <div className="shrink-0">
-        <div className="card card-hover rounded-[24px] p-6 md:p-7 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
+        <div className="card card-hover rounded-[24px] p-5 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
           {/* indigo top rule */}
           <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#4F46E5] via-[#8B5CF6] to-[#6366F1]" />
           {/* soft blobs */}
           <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[#EEF2FF] blur-3xl opacity-70" />
           <div className="pointer-events-none absolute -bottom-20 -left-12 h-56 w-56 rounded-full bg-[#F5F3FF] blur-2xl opacity-60" />
 
-          <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+          <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3.5">
                 <div className="h-12 w-12 rounded-2xl bg-[#4F46E5] text-white flex items-center justify-center shadow-lg shadow-indigo-200 shrink-0">
@@ -209,11 +209,11 @@ export default function BookMinistryPage() {
           <p className="text-slate-400 text-sm mt-6 font-medium">Loading ministry data…</p>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-auto space-y-5 pr-1 [scrollbar-width:thin]">
+        <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-4 pr-1 [scrollbar-width:thin]">
         <>
           {/* Overview — bento 5 */}
           {activeTab === 'overview' && stats && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <Card title="Linked Accounts" value={stats.linkedAccounts} accent="sky" icon={<Link2 size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="synced via API" />
                 <Card title="Active Borrows" value={stats.activeBorrows} accent="emerald" icon={<BookOpen size={18} />} className="card-hover !rounded-[24px] !border-slate-200 stat-hover" hint="currently out" />
@@ -252,7 +252,7 @@ export default function BookMinistryPage() {
 
           {/* Linked Accounts */}
           {activeTab === 'linked' && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
                   <span className="h-7 w-7 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] text-[#4F46E5] flex items-center justify-center"><Link2 size={14} /></span>
@@ -294,7 +294,7 @@ export default function BookMinistryPage() {
 
           {/* Borrowing */}
           {activeTab === 'borrowing' && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
                   <span className="h-7 w-7 rounded-xl bg-[#ECFDF5] border border-emerald-200 text-emerald-700 flex items-center justify-center"><BookOpen size={14} /></span>
@@ -341,7 +341,7 @@ export default function BookMinistryPage() {
 
           {/* Reading Records */}
           {activeTab === 'reading' && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
                   <span className="h-7 w-7 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] text-[#4F46E5] flex items-center justify-center"><BookmarkCheck size={14} /></span>
@@ -400,7 +400,7 @@ export default function BookMinistryPage() {
 
           {/* Permissions */}
           {activeTab === 'permissions' && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
                   <span className="h-7 w-7 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] text-[#4F46E5] flex items-center justify-center"><Shield size={14} /></span>
@@ -442,7 +442,7 @@ export default function BookMinistryPage() {
 
           {/* Access Rules */}
           {activeTab === 'access-rules' && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
                 <span className="h-7 w-7 rounded-xl bg-[#F5F3FF] border border-violet-200 text-violet-700 flex items-center justify-center"><Sliders size={14} /></span>
                 Access Rules by Student Status
@@ -480,7 +480,7 @@ export default function BookMinistryPage() {
 
           {/* Book Requests */}
           {activeTab === 'requests' && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
                   <span className="h-7 w-7 rounded-xl bg-[#FFF7ED] border border-orange-200 text-orange-700 flex items-center justify-center"><FileText size={14} /></span>
@@ -518,8 +518,8 @@ export default function BookMinistryPage() {
 
           {/* Integration — dramatic indigo */}
           {activeTab === 'integration' && (
-            <div className="space-y-5">
-              <div className="card card-hover rounded-[24px] p-6 md:p-7 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
+            <div className="space-y-4">
+              <div className="card card-hover rounded-[24px] p-5 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
                 <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]" />
                 <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-slate-900 flex items-center gap-2.5">
                   <span className="h-8 w-8 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shadow-md shadow-indigo-200"><ExternalLink size={15} /></span>
@@ -547,7 +547,7 @@ export default function BookMinistryPage() {
               </div>
 
               <Card title="Configuration" className="!rounded-[24px] card-hover !border-slate-200">
-                <div className="space-y-5 max-w-lg">
+                <div className="space-y-4 max-w-lg">
                   <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200">
                     <div>
                       <p className="text-sm font-bold text-slate-900 tracking-[-0.01em]">Feature Enabled</p>
@@ -592,7 +592,7 @@ export default function BookMinistryPage() {
                             notify(err?.response?.data?.message || 'Failed to update')
                           }
                         }}
-                        className="btn btn-primary btn-sm lift !bg-[#4F46E5] hover:!bg-[#4338CA] !rounded-xl shrink-0"
+                        className="btn btn-primary btn-sm lift gap-2 !bg-[#4F46E5] hover:!bg-[#4338CA] !rounded-xl shrink-0"
                       >
                         Save
                       </button>
@@ -620,7 +620,7 @@ export default function BookMinistryPage() {
                             notify(err?.response?.data?.message || 'Failed to update')
                           }
                         }}
-                        className="btn btn-primary btn-sm lift !bg-[#4F46E5] hover:!bg-[#4338CA] !rounded-xl"
+                        className="btn btn-primary btn-sm lift gap-2 !bg-[#4F46E5] hover:!bg-[#4338CA] !rounded-xl"
                       >
                         Save
                       </button>

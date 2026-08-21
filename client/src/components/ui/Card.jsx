@@ -42,7 +42,7 @@ export function Card({
   return (
     <section className={`card ${className}`}>
       {title || action ? (
-        <div className="flex items-start justify-between gap-3 px-5 pt-5">
+        <div className="flex items-start justify-between gap-2 px-5 py-4">
           <div>
             {title ? <h3 className="card-title">{title}</h3> : null}
             {subtitle ? <p className="section-sub">{subtitle}</p> : null}
@@ -50,7 +50,7 @@ export function Card({
           {action}
         </div>
       ) : null}
-      <div className={`px-5 pb-5 ${title || action ? 'pt-3' : 'pt-5'} ${bodyClassName}`}>{children}</div>
+      <div className={`px-5 pb-5 ${title || action ? 'pt-0' : 'pt-5'} ${bodyClassName}`}>{children}</div>
     </section>
   )
 }

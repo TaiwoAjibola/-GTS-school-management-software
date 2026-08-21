@@ -74,7 +74,7 @@ const AdminDashboard = () => {
 
   return (
     <AppShell title={title} navItems={navItems}>
-      <div className="h-full flex flex-col gap-5 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
         {/* ── BENTO STATS — bento bento-4 dramatical indigo ── */}
         <div className="bento bento-4 gap-4 shrink-0">
           <Card
@@ -117,7 +117,7 @@ const AdminDashboard = () => {
           {section === 'overview' ? (
             <div className="space-y-4">
               {/* subtle indigo metrics ribbon */}
-              <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-[14px] flex flex-wrap items-center justify-between gap-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+              <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-5 flex flex-wrap items-center justify-between gap-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-[#EEF2FF] border border-[#E0E7FF] flex items-center justify-center text-[#4F46E5]">
                     <Activity size={16} />
@@ -286,7 +286,7 @@ const AdminDashboard = () => {
                     Create Student
                     <ArrowUpRight size={14} className="opacity-70" />
                   </button>
-                  <p className="text-center text-[11px] font-medium tracking-wide text-[#94A3B8]">Indigo primary • Sora 800 titles • 24px cards</p>
+                  <p className="text-center text-[11px] font-medium tracking-wide text-[#94A3B8]">Indigo primary • Outfit 800 titles • 24px cards</p>
                 </form>
               </Card>
 
@@ -361,7 +361,7 @@ const AdminDashboard = () => {
                 </div>
                 {students.length ? (
                   <div className="px-5 py-3 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-between">
-                    <p className="text-xs text-[#64748B]">{students.length} enrolled • Sora headings</p>
+                    <p className="text-xs text-[#64748B] font-sans">{students.length} enrolled • Outfit headings</p>
                     <span className="text-[11px] font-bold tracking-widest uppercase text-[#94A3B8]">Matric is JetBrains Mono</span>
                   </div>
                 ) : null}

@@ -214,7 +214,7 @@ export default function StudentProfilePage() {
   if (loading) {
     return (
       <AppShell title="Student Profile" groups={lecturerNavGroups}>
-        <p className="text-slate-500 text-sm" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Loading…</p>
+        <p className="text-slate-500 text-sm font-mono">Loading…</p>
       </AppShell>
     )
   }
@@ -222,8 +222,8 @@ export default function StudentProfilePage() {
   if (!student) {
     return (
       <AppShell title="Student Not Found" groups={lecturerNavGroups}>
-        <p className="text-slate-500 text-sm" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{loadError || 'Student not found.'}</p>
-        <Link to="/lecturer/students" className="btn btn-ghost btn-sm">
+        <p className="text-slate-500 text-sm font-mono">{loadError || 'Student not found.'}</p>
+        <Link to="/lecturer/students" className="btn btn-ghost btn-sm lift gap-2">
           Back to Students
         </Link>
       </AppShell>
@@ -236,7 +236,7 @@ export default function StudentProfilePage() {
 
   return (
     <AppShell title={student.full_name} groups={lecturerNavGroups}>
-      <div className="h-full flex flex-col gap-4 overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', background: '#F8FAFC' }}>
+      <div className="h-full flex flex-col gap-4 overflow-hidden">
       {loadError ? (
         <div className="shrink-0 rounded-[16px] bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 text-sm flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
@@ -247,10 +247,10 @@ export default function StudentProfilePage() {
       {/* ————— BENTO HERO — profile + progress ————— */}
       <div className="grid grid-cols-12 gap-4 shrink-0">
         {/* Profile hero - 8 cols */}
-        <Card className="col-span-12 lg:col-span-8 rounded-[24px] !bg-white card-hover overflow-hidden !p-0 border-slate-200">
+        <Card className="col-span-12 lg:col-span-8 rounded-[24px] !bg-white card-hover overflow-hidden isolate !p-0 border-slate-200">
           <div className="h-1.5 w-full bg-gradient-to-r from-[#4F46E5] via-[#6366f1] to-[#8b5cf6]" />
-          <div className="p-6">
-            <div className="flex items-start gap-5">
+          <div className="p-5">
+            <div className="flex items-start gap-4">
               <div
                 className="w-[84px] h-[84px] rounded-[22px] bg-[#EEF2FF] flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:opacity-90 transition-all duration-200 ring-4 ring-[#eef2ff] border border-[#c7d2fe] shadow-sm"
                 onClick={() => student.profile_image_url && setLightboxOpen(true)}
@@ -259,14 +259,14 @@ export default function StudentProfilePage() {
                 {student.profile_image_url ? (
                   <img src={student.profile_image_url} alt={student.full_name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-[28px] font-extrabold text-[#4F46E5]" style={{ fontFamily: 'Sora, sans-serif' }}>{(student.full_name || '?')[0].toUpperCase()}</span>
+                  <span className="text-[28px] font-extrabold text-[#4F46E5] font-display">{(student.full_name || '?')[0].toUpperCase()}</span>
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h2 className="text-[22px] font-extrabold text-slate-900 leading-none tracking-tight" style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800 }}>{student.full_name}</h2>
+                  <h2 className="font-display text-[22px] font-extrabold text-slate-900 leading-none tracking-[-0.03em]">{student.full_name}</h2>
                   {student.matric_no ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white border border-[#c7d2fe] px-3 py-1 text-xs font-semibold text-[#4338ca]" style={{ fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em' }}>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white border border-[#c7d2fe] px-3 py-1 text-xs font-semibold text-[#4338ca] font-mono tracking-[0.02em]">
                       <Hash size={11} className="text-[#6366f1]" />{student.matric_no}
                     </span>
                   ) : student.status === 'Prospective' ? (
@@ -296,7 +296,6 @@ export default function StudentProfilePage() {
                               }
                             }}
                             disabled={isCurrent}
-                            style={{ fontFamily: 'Inter, sans-serif' }}
                           >
                             {isCurrent ? '✓ ' : ''}{s}
                           </button>
@@ -334,7 +333,7 @@ export default function StudentProfilePage() {
                       <button
                         type="button"
                         disabled={cohortSaving}
-                        className="btn btn-primary btn-sm lift disabled:opacity-50"
+                        className="btn btn-primary btn-sm lift gap-2 disabled:opacity-50"
                         style={{ background: '#4F46E5', borderRadius: '12px' }}
                         onClick={async () => {
                           const sel = document.getElementById('cohort-select')
@@ -353,7 +352,7 @@ export default function StudentProfilePage() {
                       </button>
                       <button
                         type="button"
-                        className="btn btn-ghost btn-sm"
+                        className="btn btn-ghost btn-sm lift gap-2"
                         style={{ borderRadius: '12px' }}
                         onClick={() => setEditingCohort(false)}
                       >
@@ -367,7 +366,7 @@ export default function StudentProfilePage() {
                       </span>
                       <button
                         type="button"
-                        className="btn btn-ghost btn-sm"
+                        className="btn btn-ghost btn-sm lift gap-2"
                         style={{ borderRadius: '12px' }}
                         onClick={() => setEditingCohort(true)}
                       >
@@ -386,15 +385,15 @@ export default function StudentProfilePage() {
 
         {/* Right stack - progress + quick stats */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-          <Card className="rounded-[24px] !bg-white card-hover !p-0 overflow-hidden border-slate-200 flex-1">
+          <Card className="rounded-[24px] !bg-white card-hover !p-0 overflow-hidden isolate border-slate-200 flex-1">
             <div className="h-1 w-full bg-[#4F46E5]" />
             <div className="p-5">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#4F46E5]" style={{ fontFamily: 'Inter, sans-serif' }}>Graduation Progress</p>
+                <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#4F46E5]">Graduation Progress</p>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FF] text-[#4338ca] border border-[#c7d2fe] px-2 py-0.5 text-[11px] font-bold"><Sparkles size={10} /> {completionPct}%</span>
               </div>
               <div className="flex items-baseline gap-2">
-                <p className="text-[34px] font-extrabold leading-none tracking-tight text-slate-900" style={{ fontFamily: 'Sora, sans-serif', fontWeight: 800 }}>
+                <p className="font-display text-[34px] font-extrabold leading-none tracking-tight text-slate-900">
                   {passedCourses}<span className="text-[20px] font-semibold text-slate-400"> / {allCourses.length}</span>
                 </p>
                 <span className="text-xs font-medium text-slate-500">modules completed</span>
@@ -405,32 +404,32 @@ export default function StudentProfilePage() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">{completionPct}% complete</span>
-                  <span className="text-slate-400" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{passedCourses} passed • {allCourses.length - passedCourses} remaining</span>
+                  <span className="text-slate-400 font-mono text-[11px]">{passedCourses} passed • {allCourses.length - passedCourses} remaining</span>
                 </div>
               </div>
             </div>
           </Card>
 
-          <Card className="rounded-[24px] !bg-white card-hover !p-0 overflow-hidden border-slate-200">
-            <div className="p-4">
-              <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-slate-500 mb-3" style={{ fontFamily: 'Inter, sans-serif' }}>Enrollments Snapshot</p>
+          <Card className="rounded-[24px] !bg-white card-hover !p-0 overflow-hidden isolate border-slate-200">
+            <div className="p-5">
+              <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-slate-500 mb-3">Enrollments Snapshot</p>
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-[14px] bg-[#EEF2FF] border border-[#e0e7ff] p-3 text-center">
                   <p className="text-[11px] font-bold tracking-widest uppercase text-[#6366f1]">Active</p>
-                  <p className="text-xl font-extrabold text-[#4F46E5] mt-0.5" style={{ fontFamily: 'Sora, sans-serif' }}>{currentCount}</p>
+                  <p className="font-display text-xl font-extrabold text-[#4F46E5] mt-0.5">{currentCount}</p>
                 </div>
                 <div className="rounded-[14px] bg-emerald-50 border border-emerald-100 p-3 text-center">
                   <p className="text-[11px] font-bold tracking-widest uppercase text-emerald-600">Done</p>
-                  <p className="text-xl font-extrabold text-emerald-700 mt-0.5" style={{ fontFamily: 'Sora, sans-serif' }}>{completedCount}</p>
+                  <p className="font-display text-xl font-extrabold text-emerald-700 mt-0.5">{completedCount}</p>
                 </div>
                 <div className="rounded-[14px] bg-amber-50 border border-amber-100 p-3 text-center">
                   <p className="text-[11px] font-bold tracking-widest uppercase text-amber-600">Retake</p>
-                  <p className="text-xl font-extrabold text-amber-700 mt-0.5" style={{ fontFamily: 'Sora, sans-serif' }}>{retakeCount}</p>
+                  <p className="font-display text-xl font-extrabold text-amber-700 mt-0.5">{retakeCount}</p>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
                 <GraduationCap size={13} className="text-[#6366f1]" />
-                <span style={{ fontFamily: 'Inter, sans-serif' }}>{allCourses.length} total modules in catalogue</span>
+                <span>{allCourses.length} total modules in catalogue</span>
               </div>
             </div>
           </Card>
@@ -467,11 +466,11 @@ export default function StudentProfilePage() {
           onClick={() => setStatusConfirmOpen(false)}
         >
           <div
-            className="card p-6 max-w-md w-full rounded-[24px] !bg-white"
+            className="card p-5 max-w-md w-full rounded-[24px] !bg-white"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-extrabold text-slate-900 mb-2" style={{ fontFamily: 'Sora, sans-serif' }}>Change Status</h3>
-            <p className="text-sm text-slate-600 mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <h3 className="font-display font-extrabold text-slate-900 mb-2">Change Status</h3>
+            <p className="text-sm text-slate-600 mb-4">
               Move <strong>{student.full_name}</strong> from{' '}
               <strong>{student.status}</strong> → <strong>{pendingStatus}</strong>
             </p>
@@ -487,7 +486,7 @@ export default function StudentProfilePage() {
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm lift gap-2"
                 style={{ borderRadius: '12px' }}
                 onClick={() => setStatusConfirmOpen(false)}
               >
@@ -496,7 +495,7 @@ export default function StudentProfilePage() {
               <button
                 type="button"
                 disabled={statusSaving}
-                className="btn btn-primary btn-sm lift disabled:opacity-50"
+                className="btn btn-primary btn-sm lift gap-2 disabled:opacity-50"
                 style={{ background: '#4F46E5', borderRadius: '12px' }}
                 onClick={async () => {
                   setStatusSaving(true)
@@ -525,7 +524,7 @@ export default function StudentProfilePage() {
       )}
 
       {/* Status Pipeline - indigo bento */}
-      <Card title="Lifecycle Pipeline" subtitle="Tap status badge above to transition • indigo = current" className="shrink-0 rounded-[24px] !bg-white card-hover border-slate-200">
+      <Card title="Lifecycle Pipeline" subtitle="Tap status badge above to transition • indigo = current" className="shrink-0 rounded-[24px] !bg-white card-hover border-slate-200 isolate">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
           {ALL_STATUSES.map((s, i, arr) => {
             const isCurrent = student.status === s
@@ -544,7 +543,6 @@ export default function StudentProfilePage() {
                       : 'bg-slate-50 text-slate-400 border-slate-200'
                   }`}
                   title={isCurrent ? 'Current status' : isPast ? 'Completed' : isValidNext ? 'Available next' : 'Not reachable'}
-                  style={{ fontFamily: 'Inter, sans-serif' }}
                 >
                   {s}
                 </div>
@@ -557,14 +555,14 @@ export default function StudentProfilePage() {
         </div>
         {statusHistory.length > 0 && (
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-500 mb-2.5" style={{ fontFamily: 'Inter, sans-serif' }}>Status History</p>
+            <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-500 mb-2.5">Status History</p>
             <div className="flex flex-wrap gap-2">
               {statusHistory.slice(0, 5).map((h) => (
                 <span key={h.id} className="inline-flex items-center gap-1.5 text-xs bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm">
-                  <span className="text-slate-400" style={{ fontFamily: 'Inter, sans-serif' }}>{h.from_status}</span>
+                  <span className="text-slate-400">{h.from_status}</span>
                   <span className="text-[#4F46E5]">→</span>
                   <span className="font-bold text-slate-800">{h.to_status}</span>
-                  <span className="text-slate-400 ml-1" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}>{new Date(h.changed_at).toLocaleDateString()}</span>
+                  <span className="text-slate-400 ml-1 font-mono text-[11px]">{new Date(h.changed_at).toLocaleDateString()}</span>
                 </span>
               ))}
             </div>
@@ -573,7 +571,7 @@ export default function StudentProfilePage() {
       </Card>
 
       {/* Tabs - indigo pill */}
-      <div className="flex gap-1.5 shrink-0 bg-slate-100 rounded-[16px] p-1.5 w-fit border border-slate-200/60">
+      <div className="flex gap-1.5 shrink-0 bg-white border border-slate-200 rounded-2xl p-1.5 w-fit shadow-sm">
         {[
           { key: 'path', label: 'Graduation Path', icon: <Layers size={14} /> },
           { key: 'history', label: 'Enrollment History', icon: <BookOpen size={14} /> },
@@ -584,10 +582,9 @@ export default function StudentProfilePage() {
             key={key}
             type="button"
             onClick={() => setActiveTab(key)}
-            className={`inline-flex items-center gap-1.5 rounded-[12px] px-4 py-2 text-sm font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
               activeTab === key ? 'bg-[#4F46E5] text-white shadow-md shadow-indigo-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white'
             }`}
-            style={{ fontFamily: 'Inter, sans-serif' }}
           >
             {icon} {label}
           </button>
@@ -595,10 +592,11 @@ export default function StudentProfilePage() {
       </div>
 
       {/* Content viewport - single scroll */}
-      <div className="flex-1 min-h-0 overflow-auto pr-1 custom-scrollbar">
+      <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-4 pr-1 [scrollbar-width:thin]">
       {activeTab === 'path' ? (
-        <Card title="All Modules — Graduation Path" subtitle={`${passedCourses} of ${allCourses.length} modules completed • indigo bento grid`} className="rounded-[24px] !bg-white card-hover border-slate-200">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <Card title="All Modules — Graduation Path" subtitle={`${passedCourses} of ${allCourses.length} modules completed • indigo bento grid`} className="rounded-[24px] !bg-white card-hover border-slate-200 isolate flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 overflow-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCourses.map((course) => {
               const enrollment = courseMap[course.id]
               const isPassed = enrollment?.result_status === 'Pass'
@@ -623,9 +621,9 @@ export default function StudentProfilePage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 leading-tight" style={{ fontFamily: 'Sora, sans-serif' }}>{course.title}</p>
+                      <p className="font-display text-sm font-bold text-slate-900 leading-tight">{course.title}</p>
                       {course.course_code ? (
-                        <p className="text-xs font-medium text-[#6366f1] mt-0.5" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{course.course_code}</p>
+                        <p className="text-xs font-medium text-[#6366f1] mt-0.5 font-mono">{course.course_code}</p>
                       ) : null}
                     </div>
                     <span
@@ -659,6 +657,7 @@ export default function StudentProfilePage() {
           {!allCourses.length ? (
             <p className="text-sm text-slate-400 text-center py-10">No courses in the system yet.</p>
           ) : null}
+          </div>
         </Card>
       ) : null}
 
@@ -680,13 +679,12 @@ export default function StudentProfilePage() {
             <div className="min-w-0">
               <Link
                 to={`/lecturer/courses/${e.course_id}`}
-                className="text-sm font-bold text-slate-900 hover:text-[#4F46E5] hover:underline"
-                style={{ fontFamily: 'Sora, sans-serif' }}
+                className="font-display text-sm font-bold text-slate-900 hover:text-[#4F46E5] hover:underline"
               >
                 {e.course_title}
               </Link>
-              {e.course_code ? <span className="ml-1.5 text-xs font-medium text-[#6366f1]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{e.course_code}</span> : null}
-              <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {e.course_code ? <span className="ml-1.5 text-xs font-medium text-[#6366f1] font-mono">{e.course_code}</span> : null}
+              <p className="text-xs text-slate-400 mt-0.5">
                 {e.cohort_name ? `${e.cohort_name} · ` : ''}
                 Enrolled {fmtDate(e.enrolled_at)}
                 {e.completed_at ? ` · Completed ${fmtDate(e.completed_at)}` : ''}
@@ -696,12 +694,12 @@ export default function StudentProfilePage() {
               {e.result_status === 'Pass' ? (
                 <>
                   <Badge tone="emerald" dot>✓ Pass</Badge>
-                  {e.score != null ? <p className="text-xs text-slate-400 mt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{e.score} pts</p> : null}
+                  {e.score != null ? <p className="text-xs text-slate-400 mt-1 font-mono">{e.score} pts</p> : null}
                 </>
               ) : e.result_status === 'Fail' ? (
                 <>
                   <Badge tone="rose" dot>✗ Fail</Badge>
-                  {e.score != null ? <p className="text-xs text-slate-400 mt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{e.score} pts</p> : null}
+                  {e.score != null ? <p className="text-xs text-slate-400 mt-1 font-mono">{e.score} pts</p> : null}
                 </>
               ) : e.status === 'completed' ? (
                 <Badge tone="amber">Awaiting result</Badge>
@@ -712,7 +710,7 @@ export default function StudentProfilePage() {
                 <button
                   type="button"
                   onClick={() => setResultPanelCourseId((prev) => (prev === e.course_id ? null : e.course_id))}
-                  className="btn btn-ghost btn-sm mt-1.5"
+                  className="btn btn-ghost btn-sm lift gap-2 mt-1.5"
                   style={{ borderRadius: '10px' }}
                 >
                   {resultPanelCourseId === e.course_id ? 'Cancel' : '+ Add result'}
@@ -743,7 +741,7 @@ export default function StudentProfilePage() {
                     type="button"
                     disabled={resultSaving}
                     onClick={() => saveStudentResult(e.course_id)}
-                    className="btn btn-primary btn-sm lift disabled:opacity-50"
+                    className="btn btn-primary btn-sm lift gap-2 disabled:opacity-50"
                     style={{ background: '#4F46E5', borderRadius: '10px' }}
                   >
                     {resultSaving ? 'Saving…' : 'Save result'}
@@ -755,9 +753,9 @@ export default function StudentProfilePage() {
         )
 
         return (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {/* Currently enrolled */}
-            <Card title="Currently Enrolled" subtitle="Courses this student is actively taking right now" className="rounded-[24px] !bg-white card-hover border-slate-200">
+            <Card title="Currently Enrolled" subtitle="Courses this student is actively taking right now" className="rounded-[24px] !bg-white card-hover border-slate-200 isolate">
               {current.length > 0
                 ? current.map((e) => <EnrollRow key={e.id} e={e} />)
                 : <p className="text-sm text-slate-400 py-2">Not currently enrolled in any course.</p>
@@ -766,13 +764,13 @@ export default function StudentProfilePage() {
 
             {/* Eligible to retake */}
             {retake.length > 0 ? (
-              <Card title="Eligible to Retake" subtitle="Failed courses — eligible to enroll again in the next cycle" className="rounded-[24px] !bg-white card-hover border-slate-200">
+              <Card title="Eligible to Retake" subtitle="Failed courses — eligible to enroll again in the next cycle" className="rounded-[24px] !bg-white card-hover border-slate-200 isolate">
                 {retake.map((e) => <EnrollRow key={e.id} e={e} />)}
               </Card>
             ) : null}
 
             {/* Past completed */}
-            <Card title="Completed Courses" subtitle="Passed or awaiting result" className="rounded-[24px] !bg-white card-hover border-slate-200">
+            <Card title="Completed Courses" subtitle="Passed or awaiting result" className="rounded-[24px] !bg-white card-hover border-slate-200 isolate">
               {past.length > 0
                 ? past.map((e) => <EnrollRow key={e.id} e={e} />)
                 : <p className="text-sm text-slate-400 py-2">No completed courses yet.</p>
@@ -781,18 +779,17 @@ export default function StudentProfilePage() {
 
             {/* Not yet started */}
             {notStarted.length > 0 ? (
-              <Card title="Not Yet Started" subtitle="Courses this student has never been enrolled in" className="rounded-[24px] !bg-white card-hover border-slate-200">
+              <Card title="Not Yet Started" subtitle="Courses this student has never been enrolled in" className="rounded-[24px] !bg-white card-hover border-slate-200 isolate">
                 {notStarted.map((c) => (
                   <div key={c.id} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0 gap-4">
                     <div className="min-w-0">
                       <Link
                         to={`/lecturer/courses/${c.id}`}
-                        className="text-sm font-bold text-slate-900 hover:text-[#4F46E5] hover:underline"
-                        style={{ fontFamily: 'Sora, sans-serif' }}
+                        className="font-display text-sm font-bold text-slate-900 hover:text-[#4F46E5] hover:underline"
                       >
                         {c.title}
                       </Link>
-                      {c.course_code ? <span className="ml-1.5 text-xs font-medium text-[#6366f1]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{c.course_code}</span> : null}
+                      {c.course_code ? <span className="ml-1.5 text-xs font-medium text-[#6366f1] font-mono">{c.course_code}</span> : null}
                     </div>
                     <span className="text-xs rounded-full px-2.5 py-1 bg-slate-100 text-slate-500 border border-slate-200 font-semibold">Not started</span>
                   </div>
@@ -807,8 +804,8 @@ export default function StudentProfilePage() {
 
       {/* Timeline */}
       {activeTab === 'timeline' ? (
-        <Card title="Activity Timeline" subtitle="Status transitions & enrollments — indigo bento" className="rounded-[24px] !bg-white card-hover border-slate-200">
-          <div className="space-y-2 max-h-[520px] overflow-auto pr-1 custom-scrollbar">
+        <Card title="Activity Timeline" subtitle="Status transitions & enrollments — indigo bento" className="rounded-[24px] !bg-white card-hover border-slate-200 isolate flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="space-y-2 flex-1 min-h-0 overflow-auto pr-1 [scrollbar-width:thin]">
             {timeline.map((event) => (
               <div key={event.id} className="flex items-start gap-3 rounded-[16px] bg-slate-50 border border-slate-100 px-4 py-3 hover:bg-[#EEF2FF] hover:border-[#e0e7ff] transition-colors">
                 <div className="flex flex-col items-center shrink-0 pt-1">
@@ -819,21 +816,21 @@ export default function StudentProfilePage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   {event.type === 'status_transition' ? (
-                    <p className="text-sm text-slate-700" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    <p className="text-sm text-slate-700">
                       Status changed: <span className="text-slate-500">{event.from_status}</span>
                       <span className="mx-1.5 text-[#4F46E5] font-bold">→</span>
                       <span className="font-bold text-slate-900">{event.to_status}</span>
                       {event.reason ? <span className="text-slate-400 italic ml-1.5">({event.reason})</span> : null}
                     </p>
                   ) : event.type === 'enrollment' ? (
-                    <p className="text-sm text-slate-700" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    <p className="text-sm text-slate-700">
                       {event.auto_enrolled ? <span className="text-[#4F46E5] text-xs font-bold mr-1">⚡</span> : null}
                       {event.status === 'active' ? 'Enrolled in' : event.status === 'completed' ? 'Completed' : event.status === 'failed' ? 'Failed' : event.status === 'withdrawn' ? 'Withdrawn from' : 'Enrolled in'}{' '}
                       <span className="font-bold text-slate-900">{event.course_title}</span>
-                      {event.course_code ? <span className="text-[#6366f1] font-medium" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}> ({event.course_code})</span> : null}
+                      {event.course_code ? <span className="text-[#6366f1] font-medium font-mono text-xs"> ({event.course_code})</span> : null}
                       {event.result_status === 'Pass' ? <span className="ml-1.5 text-emerald-600 font-bold">✓ Pass</span> : null}
                       {event.result_status === 'Fail' ? <span className="ml-1.5 text-red-500 font-bold">✗ Fail</span> : null}
-                      {event.score != null ? <span className="text-slate-400 ml-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>({event.score})</span> : null}
+                      {event.score != null ? <span className="text-slate-400 ml-1 font-mono">({event.score})</span> : null}
                       {event.plan_start_date || event.plan_end_date ? (
                         <span className="text-slate-400 text-xs ml-1">
                           {event.plan_start_date ? new Date(event.plan_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '?'} – {event.plan_end_date ? new Date(event.plan_end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '?'}
@@ -841,11 +838,11 @@ export default function StudentProfilePage() {
                       ) : null}
                     </p>
                   ) : (
-                    <p className="text-sm text-slate-700" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    <p className="text-sm text-slate-700">
                       <span className="font-bold capitalize">{event.action?.replace(/_/g, ' ')}</span>
                     </p>
                   )}
-                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
                     <Clock size={11} />
                     {new Date(event.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     {event.actor ? <span> · by {event.actor}</span> : null}
@@ -862,8 +859,8 @@ export default function StudentProfilePage() {
 
       {/* Activity log */}
       {activeTab === 'activity' ? (
-        <Card title="Activity Log" subtitle="Raw audit trail" className="rounded-[24px] !bg-white card-hover border-slate-200">
-          <div className="space-y-2 max-h-[520px] overflow-auto pr-1 custom-scrollbar">
+        <Card title="Activity Log" subtitle="Raw audit trail" className="rounded-[24px] !bg-white card-hover border-slate-200 isolate flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="space-y-2 flex-1 min-h-0 overflow-auto pr-1 [scrollbar-width:thin]">
             {history.activities.map((activity, index) => (
               <div
                 key={`${activity.action}-${activity.created_at}-${index}`}
@@ -871,8 +868,8 @@ export default function StudentProfilePage() {
               >
                 <div className="w-2 h-2 rounded-full bg-[#4F46E5] mt-2 shrink-0 ring-4 ring-[#e0e7ff]" />
                 <div>
-                  <p className="text-sm font-bold text-slate-800 capitalize" style={{ fontFamily: 'Inter, sans-serif' }}>{activity.action.replace(/_/g, ' ')}</p>
-                  <p className="text-xs text-slate-400" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{new Date(activity.created_at).toLocaleString()}</p>
+                  <p className="text-sm font-bold text-slate-800 capitalize">{activity.action.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-slate-400 font-mono">{new Date(activity.created_at).toLocaleString()}</p>
                 </div>
               </div>
             ))}

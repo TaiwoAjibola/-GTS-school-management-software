@@ -312,7 +312,7 @@ export default function CoursePage() {
   if (loading) {
     return (
       <AppShell title="Course" groups={lecturerNavGroups}>
-        <div className="h-full flex flex-col gap-5 overflow-hidden">
+        <div className="h-full flex flex-col gap-4 overflow-hidden">
           <div className="shrink-0 space-y-4">
             <div className="h-8 w-36 skeleton rounded-full" />
             <div className="h-28 skeleton rounded-[1.5rem]" />
@@ -340,7 +340,7 @@ export default function CoursePage() {
               <ShieldAlert size={22} />
             </div>
             <p className="text-slate-500 text-sm font-mono">{loadError || 'Course not found.'}</p>
-            <Link to="/lecturer/courses" className="btn btn-primary mt-4">
+            <Link to="/lecturer/courses" className="btn btn-sm lift gap-2 btn-primary mt-4">
               <ArrowLeft size={14} /> Back to Courses
             </Link>
           </div>
@@ -351,7 +351,7 @@ export default function CoursePage() {
 
   return (
     <AppShell title={course.title} groups={lecturerNavGroups}>
-      <div className="h-full flex flex-col gap-5 overflow-hidden">
+      <div className="h-full flex flex-col gap-4 overflow-hidden">
       {notice ? (
         <div className="shrink-0 flex items-center gap-3 rounded-2xl bg-indigo-600 text-white px-4 py-3 text-sm font-medium shadow-lg shadow-indigo-200">
           <span className="h-7 w-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -370,7 +370,7 @@ export default function CoursePage() {
           <button
             type="button"
             onClick={() => navigate('/lecturer/courses')}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm lift gap-2"
           >
             <ArrowLeft size={15} /> Back to Courses
           </button>
@@ -387,9 +387,9 @@ export default function CoursePage() {
         {/* Bento hero: meta + stats */}
         <div className="grid lg:grid-cols-12 gap-4">
           {/* Course meta — 8 col */}
-          <section className="card card-hover lg:col-span-8 overflow-hidden flex flex-col">
+          <section className="card card-hover lg:col-span-8 flex flex-col">
             <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-violet-500 to-indigo-600" />
-            <div className="card-pad space-y-5 flex-1">
+            <div className="card-pad space-y-4 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 {course.course_code ? <Badge tone="slate" className="font-mono tracking-widest text-[11px]">{course.course_code}</Badge> : null}
                 {statusBadge('Assignment', course.has_assignment, 'sky')}
@@ -594,12 +594,12 @@ export default function CoursePage() {
       {/* Current batch tab */}
       {activeTab === 'current' ? (
         <Card title="Active Students" action={<span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500"><span className="h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />{enrolledStudentIds.size} enrolled</span>} className="flex-1 min-h-0 overflow-auto !p-0 border-slate-200 shadow-sm">
-          <div className="p-5 pb-0">
-            <div className="overflow-auto rounded-2xl border border-slate-200">
-              <table className="data-table w-full text-sm">
-                <thead className="text-left text-slate-500">
+          <div className="p-5 flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 overflow-auto rounded-2xl border border-slate-200">
+              <table className="data-table w-full">
+                <thead>
                   <tr>
-                    <th className="pb-2">Student</th>
+                    <th >Student</th>
                     <th>Matric</th>
                     <th>Batch</th>
                     <th>Result</th>
@@ -628,7 +628,7 @@ export default function CoursePage() {
                         <button
                           type="button"
                           onClick={() => setWithdrawTarget(e)}
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-sm lift gap-2"
                         >
                           Withdraw
                         </button>
@@ -654,7 +654,7 @@ export default function CoursePage() {
           </div>
 
           {/* Enroll students — indigo bento block */}
-          <div className="m-5 mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/30 p-5 space-y-4">
+          <div className="m-4 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/30 p-5 space-y-4">
             <div className="flex items-center gap-3">
               <span className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200 shrink-0">
                 <Sparkles size={16} />
@@ -708,7 +708,7 @@ export default function CoursePage() {
                         setCopying(false)
                       }
                     }}
-                    className="btn btn-primary shrink-0 disabled:opacity-50"
+                    className="btn btn-sm lift gap-2 btn-primary shrink-0 disabled:opacity-50"
                   >
                     {copying ? 'Copying…' : 'Copy Students'}
                   </button>
@@ -835,7 +835,7 @@ export default function CoursePage() {
                             notify(err?.response?.data?.message || 'Enrollment failed')
                           }
                         }}
-                        className="btn btn-primary btn-sm shrink-0 ml-2"
+                        className="btn lift gap-2 btn-primary btn-sm shrink-0 ml-2"
                       >
                         Enroll
                       </button>
@@ -922,14 +922,14 @@ export default function CoursePage() {
                 />
               </label>
 
-              <button className="btn btn-primary w-full justify-center py-3 text-sm">
+              <button className="btn btn-sm lift gap-2 btn-primary w-full justify-center py-3 text-sm">
                 <Send size={14} /> Upload Material
               </button>
             </div>
           </form>
 
-          <div className="card !p-0 overflow-hidden flex flex-col min-h-0">
-            <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3 border-b border-slate-100">
+          <div className="card !p-0 flex flex-col min-h-0">
+            <div className="px-5 py-4 flex items-center justify-between gap-3 border-b border-slate-100">
               <h3 className="card-title flex items-center gap-2">
                 <span className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
                   <BookOpen size={14} />
@@ -939,10 +939,10 @@ export default function CoursePage() {
               <Badge tone="slate" className="font-mono">{materials.length} files</Badge>
             </div>
             <div className="overflow-auto flex-1">
-              <table className="data-table w-full text-sm">
-                <thead className="text-left text-slate-500">
+              <table className="data-table w-full">
+                <thead>
                   <tr>
-                    <th className="pb-2">Title</th>
+                    <th >Title</th>
                     <th>Scope</th>
                     <th>Uploaded</th>
                     <th>File</th>
@@ -963,7 +963,7 @@ export default function CoursePage() {
                           href={`${apiBase}${material.material_url}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="btn btn-ghost btn-sm"
+                          className="btn btn-ghost btn-sm lift gap-2"
                         >
                           Open
                         </a>
@@ -972,7 +972,7 @@ export default function CoursePage() {
                         <button
                           type="button"
                           onClick={() => sendMaterial(material.id)}
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-primary btn-sm lift gap-2"
                         >
                           <Mail size={12} /> Send Email
                         </button>
@@ -1001,8 +1001,8 @@ export default function CoursePage() {
 
       {/* Awaiting re-enrollment tab */}
       {activeTab === 'waiting' ? (
-        <div className="card !p-0 overflow-hidden flex flex-col flex-1 min-h-0">
-          <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3 border-b border-slate-100 shrink-0">
+        <div className="card !p-0 flex flex-col flex-1 min-h-0">
+          <div className="px-5 py-4 flex items-center justify-between gap-2 border-b border-slate-100 shrink-0">
             <h3 className="card-title flex items-center gap-2">
               <span className="h-8 w-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
                 <ShieldAlert size={14} />
@@ -1012,10 +1012,10 @@ export default function CoursePage() {
             <Badge tone="amber">{waitingReenrollmentStudents.length} waiting</Badge>
           </div>
           <div className="overflow-auto flex-1">
-            <table className="data-table w-full text-sm">
-              <thead className="text-left text-slate-500">
+            <table className="data-table w-full">
+              <thead>
                 <tr>
-                  <th className="pb-2">Student</th>
+                  <th >Student</th>
                   <th>Matric</th>
                   <th>Last Batch</th>
                   <th>Last Dates</th>
@@ -1109,7 +1109,7 @@ export default function CoursePage() {
             }
             return sections.map(({ cohortName, rows }) => (
               <div key={cohortName} className="card !p-0 overflow-hidden">
-                <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
+                <div className="px-5 py-4 flex items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
                   <span className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
                     <Layers size={12} /> {cohortName}
                   </span>
@@ -1117,10 +1117,10 @@ export default function CoursePage() {
                   <span className="ml-auto h-2 w-2 rounded-full bg-indigo-400" />
                 </div>
                 <div className="overflow-auto">
-                  <table className="data-table w-full text-sm">
-                    <thead className="text-left text-slate-500">
+                  <table className="data-table w-full">
+                    <thead>
                       <tr>
-                        <th className="pb-2">Student</th>
+                        <th >Student</th>
                         <th>Matric</th>
                         <th>Batch</th>
                         <th>Dates</th>
@@ -1159,8 +1159,8 @@ export default function CoursePage() {
 
       {/* Assignments tab */}
       {activeTab === 'assignments' ? (
-        <div className="card !p-0 overflow-hidden flex flex-col flex-1 min-h-0">
-          <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3 border-b border-slate-100 shrink-0">
+        <div className="card !p-0 flex flex-col flex-1 min-h-0">
+          <div className="px-5 py-4 flex items-center justify-between gap-2 border-b border-slate-100 shrink-0">
             <h3 className="card-title flex items-center gap-2">
               <span className="h-8 w-8 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600">
                 <ClipboardList size={14} />
@@ -1176,10 +1176,10 @@ export default function CoursePage() {
             )}
           </div>
           <div className="overflow-auto flex-1">
-            <table className="data-table w-full text-sm">
-              <thead className="text-left text-slate-500">
+            <table className="data-table w-full">
+              <thead>
                 <tr>
-                  <th className="pb-2">Title</th>
+                  <th >Title</th>
                   <th>Batch</th>
                   <th>Due Date</th>
                   <th>Created</th>
@@ -1218,8 +1218,8 @@ export default function CoursePage() {
       {/* Withdraw modal */}
       {withdrawTarget ? (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setWithdrawTarget(null)}>
-          <div className="bg-white rounded-[1.5rem] shadow-2xl p-6 max-w-md w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="h-1 -mx-6 -mt-6 mb-6 bg-gradient-to-r from-rose-500 via-orange-500 to-rose-600" />
+          <div className="bg-white rounded-[1.5rem] shadow-2xl p-5 max-w-md w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="h-1 -mx-6 -mt-6  bg-gradient-to-r from-rose-500 via-orange-500 to-rose-600" />
             <div className="flex items-start gap-3 mb-1">
               <span className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
                 <XCircle size={18} />
@@ -1244,7 +1244,7 @@ export default function CoursePage() {
               <button
                 type="button"
                 onClick={() => { setWithdrawTarget(null); setWithdrawReason('') }}
-                className="btn btn-ghost"
+                className="btn btn-sm lift gap-2 btn-ghost"
               >
                 Cancel
               </button>
@@ -1265,7 +1265,7 @@ export default function CoursePage() {
                     setWithdrawing(false)
                   }
                 }}
-                className="btn bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 shadow-md shadow-rose-200"
+                className="btn btn-sm lift gap-2 bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 shadow-md shadow-rose-200"
               >
                 {withdrawing ? 'Withdrawing...' : 'Confirm Withdrawal'}
               </button>
@@ -1428,12 +1428,12 @@ export default function CoursePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <button type="submit" className="btn btn-primary py-3">
+              <button type="submit" className="btn btn-sm lift gap-2 btn-primary py-3">
                 Save Changes
               </button>
               <button
                 type="button"
-                className="btn btn-ghost py-3"
+                className="btn btn-sm lift gap-2 btn-ghost py-3"
                 onClick={() => setEditing(false)}
               >
                 Cancel

@@ -193,16 +193,18 @@ export default function EnrollmentPage() {
         </div>
       ) : null}
 
-      <div className="h-full flex flex-col gap-5 overflow-hidden">
-        <div className="shrink-0">
-          <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">Enrollment</h1>
-          <p className="text-[13px] text-slate-500 mt-1">Manage course enrollments by batch</p>
+      <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+        <div className="shrink-0 flex items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">Enrollment</h1>
+            <p className="text-[13px] text-slate-500 mt-1 font-sans">Manage course enrollments by batch</p>
+          </div>
         </div>
-        <div className="flex-1 min-h-0 overflow-auto space-y-5 pr-1 pb-2">
+        <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-4 pr-1 pb-2 [scrollbar-width:thin]">
           {selectedCourse ? (
             <>
               {/* Compact course selector — clean filter bar */}
-              <div className="card card-hover p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="card card-hover p-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3 min-w-0 flex-1">
                   <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase text-slate-500 shrink-0">
                     <BookOpen size={12} className="text-indigo-500" /> Course
@@ -279,7 +281,7 @@ export default function EnrollmentPage() {
                             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-display text-[15px] font-bold tracking-tight text-slate-900 truncate" style={{ fontFamily: 'Sora, sans-serif' }}>{cohort.name}</p>
+                            <p className="font-display text-[15px] font-bold tracking-tight text-slate-900 truncate">{cohort.name}</p>
                             <p className="text-xs font-medium text-slate-500 mt-0.5 font-mono">
                               {fmtDateRange(cohort.start_date, cohort.end_date)}
                             </p>
@@ -305,11 +307,11 @@ export default function EnrollmentPage() {
                       {/* Expanded content — bento split */}
                       {isExpanded ? (
                         <div className="p-5 bg-[#F8FAFC]">
-                          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-5 items-start">
+                          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-4 items-start">
                             {/* Enrolled students — data-table indigo */}
                             <div className="card !rounded-[16px] overflow-hidden border-slate-200">
-                              <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-slate-200">
-                                <h4 className="font-display text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2" style={{ fontFamily: 'Sora, sans-serif' }}>
+                              <div className="px-5 py-4 flex items-center justify-between bg-white border-b border-slate-200">
+                                <h4 className="font-display text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2">
                                   <span className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center"><GraduationCap size={14} /></span>
                                   Enrolled in {selectedCourse.title}
                                 </h4>
@@ -356,9 +358,9 @@ export default function EnrollmentPage() {
 
                             {/* Eligible — search + grouped */}
                             <div className="card !rounded-[16px] overflow-hidden border-slate-200">
-                              <div className="px-4 py-3 bg-white border-b border-slate-200 space-y-3">
+                              <div className="px-5 py-4 bg-white border-b border-slate-200 space-y-3">
                                 <div className="flex items-center justify-between gap-2">
-                                  <h4 className="font-display text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2" style={{ fontFamily: 'Sora, sans-serif' }}>
+                                  <h4 className="font-display text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2">
                                     <span className="h-7 w-7 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center"><Filter size={14} /></span>
                                     Eligible from this Batch
                                   </h4>
