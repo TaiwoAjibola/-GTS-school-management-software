@@ -194,6 +194,10 @@ export default function EnrollmentPage() {
       ) : null}
 
       <div className="h-full flex flex-col gap-5 overflow-hidden">
+        <div className="shrink-0">
+          <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">Enrollment</h1>
+          <p className="text-[13px] text-slate-500 mt-1">Manage course enrollments by batch</p>
+        </div>
         <div className="flex-1 min-h-0 overflow-auto space-y-5 pr-1 pb-2">
           {selectedCourse ? (
             <>

@@ -1575,21 +1575,7 @@ const LecturerDashboard = () => {
             <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
             <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" className="stat-hover" />
             <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" className="stat-hover" />
-          </div>
-
-          <div className="card card-pad card-hover mb-6 border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40">
-            <div className="flex items-start gap-4">
-              <div className="ico h-11 w-11 shrink-0"><BookOpen size={20} className="text-indigo-600" /></div>
-              <div className="min-w-0">
-                <h3 className="font-display font-bold text-slate-900">Current course</h3>
-                <p className="text-sm text-slate-600 mt-1">
-                  {selectedCourse
-                    ? `${selectedCourse.title} • ${selectedCourse.class_day || 'N/A'} ${selectedCourse.class_time || ''} • ${fmtDateRange(selectedCourse.start_date, selectedCourse.end_date)}`
-                    : 'Set one course as current from Courses page to begin attendance'}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">Attendance uses the current active course only.</p>
-              </div>
-            </div>
+            <Card title="Current Course" value={selectedCourse ? selectedCourse.title : '—'} hint={selectedCourse?.class_day || ''} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
           </div>
         </div>
 
@@ -1613,10 +1599,10 @@ const LecturerDashboard = () => {
             </div>
             {coursesTab === 'courses' ? (
               <div className="shrink-0 flex gap-2">
-                <button type="button" onClick={() => setShowCreateCourseModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                <button type="button" onClick={() => setShowCreateCourseModal(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
                   <Plus size={14} /> Create Course
                 </button>
-                <button type="button" onClick={() => setShowCourseBulkModal(true)} className="btn btn-ghost lift inline-flex items-center gap-1.5">
+                <button type="button" onClick={() => setShowCourseBulkModal(true)} className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5">
                   <Upload size={14} /> Bulk Upload
                 </button>
               </div>
@@ -1626,10 +1612,6 @@ const LecturerDashboard = () => {
           {/* ── COURSES TAB ── */}
           {coursesTab === 'courses' ? (
           <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-900">Course List</h3>
-              <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
-            </div>
             <div className="flex-1 min-h-0 overflow-auto">
               <div className="h-full flex flex-col">
             <div className="flex items-center gap-3 mb-3">
@@ -2321,13 +2303,13 @@ const LecturerDashboard = () => {
                 <button type="button" onClick={() => setShowBatchDrawer(true)} className="btn btn-ghost btn-sm lift">
                   Manage Batches
                 </button>
-                <button type="button" onClick={() => setShowCreateStudentModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                <button type="button" onClick={() => setShowCreateStudentModal(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
                   <Plus size={14} /> Create Student
                 </button>
-                <button type="button" onClick={() => setShowCreateBatchModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                <button type="button" onClick={() => setShowCreateBatchModal(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
                   <Plus size={14} /> Create Batch
                 </button>
-                <button type="button" onClick={() => setShowStudentUploadModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                <button type="button" onClick={() => setShowStudentUploadModal(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
                   <Upload size={14} /> Upload Excel
                 </button>
               </div>
@@ -3411,7 +3393,7 @@ const LecturerDashboard = () => {
                   for (const course of graduationMatrix.courses) next[course.id] = true
                   setGradVettingConfirm(next)
                 }}
-                className="text-xs font-medium btn btn-ghost lift border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50"
+                className="text-xs font-medium btn btn-ghost btn-sm lift border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50"
               >
                 Select all as Yes
               </button>
@@ -3491,132 +3473,21 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'attendance' ? (
-        <div className="grid xl:grid-cols-[390px_1fr] gap-6 flex-1 min-h-0 overflow-auto">
-          <div className="space-y-6">
-            <div className="card card-pad card-hover space-y-4">
-              <div>
-                <h3 className="font-semibold text-slate-900">Attendance Session</h3>
-                <p className="text-sm text-slate-500 mt-1">Mark students present. Unmarked students are treated as absent.</p>
-              </div>
-              <label className="text-sm text-slate-600 block">
-                Select Class
-                <select
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
-                  value={selectedClassNumber}
-                  onChange={(event) => setSelectedClassNumber(event.target.value)}
-                >
-                  {classOptions.map((classNo) => (
-                    <option key={classNo} value={classNo}>{`Class ${classNo}`}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm text-slate-600 block">
-                Session Date
-                <input type="date" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.date} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, date: event.target.value }))} />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm text-slate-600 block">
-                  Start Time
-                  <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.startTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, startTime: event.target.value }))} />
-                </label>
-                <label className="text-sm text-slate-600 block">
-                  End Time
-                  <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.endTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, endTime: event.target.value }))} />
-                </label>
-              </div>
-              <label className="text-sm text-slate-600 block">
-                Secondary Lecturer
-                <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.secondaryLecturerId || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || '' }))}>
-                  <option value="">— No secondary lecturer —</option>
-                  {lecturers.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm text-slate-600 block">
-                Session Notes
-                <textarea
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
-                  rows={2}
-                  value={attendanceForm.lecturerNotes || ''}
-                  onChange={(event) => setAttendanceForm((prev) => ({ ...prev, lecturerNotes: event.target.value }))}
-                  placeholder="Optional notes for this session"
-                />
-              </label>
-              <button onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="w-full btn btn-primary px-4 py-2 disabled:opacity-50">Start Attendance</button>
-              <button onClick={closeAttendance} disabled={!attendanceStatus.activeSession} className="w-full bg-slate-200 text-slate-800 rounded-lg px-4 py-2 disabled:opacity-50">Close Attendance</button>
-              <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-                <p>Class: {selectedClassNumber}</p>
-                <p>Completed: {attendanceStatus.classCompleted ? 'Yes' : 'No'}</p>
-                <p>Active: {attendanceStatus.activeSession ? 'Yes' : 'No'}</p>
-                <p>Ends: {attendanceStatus.activeSession?.end_time ? new Date(attendanceStatus.activeSession.end_time).toLocaleString() : '-'}</p>
-                <p>Present: {attendanceStatus.attendeeCount || 0}</p>
-              </div>
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-900">Attendance Summary by Student</h3>
+              <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{attendanceSummary.length} students</span>
             </div>
-
-            <div className="card card-pad card-hover">
-              <p className="text-sm font-medium text-slate-900">Session History</p>
-              <ul className="mt-3 space-y-2 text-sm text-slate-600 max-h-56 overflow-auto">
-                {attendanceHistory.map((session) => (
-                  <li key={session.id} className="rounded-lg bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-medium text-slate-800">Class {session.class_number}</div>
-                      <div className="text-xs text-slate-500">{new Date(session.start_time).toLocaleString()}</div>
-                      <div className="text-xs text-slate-500">{session.attendees} present</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openEditSession(session)}
-                      className="shrink-0 rounded-lg px-3 py-1.5 bg-slate-200 text-slate-700 text-xs hover:bg-slate-300"
-                    >
-                      Edit
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {attendanceStatus.canMark ? (
-              <div className="card card-pad card-hover overflow-auto">
-                <h3 className="font-semibold text-slate-900 mb-4">Roll Call (Editable)</h3>
-                <table className="data-table w-full text-sm">
-                  <thead className="text-left text-slate-500">
-                    <tr><th className="pb-2">Name</th><th>Matric</th><th>Status</th><th>Attendance</th></tr>
-                  </thead>
-                  <tbody>
-                    {attendanceRoster.map((student) => (
-                      <tr key={student.student_id} className="border-t border-slate-200">
-                        <td className="py-3">{student.full_name}</td>
-                        <td>{student.matric_no}</td>
-                        <td>{student.status}</td>
-                        <td>
-                          <button onClick={() => markStudentPresent(student.student_id)} disabled={!attendanceStatus.activeSession || student.present} className={`rounded-lg px-3 py-2 ${student.present ? 'bg-emerald-100 text-emerald-700' : 'btn btn-primary disabled:opacity-50'}`}>
-                            {student.present ? 'Present' : 'Mark Present'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="card card-pad card-hover text-sm text-slate-600">
-                Roll call is locked for this class. View summary below.
-              </div>
-            )}
-
-            <div className="card card-pad card-hover overflow-auto">
-              <h3 className="font-semibold text-slate-900 mb-4">Attendance Summary by Student</h3>
+            <div className="flex-1 min-h-0 overflow-auto">
               <table className="data-table w-full text-sm">
-                <thead className="text-left text-slate-500">
-                  <tr><th className="pb-2">Name</th><th>Present</th><th>Absent</th><th>Rate</th><th>Eligible</th></tr>
+                <thead className="text-left text-slate-500 sticky top-0 bg-white">
+                  <tr><th className="pb-2 px-4">Name</th><th>Present</th><th>Absent</th><th>Rate</th><th>Eligible</th></tr>
                 </thead>
                 <tbody>
                   {attendanceSummary.map((student) => (
                     <tr key={student.student_id} className="border-t border-slate-200">
-                      <td className="py-3">{student.full_name}</td>
+                      <td className="py-3 px-4">{student.full_name}</td>
                       <td>{student.present_count}</td>
                       <td>{student.absent_count}</td>
                       <td>{student.attendance_rate}%</td>
@@ -4048,7 +3919,7 @@ const LecturerDashboard = () => {
               <button
                 type="button"
                 onClick={openGraduationCalendarTemplate}
-                className="btn btn-primary lift inline-flex items-center gap-1.5"
+                className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5"
               >
                 <Plus size={14} /> Create Calendar
               </button>
@@ -5290,7 +5161,7 @@ const LecturerDashboard = () => {
           {/* Forms header */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Form Builder</h2>
+              <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">Form Builder</h1>
               <p className="text-sm text-slate-500 mt-1">Create dynamic forms for applications, onboarding, and surveys. Graduation calendar is under Graduation.</p>
             </div>
             <button

@@ -126,20 +126,22 @@ const AppShell = ({ title, navItems = [], groups = [], children }) => {
       {/* Main — single-viewport preserved */}
       <main className="h-screen min-h-0 flex flex-col overflow-hidden bg-[#F8FAFC] p-4 md:p-6 lg:p-8">
         <div className="flex items-start justify-between gap-4 shrink-0">
-          <div className="min-w-0">
-            <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">
-              {title}
-            </h1>
-            <p className="text-[13px] font-medium text-slate-500 mt-2">
-              Welcome back, {user?.fullName?.split(' ')[0] || user?.fullName}
-              <span className="hidden sm:inline text-slate-300 mx-1.5">—</span>
-              <span className="hidden sm:inline text-slate-500">here&apos;s what&apos;s happening today</span>
-            </p>
-          </div>
+          {title !== "Forms" ? (
+            <div className="min-w-0">
+              <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">
+                {title}
+              </h1>
+              <p className="text-[13px] font-medium text-slate-500 mt-2">
+                Welcome back, {user?.fullName?.split(' ')[0] || user?.fullName}
+                <span className="hidden sm:inline text-slate-300 mx-1.5">—</span>
+                <span className="hidden sm:inline text-slate-500">here&apos;s what&apos;s happening today</span>
+              </p>
+            </div>
+          ) : null}
           <button
             onClick={() => setIsOpen((value) => !value)}
             aria-label={isOpen ? 'Close navigation' : 'Open navigation'}
-            className="md:hidden inline-flex items-center justify-center rounded-xl bg-white border border-slate-200 px-3 py-2.5 text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 ease-out shrink-0"
+            className="md:hidden inline-flex items-center justify-center rounded-xl bg-white border border-slate-200 px-3 py-2.5 text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 ease-out shrink-0 ml-auto"
           >
             {isOpen ? <X size={18} /> : <Menu size={18} />}
           </button>

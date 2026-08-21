@@ -281,7 +281,7 @@ const AdminDashboard = () => {
                       Alumni & Graduating map to indigo · sky tones
                     </p>
                   </div>
-                  <button type="submit" className="btn btn-primary lift mt-1 w-full justify-center">
+                  <button type="submit" className="btn btn-primary btn-sm lift mt-1 w-full justify-center">
                     <UserPlus size={16} />
                     Create Student
                     <ArrowUpRight size={14} className="opacity-70" />
