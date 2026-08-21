@@ -64,6 +64,7 @@ export default function CoursePage() {
   const [materials, setMaterials] = useState([])
   const [materialForm, setMaterialForm] = useState({ title: '', description: '', sectionNumber: '', file: null })
   const [activeTab, setActiveTab] = useState('current')
+  const [historyCohortFilter, setHistoryCohortFilter] = useState('')
   const [allStudents, setAllStudents] = useState([])
   const [enrollSearch, setEnrollSearch] = useState('')
   const [enrollCohortFilter, setEnrollCohortFilter] = useState('')
@@ -1065,18 +1066,35 @@ export default function CoursePage() {
         </div>
       ) : null}
 
-      {/* All students history tab */}
+      {/* All students history tab — course history by batch (batch filter) */}
       {activeTab === 'history' ? (
         <div className="space-y-4 flex-1 min-h-0 overflow-auto pr-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem' }}>All-Time Enrollment History</h3>
-            <span className="h-px flex-1 bg-slate-200" />
-            <Badge tone="slate" className="font-mono">{allEnrollments.length} records</Badge>
+            <span className="h-px flex-1 bg-slate-200 hidden sm:block" />
+            <select
+              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium bg-white"
+              value={historyCohortFilter}
+              onChange={(e) => setHistoryCohortFilter(e.target.value)}
+            >
+              <option value="">All Batches</option>
+              {Array.from(
+                new Map(
+                  allEnrollments
+                    .filter((e) => e.cohort_id != null)
+                    .map((e) => [String(e.cohort_id), e.cohort_name || `Batch #${e.cohort_id}`])
+                ).entries()
+              ).map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+            <Badge tone="slate" className="font-mono">{historyCohortFilter ? allEnrollments.filter((e) => String(e.cohort_id || '') === historyCohortFilter).length : allEnrollments.length} records</Badge>
           </div>
           {(() => {
+            const filtered = historyCohortFilter ? allEnrollments.filter((e) => String(e.cohort_id || '') === historyCohortFilter) : allEnrollments
             const grouped = {}
             const noCohortKey = '__none__'
-            for (const e of allEnrollments) {
+            for (const e of filtered) {
               const key = e.cohort_id != null ? String(e.cohort_id) : noCohortKey
               if (!grouped[key]) grouped[key] = { cohortName: e.cohort_name || (e.cohort_id ? `Batch #${e.cohort_id}` : 'No Batch'), rows: [] }
               grouped[key].rows.push(e)

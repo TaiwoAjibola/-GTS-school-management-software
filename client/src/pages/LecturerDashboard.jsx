@@ -188,6 +188,8 @@ const LecturerDashboard = () => {
   const [showCreateStudentModal, setShowCreateStudentModal] = useState(false)
   const [showCreateBatchModal, setShowCreateBatchModal] = useState(false)
   const [showStudentUploadModal, setShowStudentUploadModal] = useState(false)
+  const [showCreateCourseModal, setShowCreateCourseModal] = useState(false)
+  const [showCourseBulkModal, setShowCourseBulkModal] = useState(false)
   const [studentCohortFilter, setStudentCohortFilter] = useState('')
   const [studentStatusFilter, setStudentStatusFilter] = useState('current')
   const [graduationSearch, setGraduationSearch] = useState('')
@@ -1594,113 +1596,42 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'courses' ? (
-        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
-          {/* Tab switcher */}
-          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-            {['courses', 'plans', 'timeline'].map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setCoursesTab(tab)}
-                className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${coursesTab === tab ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                {tab === 'courses' ? 'Courses' : tab === 'plans' ? 'Plans' : 'Timeline'}
-              </button>
-            ))}
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {/* Header: tabs — shrink-0, gap-4 consistent */}
+          <div className="flex items-center justify-between gap-4 shrink-0">
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+              {['courses', 'plans', 'timeline'].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setCoursesTab(tab)}
+                  className={`rounded-lg px-5 py-1.5 text-sm font-medium capitalize transition-colors ${coursesTab === tab ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {tab === 'courses' ? 'Courses' : tab === 'plans' ? 'Plans' : 'Timeline'}
+                </button>
+              ))}
+            </div>
+            {coursesTab === 'courses' ? (
+              <div className="shrink-0 flex gap-2">
+                <button type="button" onClick={() => setShowCreateCourseModal(true)} className="btn btn-primary lift inline-flex items-center gap-1.5">
+                  <Plus size={14} /> Create Course
+                </button>
+                <button type="button" onClick={() => setShowCourseBulkModal(true)} className="btn btn-ghost lift inline-flex items-center gap-1.5">
+                  <Upload size={14} /> Bulk Upload
+                </button>
+              </div>
+            ) : null}
           </div>
-
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {/* ── COURSES TAB ── */}
           {coursesTab === 'courses' ? (
-        <div className="grid lg:grid-cols-[390px_1fr] gap-6">
-          <div className="space-y-6">
-          <form onSubmit={createCourse} className="card card-pad card-hover space-y-3">
-            <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Course</h3>
-
-            <label className="text-sm text-slate-600 block">
-              Course Title
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Course title" value={courseForm.title} onChange={(event) => setCourseForm((prev) => ({ ...prev, title: event.target.value }))} required />
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Course Code
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="e.g. GTS101" value={courseForm.courseCode} onChange={(event) => setCourseForm((prev) => ({ ...prev, courseCode: event.target.value }))} />
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Lecturer
-              <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.lecturerName} onChange={(event) => setCourseForm((prev) => ({ ...prev, lecturerName: event.target.value }))}>
-                <option value="">— No lecturer —</option>
-                {lecturers.map((l) => (
-                  <option key={l.id} value={l.name}>{l.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Secondary Lecturer
-              <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.secondaryLecturerId || ''} onChange={(event) => setCourseForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || null }))}>
-                <option value="">— No secondary lecturer —</option>
-                {lecturers.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Duration (weeks)
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="1" value={courseForm.durationWeeks} onChange={(event) => setCourseForm((prev) => ({ ...prev, durationWeeks: Number(event.target.value) }))} required />
-            </label>
-
-            <label className="text-sm text-slate-600 block">
-              Minimum Attendance Required
-              <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="0" value={courseForm.minAttendanceRequired} onChange={(event) => setCourseForm((prev) => ({ ...prev, minAttendanceRequired: Number(event.target.value) }))} required />
-            </label>
-
-            <div className="border rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-slate-700">Course Features</p>
-              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded"
-                  checked={courseForm.hasAssignment}
-                  onChange={(e) => setCourseForm((prev) => ({ ...prev, hasAssignment: e.target.checked }))}
-                />
-                Has Assignments
-              </label>
-              <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded"
-                  checked={courseForm.hasExam}
-                  onChange={(e) => setCourseForm((prev) => ({ ...prev, hasExam: e.target.checked }))}
-                />
-                Has Exam
-              </label>
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-900">Course List</h3>
+              <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
             </div>
-
-            <button className="w-full btn btn-primary py-2 lift">Save Course</button>
-          </form>
-
-          {/* Bulk course upload */}
-          <div className="card card-pad card-hover space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-slate-900 tracking-tight">Bulk Upload Courses</h3>
-              <button
-                type="button"
-                onClick={() => downloadTemplate('courses')}
-                className="text-xs text-slate-500 underline"
-              >
-                Download Template
-              </button>
-            </div>
-            <input type="file" accept=".xlsx,.xls" onChange={(e) => setCourseUploadFile(e.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
-            <button onClick={uploadCourses} disabled={!courseUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift">
-              Upload Courses
-            </button>
-          </div>
-          </div>
-
-          <div>
+            <div className="flex-1 min-h-0 overflow-auto">
+              <div className="h-full flex flex-col">
             <div className="flex items-center gap-3 mb-3">
               <h3 className="font-semibold text-slate-900 text-base">Course List</h3>
               <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{courses.length} courses</span>
@@ -1836,9 +1767,11 @@ const LecturerDashboard = () => {
                   ),
                 },
               ]}
+              fillHeight
             />
+              </div>
+            </div>
           </div>
-        </div>
       ) : null}
 
       {/* ── PLANS TAB ── */}
@@ -1917,11 +1850,12 @@ const LecturerDashboard = () => {
           apiClient.get('/course-plans').then((r) => { setPlans(r.data); setPlanLoading(false) })
         }
         return (
-          <div className="grid lg:grid-cols-[320px_1fr] gap-6">
-            {/* Left: create + list */}
-            <div className="space-y-4">
-              {/* Create plan form */}
-              <form onSubmit={createPlan} className="card card-pad card-hover space-y-3">
+           <div className="flex-1 min-h-0 overflow-auto">
+           <div className="grid lg:grid-cols-[320px_1fr] gap-6">
+             {/* Left: create + list */}
+             <div className="space-y-4">
+               {/* Create plan form */}
+               <form onSubmit={createPlan} className="card card-pad card-hover space-y-3">
                 <h3 className="font-semibold text-slate-900">New Plan</h3>
                 <input
                   className="w-full border rounded-lg px-3 py-2 text-sm"
@@ -2129,6 +2063,7 @@ const LecturerDashboard = () => {
               )}
             </div>
           </div>
+          </div>
         )
       })() : null}
 
@@ -2177,6 +2112,7 @@ const LecturerDashboard = () => {
           })
 
         return (
+          <div className="flex-1 min-h-0 overflow-auto">
           <div className="card card-pad card-hover">
             {/* Header row: year nav + plan badge */}
             <div className="flex items-center gap-3 mb-5 flex-wrap">
@@ -2276,70 +2212,12 @@ const LecturerDashboard = () => {
               </div>
             ) : null}
           </div>
+          </div>
         )
       })() : null}
-
-    </div>
-) : null}
-
-      {section === 'courses' ? (
-        <div className="card card-pad card-hover mt-6 overflow-auto flex-1 min-h-0">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h3 className="font-semibold text-slate-900">Course History by Batch</h3>
-            <select className="border rounded-lg px-3 py-2 text-sm" value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)}>
-              <option value="">Select batch</option>
-              {batches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  Batch #{batch.id} • {fmtDateRange(batch.start_date, batch.end_date)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <DataTable
-            data={batchStudents}
-            rowKey="id"
-            initialPageSize={25}
-            emptyMessage="No students found for selected batch."
-            globalSearchPlaceholder="Search student, matric, status…"
-            defaultSort={{ id: 'full_name', dir: 'asc' }}
-            columns={[
-              {
-                id: 'full_name',
-                header: 'Student',
-                accessor: 'full_name',
-                cell: (student) => (
-                  <Link to={`/lecturer/students/${student.student_id}`} className="font-medium text-slate-900 hover:underline">
-                    {student.full_name}
-                  </Link>
-                ),
-              },
-              { id: 'matric_no', header: 'Matric', accessor: 'matric_no' },
-              {
-                id: 'status',
-                header: 'Enrollment',
-                accessor: 'status',
-                filterType: 'select',
-                filterOptions: [...new Set(batchStudents.map((s) => s.status).filter(Boolean))],
-              },
-              {
-                id: 'result_status',
-                header: 'Result',
-                accessor: 'result_status',
-                filterType: 'select',
-                filterOptions: ['Pass', 'Fail', 'Pending'],
-              },
-              {
-                id: 'score',
-                header: 'Score',
-                accessor: 'score',
-                sortType: 'number',
-                cell: (s) => (s.score != null ? s.score : null),
-              },
-              { id: 'notes', header: 'Notes', accessor: 'notes' },
-            ]}
-          />
         </div>
-      ) : null}
+      </div>
+) : null}
 
       {section === 'students' ? (
         <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
@@ -3100,6 +2978,82 @@ const LecturerDashboard = () => {
                   <button onClick={async () => { await uploadStudents(); setShowStudentUploadModal(false) }} disabled={!studentUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift flex items-center justify-center gap-2">
                     <Upload size={16} /> Upload List
                   </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {showCreateCourseModal ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCreateCourseModal(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                  <h3 className="font-display font-bold text-slate-900 tracking-tight">Create Course</h3>
+                  <button type="button" onClick={() => setShowCreateCourseModal(false)} className="rounded-lg p-1 hover:bg-slate-100"><X size={18} /></button>
+                </div>
+                <form onSubmit={async (e) => { await createCourse(e); setShowCreateCourseModal(false) }} className="p-6 space-y-3 overflow-y-auto">
+                  <label className="text-sm text-slate-600 block">
+                    Course Title
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Course title" value={courseForm.title} onChange={(event) => setCourseForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Course Code
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="e.g. GTS101" value={courseForm.courseCode} onChange={(event) => setCourseForm((prev) => ({ ...prev, courseCode: event.target.value }))} />
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Lecturer
+                    <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.lecturerName} onChange={(event) => setCourseForm((prev) => ({ ...prev, lecturerName: event.target.value }))}>
+                      <option value="">— No lecturer —</option>
+                      {lecturers.map((l) => (
+                        <option key={l.id} value={l.name}>{l.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Secondary Lecturer
+                    <select className="mt-1 w-full border rounded-lg px-3 py-2" value={courseForm.secondaryLecturerId || ''} onChange={(event) => setCourseForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || null }))}>
+                      <option value="">— No secondary lecturer —</option>
+                      {lecturers.map((l) => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Duration (weeks)
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="1" value={courseForm.durationWeeks} onChange={(event) => setCourseForm((prev) => ({ ...prev, durationWeeks: Number(event.target.value) }))} required />
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Minimum Attendance Required
+                    <input className="mt-1 w-full border rounded-lg px-3 py-2" type="number" min="0" value={courseForm.minAttendanceRequired} onChange={(event) => setCourseForm((prev) => ({ ...prev, minAttendanceRequired: Number(event.target.value) }))} required />
+                  </label>
+                  <div className="border rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-medium text-slate-700">Course Features</p>
+                    <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 rounded" checked={courseForm.hasAssignment} onChange={(e) => setCourseForm((prev) => ({ ...prev, hasAssignment: e.target.checked }))} />
+                      Has Assignments
+                    </label>
+                    <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 rounded" checked={courseForm.hasExam} onChange={(e) => setCourseForm((prev) => ({ ...prev, hasExam: e.target.checked }))} />
+                      Has Exam
+                    </label>
+                  </div>
+                  <button className="w-full btn btn-primary py-2 lift">Save Course</button>
+                </form>
+              </div>
+            </div>
+          ) : null}
+          {showCourseBulkModal ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowCourseBulkModal(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                  <h3 className="font-display font-bold text-slate-900 tracking-tight">Bulk Upload Courses</h3>
+                  <button type="button" onClick={() => setShowCourseBulkModal(false)} className="rounded-lg p-1 hover:bg-slate-100"><X size={18} /></button>
+                </div>
+                <div className="p-6 space-y-4 overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-500">Bulk import via spreadsheet</p>
+                    <button type="button" onClick={() => downloadTemplate('courses')} className="text-xs text-slate-500 underline">Download Template</button>
+                  </div>
+                  <input type="file" accept=".xlsx,.xls" onChange={(e) => setCourseUploadFile(e.target.files?.[0] || null)} className="w-full border rounded-lg px-3 py-2" />
+                  <button onClick={async () => { await uploadCourses(); setShowCourseBulkModal(false) }} disabled={!courseUploadFile} className="w-full btn btn-primary py-2 disabled:opacity-50 lift flex items-center justify-center gap-2"><Upload size={16} /> Upload Courses</button>
                 </div>
               </div>
             </div>
