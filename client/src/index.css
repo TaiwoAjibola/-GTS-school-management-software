@@ -256,3 +256,214 @@ tbody td.sticky {
     transition: none;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   GTS DESIGN SYSTEM — shared component layer
+   Applied consistently across every page so tables and layouts look cohesive.
+   Loaded after Tailwind, so these classes win over utility defaults.
+   ════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --gts-gold: #aa8b55;
+  --gts-gold-strong: #8a6f3d;
+  --gts-gold-soft: #f6ebd3;
+  --gts-sky: #aa8b55;
+  --gts-ink: #211d19;
+  --gts-muted: #6e6352;
+  --gts-line: #e7e0d3;
+  --gts-line-soft: #efe9df;
+  --gts-paper: #f7f4ee;
+  --gts-card-shadow: 0 1px 2px rgba(33, 29, 25, 0.04), 0 8px 24px -12px rgba(33, 29, 25, 0.12);
+  --gts-radius: 1rem;
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────── */
+.card {
+  background: #fffdf9;
+  border: 1px solid var(--gts-line);
+  border-radius: var(--gts-radius);
+  box-shadow: var(--gts-card-shadow);
+}
+.card-pad { padding: 1.25rem; }
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--gts-ink);
+}
+
+/* ── Section title ────────────────────────────────────────────────────── */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--gts-ink);
+}
+.section-sub {
+  font-size: 0.875rem;
+  color: var(--gts-muted);
+  margin-top: 0.25rem;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary {
+  background: linear-gradient(180deg, #c9a15c 0%, #aa8b55 100%);
+  color: #1c1813;
+  box-shadow: 0 1px 2px rgba(138, 111, 61, 0.35);
+}
+.btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #d2ab67 0%, #b5945c 100%); }
+.btn-ghost {
+  background: #fffdf9;
+  border-color: var(--gts-line);
+  color: var(--gts-ink);
+}
+.btn-ghost:hover:not(:disabled) { background: #f6efdf; border-color: #d3c8b4; }
+.btn-danger {
+  background: #fff;
+  border-color: #f1c6c6;
+  color: #b42323;
+}
+.btn-danger:hover:not(:disabled) { background: #fef2f2; border-color: #e9a3a3; }
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8125rem; border-radius: 0.6rem; }
+
+/* ── Badges ───────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.badge-gold { background: var(--gts-gold-soft); color: var(--gts-gold-strong); }
+.badge-sky { background: #eaf1f7; color: #3b6ea5; }
+.badge-emerald { background: #e7f6ec; color: #1f7a45; }
+.badge-rose { background: #fdeaea; color: #b42323; }
+.badge-amber { background: #fbf0d8; color: #93670b; }
+.badge-slate { background: #f1ede6; color: #6e6352; }
+.badge-dot {
+  width: 0.45rem; height: 0.45rem; border-radius: 999px; background: currentColor;
+}
+
+/* ── Stat tile ────────────────────────────────────────────────────────── */
+.stat {
+  background: #fffdf9;
+  border: 1px solid var(--gts-line);
+  border-radius: var(--gts-radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--gts-card-shadow);
+}
+.stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gts-muted);
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--gts-ink);
+  margin-top: 0.3rem;
+  line-height: 1.1;
+}
+
+/* ── Form fields ──────────────────────────────────────────────────────── */
+.field-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gts-ink);
+  margin-bottom: 0.35rem;
+}
+.input, .select, .textarea {
+  width: 100%;
+  border: 1px solid #ddd4c4;
+  border-radius: 0.7rem;
+  background: #fffdf9;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.875rem;
+  color: var(--gts-ink);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--gts-gold);
+  box-shadow: 0 0 0 3px rgba(170, 139, 85, 0.18);
+  outline: none;
+}
+.textarea { resize: vertical; min-height: 5rem; }
+
+/* ── Generic table (plain tables across pages) ──────────────────────────
+   Sizes to content so it can overflow horizontally and scroll inside its
+   own container, while the page stays x-locked. Sticky header, zebra, hover. */
+table.data-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #352f2a;
+}
+table.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(180deg, #fbf6ea 0%, #f4f0e9 100%);
+  border-bottom: 1px solid var(--gts-line);
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  font-weight: 650;
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--gts-muted);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+table.data-table tbody td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--gts-line-soft);
+  color: #4a4239;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+table.data-table tbody tr:nth-child(even) td { background: #faf7f1; }
+table.data-table tbody tr:hover td { background: #f8f1e0; }
+table.data-table tbody tr:last-child td { border-bottom: none; }
+table.data-table .text-wrap { white-space: normal; }
+table.data-table .truncate-cell {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

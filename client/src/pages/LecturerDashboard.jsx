@@ -2088,7 +2088,7 @@ const LecturerDashboard = () => {
                   ) : (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-slate-700">Planned Courses</p>
-                      <table className="w-full text-sm">
+                      <table className="data-table w-full text-sm">
                         <thead className="text-left text-slate-500 border-b border-slate-200">
                           <tr>
                             <th className="pb-2">Code</th>
@@ -3671,7 +3671,7 @@ const LecturerDashboard = () => {
             {attendanceStatus.canMark ? (
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
                 <h3 className="font-semibold text-slate-900 mb-4">Roll Call (Editable)</h3>
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                   <thead className="text-left text-slate-500">
                     <tr><th className="pb-2">Name</th><th>Matric</th><th>Status</th><th>Attendance</th></tr>
                   </thead>
@@ -3699,7 +3699,7 @@ const LecturerDashboard = () => {
 
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
               <h3 className="font-semibold text-slate-900 mb-4">Attendance Summary by Student</h3>
-              <table className="w-full text-sm">
+              <table className="data-table w-full text-sm">
                 <thead className="text-left text-slate-500">
                   <tr><th className="pb-2">Name</th><th>Present</th><th>Absent</th><th>Rate</th><th>Eligible</th></tr>
                 </thead>
@@ -3884,7 +3884,7 @@ const LecturerDashboard = () => {
                   {planGrid.students.length === 0 ? (
                     <p className="text-sm text-slate-400">No students found for this course. Toggle "Include unenrolled students" and reload.</p>
                   ) : (
-                    <table className="w-full text-sm border-collapse">
+                    <table className="data-table w-full text-sm border-collapse">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="py-2 pr-4 text-left text-slate-500 font-medium min-w-[160px]">Student</th>
@@ -4015,7 +4015,7 @@ const LecturerDashboard = () => {
                                     <span className="text-xs text-slate-400">{course.filteredStudents.length} students</span>
                                   </div>
                                   <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="data-table w-full text-sm">
                                       <thead>
                                         <tr className="border-b border-slate-100">
                                           <th className="py-2 px-4 text-left text-slate-500 font-medium">Student</th>
@@ -4292,7 +4292,7 @@ const LecturerDashboard = () => {
 
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
                 <h3 className="font-semibold text-slate-900 mb-4">Eligible Students ({eligibleStudents.length})</h3>
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                   <thead className="text-left text-slate-500">
                     <tr><th className="pb-2">Name</th><th>Matric</th><th>Email</th><th>Attendance</th></tr>
                   </thead>
@@ -4743,7 +4743,7 @@ const LecturerDashboard = () => {
               <p className="text-sm text-slate-400 py-6 text-center">No submissions yet.</p>
             ) : (
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                   <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
                     <tr>
                       <th className="px-3 py-2">Student</th>
@@ -4927,7 +4927,7 @@ const LecturerDashboard = () => {
             {lecturers.length === 0 ? (
               <p className="text-sm text-slate-400">No lecturers yet. Add one using the form.</p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="data-table w-full text-sm">
                 <thead className="text-left text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="pb-2 pr-4">Name</th>
@@ -5214,7 +5214,7 @@ const LecturerDashboard = () => {
                   </div>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
+                  <table className="data-table w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 uppercase text-[11px] font-semibold tracking-wider">
                       <tr>
                         <th className="px-6 py-4">Student</th>
@@ -5262,7 +5262,7 @@ const LecturerDashboard = () => {
           ) : (
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="text-left px-4 py-3 font-medium text-slate-700">Name</th>

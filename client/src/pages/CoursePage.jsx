@@ -491,7 +491,7 @@ export default function CoursePage() {
             <h3 className="font-semibold text-slate-900">Active Students</h3>
             <span className="text-sm text-slate-500">{enrolledStudentIds.size} enrolled</span>
           </div>
-            <table className="w-full text-sm">
+            <table className="data-table w-full text-sm">
               <thead className="text-left text-slate-500">
                 <tr>
                   <th className="pb-2">Student</th>
@@ -773,7 +773,7 @@ export default function CoursePage() {
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
             <h3 className="font-semibold text-slate-900 mb-4">Stored Materials</h3>
-            <table className="w-full text-sm">
+            <table className="data-table w-full text-sm">
               <thead className="text-left text-slate-500">
                 <tr>
                   <th className="pb-2">Title</th>
@@ -828,7 +828,7 @@ export default function CoursePage() {
       {activeTab === 'waiting' ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-auto">
           <h3 className="font-semibold text-slate-900 mb-4">Students Awaiting Re-enrollment</h3>
-          <table className="w-full text-sm">
+          <table className="data-table w-full text-sm">
             <thead className="text-left text-slate-500">
               <tr>
                 <th className="pb-2">Student</th>
@@ -900,7 +900,7 @@ export default function CoursePage() {
                   <span className="rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs">{cohortName}</span>
                   <span className="text-slate-400 text-xs font-normal">{rows.length} student{rows.length !== 1 ? 's' : ''}</span>
                 </h4>
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                   <thead className="text-left text-slate-500">
                     <tr>
                       <th className="pb-2">Student</th>
@@ -950,7 +950,7 @@ export default function CoursePage() {
               </span>
             ) : null}
           </div>
-          <table className="w-full text-sm">
+          <table className="data-table w-full text-sm">
             <thead className="text-left text-slate-500">
               <tr>
                 <th className="pb-2">Title</th>

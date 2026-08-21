@@ -307,7 +307,7 @@ export default function EnrollmentPage() {
                           Enrolled in {selectedCourse.title} ({enrolledInCohort.length})
                         </h4>
                         {enrolledInCohort.length > 0 ? (
-                          <table className="w-full text-sm">
+                          <table className="data-table w-full text-sm">
                             <thead className="text-left text-slate-500">
                               <tr>
                                 <th className="pb-2 font-medium">Name</th>
