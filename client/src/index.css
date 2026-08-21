@@ -112,3 +112,143 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(170, 139, 85, 0.18);
   outline: none;
 }
+
+/* ─── Data tables (GTS brand) ───────────────────────────────────────────
+   Global polish for every <table> — density, hierarchy, warm gold accents.
+   Tailwind utilities on individual cells still win when present. */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #352f2a;
+}
+
+/* Soft shell when a table is the direct child of a scroll container */
+.overflow-x-auto:has(> table),
+.overflow-auto:has(> table) {
+  border: 1px solid #e7e0d3;
+  border-radius: 0.9rem;
+  background: #fffdf9;
+  box-shadow: 0 1px 0 rgba(33, 29, 25, 0.03);
+}
+
+/* Cards that wrap a bare table (common dashboard pattern) */
+.bg-white:has(> table),
+.bg-white:has(> .overflow-x-auto > table),
+.bg-white:has(> .overflow-auto > table) {
+  /* keep existing card styles; table inside inherits shell via overflow wrapper */
+}
+
+thead th {
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #6e6352;
+  background: linear-gradient(180deg, #fbf6ea 0%, #f4f0e9 100%);
+  border-bottom: 1px solid #e7e0d3;
+  padding: 0.8rem 1rem;
+  white-space: nowrap;
+  vertical-align: middle;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* First/last header cells pick up rounded shell corners */
+.overflow-x-auto:has(> table) thead th:first-child,
+.overflow-auto:has(> table) thead th:first-child {
+  border-top-left-radius: 0.85rem;
+}
+.overflow-x-auto:has(> table) thead th:last-child,
+.overflow-auto:has(> table) thead th:last-child {
+  border-top-right-radius: 0.85rem;
+}
+
+tbody td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #efe9df;
+  vertical-align: middle;
+  color: #514840;
+  background-color: transparent;
+  transition: color 0.15s ease;
+}
+
+tbody tr {
+  background-color: #fffdf9;
+  transition: background-color 0.15s ease;
+}
+
+/* Zebra for long scans — on the row so Tailwind row tints still win when set */
+tbody tr:nth-child(even) {
+  background-color: #fbf9f5;
+}
+
+tbody tr:last-child td {
+  border-bottom-color: transparent;
+}
+
+tbody tr:hover {
+  background-color: rgba(251, 246, 234, 0.95);
+}
+
+tbody tr:hover td {
+  color: #211d19;
+}
+
+/* Primary text cells (names, titles) */
+tbody td .font-medium,
+tbody td a.font-medium {
+  color: #211d19;
+}
+
+tbody td a {
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+tbody td a:hover {
+  color: #8a6f3d;
+}
+
+/* Sticky first column (graduation matrix etc.) */
+td.sticky,
+th.sticky {
+  background-clip: padding-box;
+}
+thead th.sticky {
+  z-index: 3;
+  background: linear-gradient(180deg, #fbf6ea 0%, #f4f0e9 100%);
+}
+tbody td.sticky {
+  background-color: inherit;
+  z-index: 1;
+  box-shadow: 1px 0 0 #e7e0d3;
+}
+
+/* Compact numeric / mono chips inside tables stay crisp */
+tbody td .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Empty / muted placeholders */
+tbody td .text-slate-300,
+tbody td .text-slate-400 {
+  font-style: normal;
+}
+
+/* Action columns — keep controls from stretching */
+tbody td:has(button),
+tbody td:has(a.inline-flex) {
+  white-space: nowrap;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  tbody td,
+  tbody td a {
+    transition: none;
+  }
+}
