@@ -140,6 +140,14 @@ table {
   --dt-border: #e7e0d3;
 }
 
+/* Size to content so wide columns push past the container and the table
+   scrolls HORIZONTALLY inside its own region (the page never scrolls x). */
+.dt-table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
 .dt-table thead th {
   background: var(--dt-header);
   border-bottom: 1px solid var(--dt-border);
@@ -158,7 +166,7 @@ table {
 .dt-table thead tr.dt-filter-row th {
   background: #f7f1e4;
   position: sticky;
-  top: 2.65rem;
+  top: 2.5rem;
   z-index: 19;
   box-shadow: inset 0 -1px 0 var(--dt-border);
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X, Filter, ChevronsUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X, Filter, ChevronsUpDown, Loader2 } from 'lucide-react'
 
 const getByPath = (row, path) => {
   if (!path) return undefined
@@ -40,21 +40,19 @@ const compareValues = (a, b, type = 'text') => {
 }
 
 /**
- * DataTable — sortable, filterable data grid.
+ * DataTable — data-dense, sortable, filterable grid.
+ *
+ * The table sizes to its content (min-width:100%, width:max-content) so it can
+ * grow past the container and scroll HORIZONTALLY inside its own region, while
+ * the sticky header keeps vertical context. The outer page never scrolls
+ * horizontally.
  *
  * columns: [{
  *   id, header, accessor (key|fn),
- *   sortable?: bool, filterable?: bool,
- *   filterType?: 'text'|'select',
- *   filterOptions?: string[] | {value,label}[],
- *   sortType?: 'text'|'number'|'date',
- *   sortAccessor?: key|fn,
- *   filterAccessor?: key|fn,
- *   align?: 'left'|'center'|'right',
- *   width?: string,
- *   cell?: (row, ctx) => ReactNode,
- *   className?: string,
- *   headerClassName?: string,
+ *   sortable?, filterable?, filterType?: 'text'|'select', filterOptions?,
+ *   sortType?: 'text'|'number'|'date', sortAccessor?, filterAccessor?,
+ *   align?: 'left'|'center'|'right', width?, maxWidth?, wrap?,
+ *   cell?: (row, ctx) => ReactNode, className?, headerClassName?,
  * }]
  */
 export default function DataTable({
@@ -66,15 +64,16 @@ export default function DataTable({
   toolbar = null,
   globalSearch = true,
   globalSearchPlaceholder = 'Search all columns…',
-  defaultSort = null, // { id, dir: 'asc'|'desc' }
+  defaultSort = null,
   density = 'comfortable', // comfortable | compact
   stickyHeader = true,
-  maxHeight = 'min(100vh - 340px, 820px)', // fill viewport (minus chrome) so the TABLE body scrolls, not the page
+  maxHeight = 'min(100vh - 340px, 760px)',
   rowClassName,
   onRowClick,
   className = '',
   initialPageSize = 0, // 0 = show all
   fillHeight = false, // when true, table flexes to fill parent and body scrolls
+  loading = false,
 }) {
   const [sort, setSort] = useState(defaultSort)
   const [colFilters, setColFilters] = useState({})
@@ -118,7 +117,6 @@ export default function DataTable({
   const processed = useMemo(() => {
     let rows = Array.isArray(data) ? [...data] : []
 
-    // Column filters
     const filterEntries = Object.entries(colFilters)
     if (filterEntries.length) {
       rows = rows.filter((row) =>
@@ -134,7 +132,6 @@ export default function DataTable({
       )
     }
 
-    // Global search across filterable/sortable text accessors
     const gq = globalQuery.trim().toLowerCase()
     if (gq) {
       const searchCols = columns.filter((c) => c.filterable !== false || c.accessor)
@@ -143,7 +140,6 @@ export default function DataTable({
           const accessor = col.filterAccessor || col.accessor || col.id
           const val = toSearchable(getByPath(row, accessor)).toLowerCase()
           if (val.includes(gq)) return true
-          // also try rendered cell text when possible
           if (typeof col.cell === 'function') {
             try {
               const rendered = col.cell(row, { rowIndex: 0 })
@@ -157,7 +153,6 @@ export default function DataTable({
       )
     }
 
-    // Sort
     if (sort?.id) {
       const col = columns.find((c) => c.id === sort.id)
       if (col) {
@@ -178,7 +173,7 @@ export default function DataTable({
     ? processed.slice(safePage * pageSize, safePage * pageSize + pageSize)
     : processed
 
-  const padY = density === 'compact' ? 'py-2' : 'py-3'
+  const padY = density === 'compact' ? 'py-1.5' : 'py-2.5'
   const padX = 'px-3.5'
 
   const SortIcon = ({ colId }) => {
@@ -186,20 +181,27 @@ export default function DataTable({
     return sort.dir === 'asc' ? <ArrowUp size={13} className="text-gold-700" /> : <ArrowDown size={13} className="text-gold-700" />
   }
 
+  const colStyle = (col) => {
+    const style = {}
+    if (col.width) style.width = typeof col.width === 'number' ? `${col.width}px` : col.width
+    if (col.maxWidth) style.maxWidth = typeof col.maxWidth === 'number' ? `${col.maxWidth}px` : col.maxWidth
+    return style
+  }
+
   const bodyStyle = fillHeight
     ? undefined
     : maxHeight
       ? { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight }
-      : { maxHeight: 'min(100vh - 340px, 820px)' }
+      : { maxHeight: 'min(100vh - 340px, 760px)' }
 
   return (
     <div
-      className={`dt-root bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden flex flex-col ${
+      className={`dt-root bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col ${
         fillHeight ? 'h-full min-h-0' : ''
       } ${className}`}
     >
       {/* Toolbar */}
-      <div className="shrink-0 flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-slate-200/80 bg-gradient-to-r from-[#fffdf9] to-[#fbf6ea]/40">
+      <div className="shrink-0 flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-slate-200/70 bg-gradient-to-r from-[#fffdf9] to-[#fbf6ea]/40">
         {globalSearch ? (
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -208,13 +210,13 @@ export default function DataTable({
               value={globalQuery}
               onChange={(e) => { setGlobalQuery(e.target.value); setPage(0) }}
               placeholder={globalSearchPlaceholder}
-              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 py-2 text-sm placeholder:text-slate-400 focus:border-gold-500 outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 py-2 text-sm placeholder:text-slate-400 focus:border-gold-500 outline-none transition-colors"
             />
             {globalQuery ? (
               <button
                 type="button"
                 onClick={() => setGlobalQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
                 aria-label="Clear search"
               >
                 <X size={14} />
@@ -235,7 +237,7 @@ export default function DataTable({
             }`}
           >
             <Filter size={14} />
-            Column filters
+            Filters
             {activeFilterCount > 0 ? (
               <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-600 px-1.5 text-[10px] text-white">
                 {activeFilterCount}
@@ -246,7 +248,7 @@ export default function DataTable({
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 cursor-pointer transition-colors"
             >
               <X size={14} /> Clear
             </button>
@@ -257,20 +259,26 @@ export default function DataTable({
       {/* Meta bar */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-500">
         <span>
-          Showing <strong className="text-slate-800">{pageRows.length}</strong>
-          {total !== data.length ? (
-            <> of <strong className="text-slate-800">{total}</strong> filtered</>
-          ) : null}
-          {' '}from <strong className="text-slate-800">{data.length}</strong> total
-          {sort?.id ? (
-            <> · sorted by <strong className="text-slate-700">{columns.find((c) => c.id === sort.id)?.header || sort.id}</strong> ({sort.dir})</>
-          ) : null}
+          {loading ? (
+            'Loading…'
+          ) : (
+            <>
+              Showing <strong className="text-slate-800">{pageRows.length}</strong>
+              {total !== data.length ? (
+                <> of <strong className="text-slate-800">{total}</strong> filtered</>
+              ) : null}
+              {' '}from <strong className="text-slate-800">{data.length}</strong> total
+              {sort?.id ? (
+                <> · sorted by <strong className="text-slate-700">{columns.find((c) => c.id === sort.id)?.header || sort.id}</strong> ({sort.dir})</>
+              ) : null}
+            </>
+          )}
         </span>
         {initialPageSize > 0 || pageSize > 0 ? (
           <label className="inline-flex items-center gap-1.5">
             Rows
             <select
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-gold-500 transition-colors"
               value={pageSize || 0}
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0) }}
             >
@@ -284,11 +292,15 @@ export default function DataTable({
         ) : null}
       </div>
 
+      {/* Scroll region — both axes scroll here, page stays put */}
       <div
         className={`overflow-auto min-h-0 ${fillHeight ? 'flex-1' : ''}`}
         style={bodyStyle}
+        role="region"
+        aria-label="Data table"
+        tabIndex={0}
       >
-        <table className="dt-table w-full text-sm">
+        <table className="dt-table text-sm">
           <thead className={stickyHeader ? 'sticky top-0 z-20' : ''}>
             <tr>
               {columns.map((col) => {
@@ -297,14 +309,14 @@ export default function DataTable({
                 return (
                   <th
                     key={col.id}
-                    style={col.width ? { width: col.width, minWidth: col.width } : undefined}
+                    style={colStyle(col)}
                     className={`${padX} ${padY} ${align} ${col.headerClassName || ''}`}
                   >
                     {sortable ? (
                       <button
                         type="button"
                         onClick={() => toggleSort(col)}
-                        className={`group/sort inline-flex items-center gap-1.5 max-w-full font-semibold uppercase tracking-wider text-[11px] text-slate-600 hover:text-slate-900 cursor-pointer ${
+                        className={`group/sort inline-flex items-center gap-1.5 max-w-full font-semibold uppercase tracking-wider text-[11px] text-slate-600 hover:text-slate-900 cursor-pointer transition-colors ${
                           col.align === 'right' ? 'ml-auto' : col.align === 'center' ? 'mx-auto' : ''
                         }`}
                       >
@@ -320,7 +332,7 @@ export default function DataTable({
                 )
               })}
             </tr>
-            {showColFilters ? (
+            {showColFilters && !loading ? (
               <tr className="dt-filter-row">
                 {columns.map((col) => {
                   const filterable = col.filterable !== false && col.filterable !== 'off' && (col.accessor || col.filterAccessor || col.filterType === 'select')
@@ -335,7 +347,7 @@ export default function DataTable({
                           <select
                             value={colFilters[col.id] ?? ''}
                             onChange={(e) => setFilter(col.id, e.target.value)}
-                            className="w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-7 py-1.5 text-xs text-slate-700 outline-none focus:border-gold-500"
+                            className="w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-7 py-1.5 text-xs text-slate-700 outline-none focus:border-gold-500 transition-colors"
                           >
                             <option value="">All</option>
                             {opts.map((opt) => {
@@ -358,7 +370,7 @@ export default function DataTable({
                           value={colFilters[col.id] ?? ''}
                           onChange={(e) => setFilter(col.id, e.target.value)}
                           placeholder="Filter…"
-                          className="w-full rounded-lg border border-slate-200 bg-white pl-7 pr-2 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-gold-500"
+                          className="w-full rounded-lg border border-slate-200 bg-white pl-7 pr-2 py-1.5 text-xs placeholder:text-slate-400 outline-none focus:border-gold-500 transition-colors"
                         />
                       </div>
                     </th>
@@ -368,33 +380,47 @@ export default function DataTable({
             ) : null}
           </thead>
           <tbody>
-            {pageRows.map((row, rowIndex) => {
-              const key = getRowKey(row, rowIndex)
-              const extra = typeof rowClassName === 'function' ? rowClassName(row, rowIndex) : rowClassName || ''
-              return (
-                <tr
-                  key={key}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={`dt-row group border-b border-slate-100/90 last:border-0 ${onRowClick ? 'cursor-pointer' : ''} ${extra}`}
-                >
-                  {columns.map((col) => {
-                    const align = col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
-                    const content = typeof col.cell === 'function'
-                      ? col.cell(row, { rowIndex })
-                      : getByPath(row, col.accessor || col.id)
-                    return (
-                      <td
-                        key={col.id}
-                        className={`${padX} ${padY} ${align} text-slate-700 ${col.className || ''}`}
-                      >
-                        {content == null || content === '' ? <span className="text-slate-300">—</span> : content}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-            {!pageRows.length ? (
+            {loading ? (
+              <tr>
+                <td colSpan={Math.max(columns.length, 1)} className="py-16 text-center">
+                  <Loader2 size={22} className="mx-auto animate-spin text-gold-600" />
+                  <p className="mt-2 text-xs text-slate-400">Loading…</p>
+                </td>
+              </tr>
+            ) : (
+              pageRows.map((row, rowIndex) => {
+                const key = getRowKey(row, rowIndex)
+                const extra = typeof rowClassName === 'function' ? rowClassName(row, rowIndex) : rowClassName || ''
+                return (
+                  <tr
+                    key={key}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    className={`dt-row group border-b border-slate-100/90 last:border-0 ${onRowClick ? 'cursor-pointer' : ''} ${extra}`}
+                  >
+                    {columns.map((col) => {
+                      const align = col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
+                      const content = typeof col.cell === 'function'
+                        ? col.cell(row, { rowIndex })
+                        : getByPath(row, col.accessor || col.id)
+                      const cellCls = [
+                        padX, padY, align, 'text-slate-700', col.className || '',
+                        col.wrap ? 'whitespace-normal' : 'whitespace-nowrap',
+                      ].join(' ')
+                      return (
+                        <td key={col.id} style={colStyle(col)} className={cellCls}>
+                          {col.maxWidth ? (
+                            <div className="truncate">{content == null || content === '' ? <span className="text-slate-300">—</span> : content}</div>
+                          ) : (
+                            content == null || content === '' ? <span className="text-slate-300">—</span> : content
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })
+            )}
+            {!loading && !pageRows.length ? (
               <tr>
                 <td colSpan={Math.max(columns.length, 1)} className="py-14 text-center">
                   {emptyIcon ? <div className="mb-2 flex justify-center text-slate-200">{emptyIcon}</div> : null}
@@ -416,7 +442,7 @@ export default function DataTable({
       </div>
 
       {/* Pagination */}
-      {pageSize > 0 && total > 0 ? (
+      {pageSize > 0 && total > 0 && !loading ? (
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50/50">
           <p className="text-xs text-slate-500">
             Page {safePage + 1} of {pageCount}
@@ -426,7 +452,7 @@ export default function DataTable({
               type="button"
               disabled={safePage <= 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
@@ -434,7 +460,7 @@ export default function DataTable({
               type="button"
               disabled={safePage >= pageCount - 1}
               onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
