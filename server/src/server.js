@@ -8,7 +8,6 @@ import { runAllMigrations } from './db/runMigrations.js'
 
 const runMigrations = async () => {
   // 1. Drop NOT NULL from matric_no if still required (idempotent).
-  //    Uses EXISTS so the result is always boolean — never NULL.
   await pool.query(`
     DO $$ BEGIN
       IF EXISTS (
@@ -36,7 +35,6 @@ const runMigrations = async () => {
   await pool.query(`CREATE SEQUENCE IF NOT EXISTS students_matric_seq START 1`)
 
   // 4. Seed the sequence from existing data so new matric numbers don't collide.
-  //    Done in JS so the compare-and-setval logic is easy to follow.
   const maxRow = await pool.query(
     `SELECT COALESCE(MAX(CAST(SUBSTRING(matric_no FROM 4) AS INT)), 0)::int AS max
      FROM students WHERE matric_no ~ '^GTT[0-9]+$'`
@@ -51,30 +49,28 @@ const runMigrations = async () => {
   }
 }
 
-const start = async () => {
+const bootDatabase = async () => {
   try {
     console.log('🔌 Connecting to database...')
     await pool.query('SELECT 1')
     console.log('✅ Database connected.')
-    
+
     console.log('📦 Starting migrations...')
     await runAllMigrations()
     await runMigrations()
     console.log('✅ Migrations complete.')
   } catch (error) {
-    console.error('⚠️  Database/migration error (server will continue):', error.message)
-    console.error('   Fix the database connection and redeploy, or migrations will retry on next request.')
-  }
-
-  try {
-    app.listen(env.port, '0.0.0.0', () => {
-      console.log(`🚀 SAMS API running on port ${env.port}`)
-      console.log(`   Health check: http://localhost:${env.port}/api/health`)
-    })
-  } catch (error) {
-    console.error('❌ Failed to start server:', error.message)
-    process.exit(1)
+    console.error('⚠️  Database/migration error (API still serving):', error.message)
+    console.error('   Fix DATABASE_URL / network, or redeploy. Health stays up so Render can start.')
   }
 }
 
-start()
+// Bind the port FIRST so Render health checks succeed during cold start.
+// DB + migrations run in the background and must never block listen().
+const port = env.port || Number(process.env.PORT) || 5000
+
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 SAMS API listening on 0.0.0.0:${port}`)
+  console.log(`   Health: http://localhost:${port}/api/health`)
+  bootDatabase()
+})

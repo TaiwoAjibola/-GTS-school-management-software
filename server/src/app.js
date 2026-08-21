@@ -59,6 +59,16 @@ app.use(morgan('dev'))
 app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
+// Root ping — useful for Render / cron wake-ups that hit the service URL
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'SAMS API',
+    health: '/api/health',
+    timestamp: new Date().toISOString(),
+  })
+})
+
 app.use('/api', routes)
 
 app.use(notFound)

@@ -1,0 +1,35 @@
+# Pings the Render backend every 10 minutes so free-tier dynos stay warm.
+# No secrets required — only hits the public health endpoint.
+
+name: Keep backend awake
+
+on:
+  schedule:
+    # Every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # allow manual "Run workflow" from GitHub Actions UI
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Render health endpoint
+        run: |
+          set -e
+          URL="${BACKEND_URL:-https://gts-backend-pskw.onrender.com/api/health}"
+          echo "Pinging $URL"
+          # Retries help during cold start (Render can take 30–90s)
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 30 "$URL"; then
+              echo ""
+              echo "✅ Backend responded on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i failed — waiting 15s (cold start?)..."
+            sleep 15
+          done
+          echo "❌ Backend did not respond after retries"
+          exit 1
+        env:
+          BACKEND_URL: https://gts-backend-pskw.onrender.com/api/health

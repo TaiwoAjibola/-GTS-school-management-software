@@ -22,9 +22,21 @@ import bookMinistryRoutes from './bookMinistryRoutes.js'
 
 const router = Router()
 
-// Public health check - no auth required
-router.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'SAMS API', timestamp: new Date().toISOString() })
+// Public health check - no auth required (always 200 so Render/cron stay green)
+router.get('/health', async (req, res) => {
+  let database = 'unknown'
+  try {
+    const db = await healthCheck()
+    database = db.database || db.status
+  } catch {
+    database = 'disconnected'
+  }
+  res.status(200).json({
+    status: 'ok',
+    service: 'SAMS API',
+    database,
+    timestamp: new Date().toISOString(),
+  })
 })
 
 router.use('/auth', authRoutes)
