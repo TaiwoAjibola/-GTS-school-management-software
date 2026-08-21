@@ -55,13 +55,15 @@ const AdminDashboard = () => {
 
   return (
     <AppShell title={title} navItems={navItems}>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="h-full flex flex-col gap-6 overflow-hidden">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 shrink-0">
         <Card title="Total Students" value={analytics?.totalStudents || 0} icon={<Users size={20} />} accent="gold" />
         <Card title="Total Courses" value={analytics?.totalCourses || 0} icon={<BookOpen size={20} />} accent="sky" />
         <Card title="Attendance Sessions" value={analytics?.totalSessions || 0} icon={<ClipboardCheck size={20} />} accent="emerald" />
         <Card title="System Health" value="Operational" icon={<GraduationCap size={20} />} accent="gold" hint="All services running" />
       </div>
 
+      <div className="flex-1 min-h-0 overflow-auto">
       {section === 'overview' ? (
         <Card title="Attendance Analytics" subtitle="Total attendance marks recorded per course" action={<Badge tone="gold" dot>Live</Badge>}>
           <div className="overflow-auto">
@@ -183,6 +185,8 @@ const AdminDashboard = () => {
           </div>
         </Card>
       ) : null}
+      </div>
+      </div>
     </AppShell>
   )
 }
