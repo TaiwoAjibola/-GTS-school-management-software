@@ -1570,7 +1570,7 @@ const LecturerDashboard = () => {
       {notice ? <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm shrink-0 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{notice}</div> : null}
 
       {section === 'attendance' ? (
-        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+        <div className="shrink-0 flex flex-col gap-4">
           <div className="bento bento-4 gap-4">
             <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
             <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" className="stat-hover" />
