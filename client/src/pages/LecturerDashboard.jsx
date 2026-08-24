@@ -1567,7 +1567,12 @@ const LecturerDashboard = () => {
   return (
     <AppShell title={sectionTitle} groups={lecturerNavGroups}>
       <div className="h-full flex flex-col gap-4 overflow-hidden">
-      {notice ? <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm shrink-0 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{notice}</div> : null}
+      {notice ? (
+        <div className="fixed top-4 right-4 z-[60] max-w-sm bg-slate-900 text-white rounded-xl px-4 py-3 shadow-xl text-sm border border-white/10 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="flex-1">{notice}</span>
+        </div>
+      ) : null}
 
       {section === 'attendance' ? (
         <div className="shrink-0 flex flex-col gap-4">
