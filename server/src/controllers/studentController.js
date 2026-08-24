@@ -311,8 +311,8 @@ export const updateStudentLifecycleStatus = async (req, res, next) => {
       throw httpError(404, 'Student not found')
     }
 
-    // Validate transition if rules exist
-    if (current.status !== status) {
+    // Validate transition if rules exist (admins can move backwards for corrections)
+    if (current.status !== status && req.user?.role !== 'admin') {
       const ruleCheck = await client.query(
         `SELECT 1 FROM status_transition_rules WHERE from_status = $1 AND to_status = $2`,
         [current.status, status]
