@@ -21,6 +21,9 @@ const router = Router()
 
 router.use(authenticate)
 
+// Diagnostics - must be before :id (otherwise :id swallows it)
+router.get('/diagnose-smtp', authorize('admin'), diagnoseSmtp)
+
 // Template CRUD
 router.get('/', authorize('admin', 'lecturer'), listProcesses)
 router.post('/', authorize('admin'), createProcess)
@@ -36,7 +39,6 @@ router.get('/:id/preview', authorize('admin', 'lecturer'), previewProcess)
 router.get('/:id/preview/:studentId', authorize('admin', 'lecturer'), previewWithStudent)
 router.post('/:id/send', authorize('admin'), sendTemplate)
 router.get('/send-status/:jobId', authorize('admin', 'lecturer'), getSendStatus)
-router.get('/diagnose-smtp', authorize('admin'), diagnoseSmtp)
 
 // Global variable library
 router.get('/variables/all', authorize('admin', 'lecturer'), listGlobalVariables)
