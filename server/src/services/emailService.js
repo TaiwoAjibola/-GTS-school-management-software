@@ -108,14 +108,9 @@ const renderTemplate = (template, variables) => {
 
 // ── Direct send (for admin-created templates) ──────────────────────
 export const sendRawEmail = async ({ to, subject, html }) => {
-  // Prefer Brevo API if configured (bypasses SMTP blocks on Render free)
+  // Use Brevo HTTP API when configured (Render free blocks SMTP)
   if (env.brevoApiKey) {
-    try {
-      return await sendViaBrevoApi({ to, subject, html })
-    } catch (err) {
-      // fall through to SMTP as fallback, but surface API error if SMTP also fails
-      if (!env.smtpHost) throw err
-    }
+    return sendViaBrevoApi({ to, subject, html })
   }
   try {
     const tx = getTransporter()
@@ -134,7 +129,7 @@ const send = async (mailOptions) => {
   if (env.brevoApiKey) {
     return sendViaBrevoApi({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
   }
-  const tx = await getTransporter()
+  const tx = getTransporter()
   const from = getEmailFrom()
   await tx.sendMail({ from, ...mailOptions })
   return true
