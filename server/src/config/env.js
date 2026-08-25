@@ -20,4 +20,5 @@ export const env = {
   smtpUser: process.env.SMTP_USER || '',
   smtpPass: process.env.SMTP_PASS || '',
   emailFrom: process.env.EMAIL_FROM || 'no-reply@sams.local',
+  brevoApiKey: process.env.BREVO_API_KEY || process.env.BREVO_APIKEY || '',
 }

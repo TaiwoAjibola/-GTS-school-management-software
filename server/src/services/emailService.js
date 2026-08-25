@@ -37,12 +37,60 @@ const getEmailFrom = () => {
   return env.emailFrom
 }
 
+const parseFrom = (from) => {
+  // Handles "Name <email@domain>" or "email@domain"
+  const m = from.match(/^(.*)<(.+)>$/)
+  if (m) return { name: m[1].trim().replace(/^"|"$/g, ''), email: m[2].trim() }
+  return { name: '', email: from.trim() }
+}
+
+const sendViaBrevoApi = async ({ to, subject, html }) => {
+  if (!env.brevoApiKey) throw new Error('Brevo API key not configured')
+  const from = parseFrom(getEmailFrom())
+  const text = html ? html.replace(/<[^>]*>/g, '') : ''
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'accept': 'application/json',
+      'api-key': env.brevoApiKey,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { email: from.email, name: from.name || 'GTS Seminary' },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Brevo API error ${res.status}: ${body}`)
+  }
+  return true
+}
+
 export const testSmtpConnection = async () => {
+  // Prefer Brevo HTTP API (port 443, never blocked on Render) if key is set
+  if (env.brevoApiKey) {
+    try {
+      const res = await fetch('https://api.brevo.com/v3/account', {
+        headers: { 'api-key': env.brevoApiKey, 'accept': 'application/json' },
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        return { ok: false, error: `Brevo API ${res.status}: ${body}` }
+      }
+      return { ok: true, via: 'brevo-api' }
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
+  }
   const tx = getTransporter()
   return new Promise((resolve) => {
     tx.verify((err) => {
       if (err) resolve({ ok: false, error: err.message })
-      else resolve({ ok: true })
+      else resolve({ ok: true, via: 'smtp' })
     })
   })
 }
@@ -60,6 +108,15 @@ const renderTemplate = (template, variables) => {
 
 // ── Direct send (for admin-created templates) ──────────────────────
 export const sendRawEmail = async ({ to, subject, html }) => {
+  // Prefer Brevo API if configured (bypasses SMTP blocks on Render free)
+  if (env.brevoApiKey) {
+    try {
+      return await sendViaBrevoApi({ to, subject, html })
+    } catch (err) {
+      // fall through to SMTP as fallback, but surface API error if SMTP also fails
+      if (!env.smtpHost) throw err
+    }
+  }
   try {
     const tx = getTransporter()
     const from = getEmailFrom()
@@ -74,6 +131,9 @@ export const sendRawEmail = async ({ to, subject, html }) => {
 
 // ── Legacy email functions ─────────────────────────────────────────
 const send = async (mailOptions) => {
+  if (env.brevoApiKey) {
+    return sendViaBrevoApi({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+  }
   const tx = await getTransporter()
   const from = getEmailFrom()
   await tx.sendMail({ from, ...mailOptions })
