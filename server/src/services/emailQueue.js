@@ -8,7 +8,7 @@ const RETRY_DELAY_MS = 3000
 
 export const createSendJob = (jobData) => {
   const id = `send_${Date.now()}_${nextSeq++}`
-  const { recipients, processId, subjectTemplate, bodyTemplate, channel, senderId } = jobData
+  const { recipients, processId, subjectTemplate, bodyTemplate, channel, senderId, courseId } = jobData
 
   const job = {
     id,
@@ -24,6 +24,7 @@ export const createSendJob = (jobData) => {
     bodyTemplate,
     channel,
     senderId,
+    courseId: courseId || null,
     createdAt: new Date().toISOString(),
     completedAt: null,
   }

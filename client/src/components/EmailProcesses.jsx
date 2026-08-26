@@ -250,7 +250,8 @@ export default function EmailProcesses({ notify }) {
     if (!selectedId || !selectedRecipients.length) return
     try {
       const firstId = selectedRecipients[0]
-      const res = await apiClient.get(`/email-processes/${selectedId}/preview/${firstId}`)
+      const params = selectedCourseId ? { courseId: selectedCourseId } : {}
+      const res = await apiClient.get(`/email-processes/${selectedId}/preview/${firstId}`, { params })
       setSendPreview(res.data)
       setSendStep('preview')
     } catch { notify('Preview failed') }
@@ -263,6 +264,7 @@ export default function EmailProcesses({ notify }) {
     try {
       const res = await apiClient.post(`/email-processes/${selectedId}/send`, {
         recipientIds: selectedRecipients,
+        courseId: selectedCourseId || undefined,
       })
       const jobId = res.data.jobId
       setSendResult({ type: 'progress', text: 'Queued…' })
@@ -555,7 +557,11 @@ export default function EmailProcesses({ notify }) {
               </div>
               <div>
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Body (rendered with sample data)</span>
-                <div className="mt-1 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg p-3">{previewData.body}</div>
+                {previewData.body && previewData.body.includes('<') ? (
+                  <div className="mt-1 text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-lg p-3" dangerouslySetInnerHTML={{ __html: previewData.body }} />
+                ) : (
+                  <div className="mt-1 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-lg p-3">{previewData.body}</div>
+                )}
               </div>
               {previewData.variables?.length > 0 && (
                 <div className="border-t border-slate-100 pt-3">
@@ -696,7 +702,11 @@ export default function EmailProcesses({ notify }) {
                     </div>
                     <div>
                       <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Body</span>
-                      <div className="mt-1 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-white border border-slate-200 rounded-lg p-4">{sendPreview.body}</div>
+                      {sendPreview.body && sendPreview.body.includes('<') ? (
+                        <div className="mt-1 text-sm text-slate-700 leading-relaxed bg-white border border-slate-200 rounded-lg p-4" dangerouslySetInnerHTML={{ __html: sendPreview.body }} />
+                      ) : (
+                        <div className="mt-1 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-white border border-slate-200 rounded-lg p-4">{sendPreview.body}</div>
+                      )}
                     </div>
                   </>
                 ) : (

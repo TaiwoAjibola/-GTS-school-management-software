@@ -122,6 +122,7 @@ export const duplicateProcess = async (req, res, next) => {
 export const previewProcess = async (req, res, next) => {
   try {
     const { id } = req.params
+    const courseId = req.query.courseId || req.body?.courseId || null
 
     const result = await query('SELECT * FROM email_processes WHERE id = $1', [id])
     if (!result.rows.length) throw httpError(404, 'Template not found')
@@ -138,15 +139,54 @@ export const previewProcess = async (req, res, next) => {
       sampleValues[row.variable_key] = row.example_value || `[${row.display_label}]`
     }
 
+    // If courseId provided, fetch real course data and override sample values
+    if (courseId) {
+      try {
+        const courseResult = await query(
+          'SELECT id, course_code, title AS course_name, description AS course_description, start_date AS course_start_date, end_date AS course_end_date FROM courses WHERE id = $1',
+          [courseId]
+        )
+        if (courseResult.rows.length) {
+          const course = courseResult.rows[0]
+          sampleValues.course_code = course.course_code || sampleValues.course_code || ''
+          sampleValues.course_name = course.course_name || sampleValues.course_name || ''
+          sampleValues.course_description = course.course_description || sampleValues.course_description || ''
+          sampleValues.course_start_date = course.course_start_date
+            ? new Date(course.course_start_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            : sampleValues.course_start_date || ''
+          sampleValues.course_end_date = course.course_end_date
+            ? new Date(course.course_end_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            : sampleValues.course_end_date || ''
+        }
+      } catch {}
+    }
+
+    // Ensure current_date uses today, not stale example
+    sampleValues.current_date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
     const render = (template) => {
       if (!template) return ''
-      return template.replace(/\{\{(\w+)\}\}/g, (_, key) => sampleValues[key] || `{{${key}}}`)
+      return (template || '').replace(/\{\{(\w+)\}\}/g, (_, key) => sampleValues[key] != null ? sampleValues[key] : `{{${key}}}`)
+    }
+
+    const toHtml = (text) => {
+      const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
+    }
+
+    const subject = render(process.subject_template)
+    let body
+    if (process.rich_body) {
+      body = render(process.rich_body)
+    } else {
+      const rendered = render(process.body_template)
+      body = toHtml(rendered)
     }
 
     res.json({
-      subject: render(process.subject_template),
-      body: render(process.body_template),
-      richBody: process.rich_body,
+      subject,
+      body,
+      richBody: process.rich_body ? render(process.rich_body) : null,
       variables: tvResult.rows,
     })
   } catch (error) {
@@ -158,12 +198,14 @@ export const previewProcess = async (req, res, next) => {
 export const previewWithStudent = async (req, res, next) => {
   try {
     const { id, studentId } = req.params
+    const courseId = req.query.courseId || req.body?.courseId || null
 
     const [procResult, studentResult] = await Promise.all([
       query('SELECT * FROM email_processes WHERE id = $1', [id]),
       query(
-        `SELECT s.*, u.full_name, u.email
+        `SELECT s.*, u.full_name, u.email, co.name AS cohort_name
          FROM students s JOIN users u ON u.id = s.user_id
+         LEFT JOIN cohorts co ON co.id = s.cohort_id
          WHERE s.id = $1`,
         [studentId]
       ),
@@ -174,27 +216,75 @@ export const previewWithStudent = async (req, res, next) => {
     const process = procResult.rows[0]
     const s = studentResult.rows[0]
 
-    // Build real values from student data
+    // Fetch fallback example values for school/instructor/course defaults
+    const tvResult = await query('SELECT variable_key, example_value FROM template_variables WHERE is_active = true')
+    const fallback = {}
+    for (const row of tvResult.rows) fallback[row.variable_key] = row.example_value || ''
+
+    // Fetch course if courseId provided
+    let course = null
+    if (courseId) {
+      try {
+        const courseResult = await query(
+          'SELECT id, course_code, title AS course_name, description AS course_description, start_date AS course_start_date, end_date AS course_end_date FROM courses WHERE id = $1',
+          [courseId]
+        )
+        if (courseResult.rows.length) course = courseResult.rows[0]
+      } catch {}
+    }
+
+    // Build real values from student + course + fallback data
     const values = {
       student_name: s.full_name,
       student_email: s.email,
       student_phone: s.phone || '',
       student_id: s.id?.toString() || '',
       student_status: s.status || '',
-      enrollment_date: s.created_at ? new Date(s.created_at).toLocaleDateString() : '',
+      enrollment_date: s.created_at ? new Date(s.created_at).toLocaleDateString() : fallback.enrollment_date || '',
       matric_no: s.matric_no || '',
-      cohort_name: s.cohort_name || '',
+      cohort_name: s.cohort_name || fallback.cohort_name || '',
+      course_code: course?.course_code || fallback.course_code || '',
+      course_name: course?.course_name || fallback.course_name || '',
+      course_description: course?.course_description || fallback.course_description || '',
+      course_start_date: course?.course_start_date ? new Date(course.course_start_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : fallback.course_start_date || '',
+      course_end_date: course?.course_end_date ? new Date(course.course_end_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : fallback.course_end_date || '',
+      school_name: fallback.school_name || 'GTS Academy',
+      school_email: fallback.school_email || '',
+      school_address: fallback.school_address || '',
+      school_phone: fallback.school_phone || '',
+      current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      instructor_name: fallback.instructor_name || '',
+      instructor_email: fallback.instructor_email || '',
+    }
+    // Include any other fallback variables not explicitly set
+    for (const [k, v] of Object.entries(fallback)) {
+      if (!(k in values)) values[k] = v || ''
     }
 
     const render = (template) => {
       if (!template) return ''
-      return template.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] || `{{${key}}}`)
+      return (template || '').replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] != null ? values[key] : `{{${key}}}`)
+    }
+
+    const toHtml = (text) => {
+      const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
+    }
+
+    const subject = render(process.subject_template)
+    let body
+    let richBody = null
+    if (process.rich_body) {
+      body = render(process.rich_body)
+      richBody = body
+    } else {
+      body = toHtml(render(process.body_template))
     }
 
     res.json({
-      subject: render(process.subject_template),
-      body: render(process.body_template),
-      richBody: process.rich_body,
+      subject,
+      body,
+      richBody,
       student: { id: s.id, full_name: s.full_name, email: s.email },
     })
   } catch (error) {
@@ -206,7 +296,7 @@ export const previewWithStudent = async (req, res, next) => {
 export const sendTemplate = async (req, res, next) => {
   try {
     const { id } = req.params
-    const { recipientIds } = req.body
+    const { recipientIds, courseId } = req.body
 
     if (!recipientIds || !Array.isArray(recipientIds) || !recipientIds.length) {
       throw httpError(400, 'recipientIds array is required')
@@ -218,12 +308,35 @@ export const sendTemplate = async (req, res, next) => {
     const process = procResult.rows[0]
 
     const students = await query(
-      `SELECT s.id, u.full_name, u.email, s.phone, s.status, s.matric_no
+      `SELECT s.id, u.full_name, u.email, s.phone, s.status, s.matric_no, s.created_at, co.name AS cohort_name
        FROM students s JOIN users u ON u.id = s.user_id
+       LEFT JOIN cohorts co ON co.id = s.cohort_id
        WHERE s.id = ANY($1::int[])`,
       [recipientIds]
     )
     if (!students.rows.length) throw httpError(404, 'No recipients found')
+
+    // Fetch course if courseId provided
+    let course = null
+    if (courseId) {
+      try {
+        const courseResult = await query(
+          'SELECT id, course_code, title AS course_name, description AS course_description, start_date AS course_start_date, end_date AS course_end_date FROM courses WHERE id = $1',
+          [courseId]
+        )
+        if (courseResult.rows.length) course = courseResult.rows[0]
+      } catch {}
+    }
+
+    // Fetch fallback example values for school/instructor etc.
+    const tvResult = await query('SELECT variable_key, example_value FROM template_variables WHERE is_active = true')
+    const fallback = {}
+    for (const row of tvResult.rows) fallback[row.variable_key] = row.example_value || ''
+
+    const toHtml = (text) => {
+      const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
+    }
 
     const recipients = students.rows.map((s) => {
       const values = {
@@ -233,12 +346,37 @@ export const sendTemplate = async (req, res, next) => {
         student_id: s.id.toString(),
         student_status: s.status || '',
         matric_no: s.matric_no || '',
+        enrollment_date: s.created_at ? new Date(s.created_at).toLocaleDateString() : fallback.enrollment_date || '',
+        cohort_name: s.cohort_name || fallback.cohort_name || '',
+        course_code: course?.course_code || fallback.course_code || '',
+        course_name: course?.course_name || fallback.course_name || '',
+        course_description: course?.course_description || fallback.course_description || '',
+        course_start_date: course?.course_start_date ? new Date(course.course_start_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : fallback.course_start_date || '',
+        course_end_date: course?.course_end_date ? new Date(course.course_end_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : fallback.course_end_date || '',
+        school_name: fallback.school_name || 'GTS Academy',
+        school_email: fallback.school_email || '',
+        school_address: fallback.school_address || '',
+        school_phone: fallback.school_phone || '',
+        current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        instructor_name: fallback.instructor_name || '',
+        instructor_email: fallback.instructor_email || '',
       }
-      const render = (tpl) => (tpl || '').replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] || `{{${key}}}`)
+      for (const [k, v] of Object.entries(fallback)) {
+        if (!(k in values)) values[k] = v || ''
+      }
+      const render = (tpl) => (tpl || '').replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] != null ? values[key] : `{{${key}}}`)
+      const subject = render(process.subject_template)
+      let body
+      if (process.rich_body) {
+        body = render(process.rich_body)
+      } else {
+        const rendered = render(process.body_template)
+        body = toHtml(rendered)
+      }
       return {
         email: s.email,
-        subject: render(process.subject_template),
-        body: render(process.body_template),
+        subject,
+        body,
       }
     })
 
@@ -249,6 +387,7 @@ export const sendTemplate = async (req, res, next) => {
       bodyTemplate: process.body_template,
       channel: process.channel,
       senderId: req.user.id,
+      courseId: courseId || null,
     })
 
     res.json({ jobId, message: 'Send queued' })
