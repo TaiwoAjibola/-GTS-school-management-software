@@ -37,6 +37,7 @@ export default function EmailProcesses({ notify }) {
   const [selectedRecipients, setSelectedRecipients] = useState([])
   const [recipientMode, setRecipientMode] = useState('manual')
   const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [variablePlanId, setVariablePlanId] = useState('')
   const [variableCourseId, setVariableCourseId] = useState('')
   const [variableAssignmentId, setVariableAssignmentId] = useState('')
   const [variableExamId, setVariableExamId] = useState('')
@@ -44,6 +45,10 @@ export default function EmailProcesses({ notify }) {
   const [variableExams, setVariableExams] = useState([])
   const [assignmentsLoading, setAssignmentsLoading] = useState(false)
   const [examsLoading, setExamsLoading] = useState(false)
+  const [coursePlans, setCoursePlans] = useState([])
+  const [planCourses, setPlanCourses] = useState([])
+  const [plansLoading, setPlansLoading] = useState(false)
+  const [planItemsLoading, setPlanItemsLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendPreview, setSendPreview] = useState(null)
   const [sendStep, setSendStep] = useState('recipients')
@@ -218,17 +223,21 @@ export default function EmailProcesses({ notify }) {
     const id = templateId || selectedId
     if (!id) return
     try {
-      const [coursesRes, studentsRes] = await Promise.all([
+      const [coursesRes, studentsRes, plansRes] = await Promise.all([
         apiClient.get('/courses'),
         apiClient.get('/students'),
+        apiClient.get('/course-plans').catch(() => ({ data: [] })),
       ])
       const courseList = coursesRes.data || []
       setCourses(courseList)
       setStudents(studentsRes.data || [])
+      setCoursePlans(plansRes.data || [])
+      setPlanCourses([])
       setSelectedRecipients([])
       setStudentSearch('')
       setRecipientMode('manual')
       setSelectedCourseId('')
+      setVariablePlanId('')
       // Default Variable Context course to active course (is_current) or first course
       const activeCourse = courseList.find((c) => c.is_current) || courseList[0] || null
       setVariableCourseId(activeCourse ? String(activeCourse.id) : '')
@@ -287,11 +296,44 @@ export default function EmailProcesses({ notify }) {
     }
   }
 
+  const handleVariablePlanChange = (planId) => {
+    setVariablePlanId(planId)
+    setVariableCourseId('')
+    setVariableAssignmentId('')
+    setVariableExamId('')
+    setPlanCourses([])
+  }
+
   const handleVariableCourseChange = (courseId) => {
     setVariableCourseId(courseId)
     setVariableAssignmentId('')
     setVariableExamId('')
   }
+
+  // Load course plans for Variable Context when modal opens (if not already loaded via openSend)
+  useEffect(() => {
+    if (!sendOpen) return
+    if (coursePlans.length > 0) return
+    setPlansLoading(true)
+    apiClient.get('/course-plans')
+      .then((res) => setCoursePlans(res.data || []))
+      .catch(() => {})
+      .finally(() => setPlansLoading(false))
+  }, [sendOpen])
+
+  // When Plan changes, fetch its courses from course_plan_items
+  useEffect(() => {
+    if (!sendOpen) return
+    if (!variablePlanId) {
+      setPlanCourses([])
+      return
+    }
+    setPlanItemsLoading(true)
+    apiClient.get(`/course-plans/${variablePlanId}`)
+      .then((res) => setPlanCourses(res.data?.items || []))
+      .catch(() => setPlanCourses([]))
+      .finally(() => setPlanItemsLoading(false))
+  }, [variablePlanId, sendOpen])
 
   // Load assignments/exams for Variable Context when course or needs change
   useEffect(() => {
@@ -333,6 +375,7 @@ export default function EmailProcesses({ notify }) {
       const params = {}
       const cId = variableCourseId || selectedCourseId || undefined
       if (cId) params.courseId = cId
+      if (variablePlanId) params.planId = variablePlanId
       if (variableAssignmentId) params.assignmentId = variableAssignmentId
       if (variableExamId) params.examId = variableExamId
       const res = await apiClient.get(`/email-processes/${selectedId}/preview/${firstId}`, { params })
@@ -349,6 +392,7 @@ export default function EmailProcesses({ notify }) {
       const payload = {
         recipientIds: selectedRecipients,
         courseId: variableCourseId || selectedCourseId || undefined,
+        planId: variablePlanId || undefined,
       }
       if (variableAssignmentId) payload.assignmentId = variableAssignmentId
       if (variableExamId) payload.examId = variableExamId
@@ -723,28 +767,74 @@ export default function EmailProcesses({ notify }) {
                       This template uses <span className="font-mono font-semibold">{[...neededContexts].join(', ')}</span> variables. Select the source entities so <span className="font-mono">{'{{course_*}}'}</span>, <span className="font-mono">{'{{assignment_*}}'}</span> and <span className="font-mono">{'{{exam_*}}'}</span> render with real data.
                     </p>
                     {needsCourse && (
-                      <div>
-                        <label className="text-xs font-medium text-slate-700 block mb-1">
-                          Course <span className="text-red-500">*</span>
-                          <span className="font-normal text-slate-400"> — for {'{{course_code}}'}, {'{{course_name}}'}, {'{{course_description}}'}, {'{{course_start_date}}'}, {'{{course_end_date}}'} and {'{{instructor_*}}'}</span>
-                        </label>
-                        <select
-                          className={`w-full border rounded-lg px-3 py-2 text-sm ${!variableCourseId ? 'border-red-300 bg-red-50' : 'bg-white border-amber-200 focus:border-amber-300'}`}
-                          value={variableCourseId}
-                          onChange={(e) => handleVariableCourseChange(e.target.value)}
-                        >
-                          <option value="">Select a course…</option>
-                          {courses.map((c) => (
-                            <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} - ${c.title}` : c.title}{c.is_current ? ' (Active)' : ''}</option>
-                          ))}
-                        </select>
-                        {!variableCourseId && <p className="text-[10px] text-red-600 mt-1">Course is required for course/instructor variables.</p>}
-                        {variableCourseId && (() => {
-                          const cc = courses.find((x) => String(x.id) === String(variableCourseId))
-                          const instr = cc?.lecturer_name || cc?.assigned_lecturer || cc?.lecturer_id || ''
-                          return <p className="text-[10px] text-slate-500 mt-1">Instructor will be <span className="font-medium text-slate-700">{instr || 'derived from course lecturer'}</span> — {'{{instructor_name}}'} / {'{{instructor_email}}'} auto-populated.</p>
-                        })()}
-                      </div>
+                      <>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700 block mb-1">
+                            Plan <span className="font-normal text-slate-400"> — select plan for plan-specific dates (course can be in multiple plans)</span>
+                          </label>
+                          <select
+                            className="w-full border rounded-lg px-3 py-2 text-sm bg-white border-amber-200 focus:border-amber-300"
+                            value={variablePlanId}
+                            onChange={(e) => handleVariablePlanChange(e.target.value)}
+                          >
+                            <option value="">No plan — use general course dates</option>
+                            {plansLoading ? (
+                              <option disabled>Loading plans…</option>
+                            ) : coursePlans.length === 0 ? (
+                              <option disabled>No plans available</option>
+                            ) : null}
+                            {coursePlans.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name} ({p.year}){p.is_active ? ' — Active' : ''}</option>
+                            ))}
+                          </select>
+                          <p className="text-[10px] text-slate-500 mt-1">When a plan is selected, course dates ({'{{course_start_date}}'} / {'{{course_end_date}}'}) use the plan-specific period. If empty, generic course dates are used.</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700 block mb-1">
+                            Course <span className="text-red-500">*</span>
+                            <span className="font-normal text-slate-400"> — for {'{{course_code}}'}, {'{{course_name}}'}, {'{{course_description}}'}, {'{{course_start_date}}'}, {'{{course_end_date}}'} and {'{{instructor_*}}'}</span>
+                          </label>
+                          {variablePlanId && planItemsLoading ? (
+                            <p className="text-xs text-slate-400 py-2">Loading courses in plan…</p>
+                          ) : variablePlanId && planCourses.length === 0 ? (
+                            <div>
+                              <select
+                                className="w-full border rounded-lg px-3 py-2 text-sm border-red-300 bg-red-50"
+                                value={variableCourseId}
+                                onChange={(e) => handleVariableCourseChange(e.target.value)}
+                              >
+                                <option value="">No courses in this plan</option>
+                              </select>
+                              <p className="text-[10px] text-red-600 mt-1">This plan has no courses. Select a different plan or clear plan to see all courses.</p>
+                            </div>
+                          ) : (
+                            <select
+                              className={`w-full border rounded-lg px-3 py-2 text-sm ${!variableCourseId ? 'border-red-300 bg-red-50' : 'bg-white border-amber-200 focus:border-amber-300'}`}
+                              value={variableCourseId}
+                              onChange={(e) => handleVariableCourseChange(e.target.value)}
+                            >
+                              <option value="">Select a course…</option>
+                              {(variablePlanId ? planCourses : courses).map((c) => {
+                                if (variablePlanId) {
+                                  // c is from course_plan_items: has course_id, course_title, course_code, start_date, end_date
+                                  const label = c.course_code ? `${c.course_code} - ${c.course_title}` : (c.course_title || c.title)
+                                  const dates = c.start_date || c.end_date ? ` (${c.start_date ? new Date(c.start_date).toLocaleDateString() : '—'} → ${c.end_date ? new Date(c.end_date).toLocaleDateString() : '—'})` : ''
+                                  return <option key={c.course_id} value={c.course_id}>{label}{dates}</option>
+                                }
+                                return <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} - ${c.title}` : c.title}{c.is_current ? ' (Active)' : ''}</option>
+                              })}
+                            </select>
+                          )}
+                          {!variableCourseId && <p className="text-[10px] text-red-600 mt-1">Course is required for course/instructor variables.</p>}
+                          {variableCourseId && (() => {
+                            const cc = variablePlanId ? planCourses.find((x) => String(x.course_id) === String(variableCourseId)) : null
+                            const fallback = courses.find((x) => String(x.id) === String(variableCourseId))
+                            const instr = cc?.lecturer_name || fallback?.lecturer_name || fallback?.assigned_lecturer || fallback?.lecturer_id || ''
+                            const dateHint = variablePlanId && cc ? ` Plan dates: ${cc.start_date ? new Date(cc.start_date).toLocaleDateString() : '—'} → ${cc.end_date ? new Date(cc.end_date).toLocaleDateString() : '—'} — vars use plan period.` : ''
+                            return <p className="text-[10px] text-slate-500 mt-1">Instructor will be <span className="font-medium text-slate-700">{instr || 'derived from course lecturer'}</span> — {'{{instructor_name}}'} / {'{{instructor_email}}'} auto-populated.{dateHint}</p>
+                          })()}
+                        </div>
+                      </>
                     )}
                     {needsAssignment && (
                       <div>

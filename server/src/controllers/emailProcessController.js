@@ -6,6 +6,41 @@ import { testSmtpConnection } from '../services/emailService.js'
 
 const formatLongDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''
 
+// Fetch plan-specific course data when planId provided, fallback to generic course fetch
+const fetchCourseWithPlan = async (courseId, planId) => {
+  if (courseId && planId) {
+    try {
+      const planResult = await query(
+        `SELECT c.course_code, c.title AS course_name, c.description AS course_description,
+                cpi.start_date AS course_start_date, cpi.end_date AS course_end_date,
+                c.lecturer_name, u.full_name AS instructor_name, u.email AS instructor_email
+         FROM course_plan_items cpi
+         JOIN courses c ON c.id = cpi.course_id
+         LEFT JOIN users u ON u.id = c.lecturer_id
+         WHERE cpi.plan_id = $1 AND cpi.course_id = $2`,
+        [planId, courseId]
+      )
+      if (planResult.rows.length) return planResult.rows[0]
+    } catch {}
+  }
+  if (courseId) {
+    try {
+      const courseResult = await query(
+        `SELECT c.id, c.course_code, c.title AS course_name, c.description AS course_description,
+                c.start_date AS course_start_date, c.end_date AS course_end_date,
+                c.lecturer_id, c.lecturer_name,
+                COALESCE(u.full_name, c.lecturer_name) AS instructor_name,
+                u.email AS instructor_email
+         FROM courses c LEFT JOIN users u ON u.id = c.lecturer_id
+         WHERE c.id = $1`,
+        [courseId]
+      )
+      if (courseResult.rows.length) return courseResult.rows[0]
+    } catch {}
+  }
+  return null
+}
+
 const buildExamLink = (exam) => {
   if (!exam) return ''
   if (exam.quiz_url) return exam.quiz_url
@@ -132,6 +167,7 @@ export const previewProcess = async (req, res, next) => {
   try {
     const { id } = req.params
     const courseId = req.query.courseId || req.query.variableCourseId || req.body?.courseId || req.body?.variableCourseId || null
+    const planId = req.query.planId || req.body?.planId || null
     const assignmentId = req.query.assignmentId || req.query.variableAssignmentId || req.body?.assignmentId || req.body?.variableAssignmentId || null
     const examId = req.query.examId || req.query.variableExamId || req.body?.examId || req.body?.variableExamId || null
 
@@ -151,32 +187,21 @@ export const previewProcess = async (req, res, next) => {
     }
 
     // If courseId provided, fetch real course + instructor data and override sample values
+    // Plan-specific dates when planId provided, fallback to generic course dates
     if (courseId) {
-      try {
-        const courseResult = await query(
-          `SELECT c.id, c.course_code, c.title AS course_name, c.description AS course_description,
-                  c.start_date AS course_start_date, c.end_date AS course_end_date,
-                  c.lecturer_id, c.lecturer_name,
-                  COALESCE(u.full_name, c.lecturer_name) AS instructor_name,
-                  u.email AS instructor_email
-           FROM courses c LEFT JOIN users u ON u.id = c.lecturer_id
-           WHERE c.id = $1`,
-          [courseId]
-        )
-        if (courseResult.rows.length) {
-          const course = courseResult.rows[0]
-          sampleValues.course_code = course.course_code || sampleValues.course_code || ''
-          sampleValues.course_name = course.course_name || sampleValues.course_name || ''
-          sampleValues.course_description = course.course_description || sampleValues.course_description || ''
-          sampleValues.course_start_date = course.course_start_date ? formatLongDate(course.course_start_date) : sampleValues.course_start_date || ''
-          sampleValues.course_end_date = course.course_end_date ? formatLongDate(course.course_end_date) : sampleValues.course_end_date || ''
-          // Instructor derives from course's lecturer
-          if (course.instructor_name) sampleValues.instructor_name = course.instructor_name
-          if (course.instructor_email) sampleValues.instructor_email = course.instructor_email
-          // Also keep course_title for exam fallback compatibility
-          sampleValues.course_title = course.course_name || sampleValues.course_title || sampleValues.course_name || ''
-        }
-      } catch {}
+      const course = await fetchCourseWithPlan(courseId, planId)
+      if (course) {
+        sampleValues.course_code = course.course_code || sampleValues.course_code || ''
+        sampleValues.course_name = course.course_name || sampleValues.course_name || ''
+        sampleValues.course_description = course.course_description || sampleValues.course_description || ''
+        sampleValues.course_start_date = course.course_start_date ? formatLongDate(course.course_start_date) : sampleValues.course_start_date || ''
+        sampleValues.course_end_date = course.course_end_date ? formatLongDate(course.course_end_date) : sampleValues.course_end_date || ''
+        // Instructor derives from course's lecturer
+        if (course.instructor_name) sampleValues.instructor_name = course.instructor_name
+        if (course.instructor_email) sampleValues.instructor_email = course.instructor_email
+        // Also keep course_title for exam fallback compatibility
+        sampleValues.course_title = course.course_name || sampleValues.course_title || sampleValues.course_name || ''
+      }
     }
 
     // If assignmentId provided, fetch assignment and override assignment_* variables
@@ -261,6 +286,7 @@ export const previewWithStudent = async (req, res, next) => {
   try {
     const { id, studentId } = req.params
     const courseId = req.query.courseId || req.query.variableCourseId || req.body?.courseId || req.body?.variableCourseId || null
+    const planId = req.query.planId || req.body?.planId || null
     const assignmentId = req.query.assignmentId || req.query.variableAssignmentId || req.body?.assignmentId || req.body?.variableAssignmentId || null
     const examId = req.query.examId || req.query.variableExamId || req.body?.examId || req.body?.variableExamId || null
 
@@ -285,22 +311,10 @@ export const previewWithStudent = async (req, res, next) => {
     const fallback = {}
     for (const row of tvResult.rows) fallback[row.variable_key] = row.example_value || ''
 
-    // Fetch course if courseId provided (with instructor derivation)
+    // Fetch course if courseId provided (with instructor derivation) — plan-specific dates when planId given
     let course = null
     if (courseId) {
-      try {
-        const courseResult = await query(
-          `SELECT c.id, c.course_code, c.title AS course_name, c.description AS course_description,
-                  c.start_date AS course_start_date, c.end_date AS course_end_date,
-                  c.lecturer_id, c.lecturer_name,
-                  COALESCE(u.full_name, c.lecturer_name) AS instructor_name,
-                  u.email AS instructor_email
-           FROM courses c LEFT JOIN users u ON u.id = c.lecturer_id
-           WHERE c.id = $1`,
-          [courseId]
-        )
-        if (courseResult.rows.length) course = courseResult.rows[0]
-      } catch {}
+      course = await fetchCourseWithPlan(courseId, planId)
     }
 
     // Fetch assignment if assignmentId provided
@@ -421,6 +435,7 @@ export const sendTemplate = async (req, res, next) => {
     const { id } = req.params
     const { recipientIds } = req.body
     const courseId = req.body.courseId || req.body.variableCourseId || req.query?.courseId || null
+    const planId = req.body.planId || req.query?.planId || null
     const assignmentId = req.body.assignmentId || req.body.variableAssignmentId || req.query?.assignmentId || null
     const examId = req.body.examId || req.body.variableExamId || req.query?.examId || null
 
@@ -442,22 +457,10 @@ export const sendTemplate = async (req, res, next) => {
     )
     if (!students.rows.length) throw httpError(404, 'No recipients found')
 
-    // Fetch course if courseId provided (with instructor)
+    // Fetch course if courseId provided (with instructor) — plan-specific dates when planId given
     let course = null
     if (courseId) {
-      try {
-        const courseResult = await query(
-          `SELECT c.id, c.course_code, c.title AS course_name, c.description AS course_description,
-                  c.start_date AS course_start_date, c.end_date AS course_end_date,
-                  c.lecturer_id, c.lecturer_name,
-                  COALESCE(u.full_name, c.lecturer_name) AS instructor_name,
-                  u.email AS instructor_email
-           FROM courses c LEFT JOIN users u ON u.id = c.lecturer_id
-           WHERE c.id = $1`,
-          [courseId]
-        )
-        if (courseResult.rows.length) course = courseResult.rows[0]
-      } catch {}
+      course = await fetchCourseWithPlan(courseId, planId)
     }
 
     // Fetch assignment if provided
