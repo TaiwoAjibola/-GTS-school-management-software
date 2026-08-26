@@ -37,6 +37,7 @@ export default function EmailProcesses({ notify }) {
   const [selectedRecipients, setSelectedRecipients] = useState([])
   const [recipientMode, setRecipientMode] = useState('manual')
   const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [variableCourseId, setVariableCourseId] = useState('')
   const [sending, setSending] = useState(false)
   const [sendPreview, setSendPreview] = useState(null)
   const [sendStep, setSendStep] = useState('recipients')
@@ -195,6 +196,7 @@ export default function EmailProcesses({ notify }) {
       setStudentSearch('')
       setRecipientMode('manual')
       setSelectedCourseId('')
+      setVariableCourseId('')
       setSendPreview(null)
       setSendStep('recipients')
       setSelectedId(id)
@@ -250,7 +252,8 @@ export default function EmailProcesses({ notify }) {
     if (!selectedId || !selectedRecipients.length) return
     try {
       const firstId = selectedRecipients[0]
-      const params = selectedCourseId ? { courseId: selectedCourseId } : {}
+      const courseId = variableCourseId || selectedCourseId || undefined
+      const params = courseId ? { courseId } : {}
       const res = await apiClient.get(`/email-processes/${selectedId}/preview/${firstId}`, { params })
       setSendPreview(res.data)
       setSendStep('preview')
@@ -264,7 +267,7 @@ export default function EmailProcesses({ notify }) {
     try {
       const res = await apiClient.post(`/email-processes/${selectedId}/send`, {
         recipientIds: selectedRecipients,
-        courseId: selectedCourseId || undefined,
+        courseId: variableCourseId || selectedCourseId || undefined,
       })
       const jobId = res.data.jobId
       setSendResult({ type: 'progress', text: 'Queued…' })
@@ -624,7 +627,28 @@ export default function EmailProcesses({ notify }) {
                   ))}
                 </div>
 
-                {/* Course dropdown */}
+                {/* Persistent course context for template variables - always visible, independent of recipient filtering */}
+                {courses.length > 0 && (
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-slate-700 block mb-1">
+                      Course context for variables (course_code, course_name, etc.)
+                      <span className="font-normal text-slate-400"> — Template course (for {'{{course_*}}'} variables)</span>
+                    </label>
+                    <select
+                      className="w-full border rounded-lg px-3 py-2 text-sm bg-amber-50/50 border-amber-200 focus:border-amber-300 focus:ring-amber-200"
+                      value={variableCourseId}
+                      onChange={(e) => setVariableCourseId(e.target.value)}
+                    >
+                      <option value="">No course context (use fallback values)</option>
+                      {courses.map((c) => (
+                        <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} - ${c.title}` : c.title}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-slate-400 mt-1">Select a course so {'{{course_code}}'}, {'{{course_name}}'}, {'{{course_description}}'}, {'{{course_start_date}}'} render with real data.</p>
+                  </div>
+                )}
+
+                {/* Course dropdown for recipient filtering */}
                 {recipientMode === 'course' && (
                   <select
                     className="w-full border rounded-lg px-3 py-2 text-sm mb-3"

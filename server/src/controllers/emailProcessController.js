@@ -122,7 +122,7 @@ export const duplicateProcess = async (req, res, next) => {
 export const previewProcess = async (req, res, next) => {
   try {
     const { id } = req.params
-    const courseId = req.query.courseId || req.body?.courseId || null
+    const courseId = req.query.courseId || req.query.variableCourseId || req.body?.courseId || req.body?.variableCourseId || null
 
     const result = await query('SELECT * FROM email_processes WHERE id = $1', [id])
     if (!result.rows.length) throw httpError(404, 'Template not found')
@@ -198,7 +198,7 @@ export const previewProcess = async (req, res, next) => {
 export const previewWithStudent = async (req, res, next) => {
   try {
     const { id, studentId } = req.params
-    const courseId = req.query.courseId || req.body?.courseId || null
+    const courseId = req.query.courseId || req.query.variableCourseId || req.body?.courseId || req.body?.variableCourseId || null
 
     const [procResult, studentResult] = await Promise.all([
       query('SELECT * FROM email_processes WHERE id = $1', [id]),
@@ -296,7 +296,8 @@ export const previewWithStudent = async (req, res, next) => {
 export const sendTemplate = async (req, res, next) => {
   try {
     const { id } = req.params
-    const { recipientIds, courseId } = req.body
+    const { recipientIds } = req.body
+    const courseId = req.body.courseId || req.body.variableCourseId || null
 
     if (!recipientIds || !Array.isArray(recipientIds) || !recipientIds.length) {
       throw httpError(400, 'recipientIds array is required')
