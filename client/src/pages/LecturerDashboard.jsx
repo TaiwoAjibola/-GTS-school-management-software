@@ -5120,8 +5120,8 @@ const LecturerDashboard = () => {
                       <div className="grid gap-4">
                         {forms.map((form) => {
                           const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-                          const clientOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://gts.edu.ng'
-                          const iframeCode = `<iframe src="https://gts.edu.ng/forms/${form.slug}" height="600" style="width:100%;border:0;border-radius:12px"></iframe>`
+                          const clientOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://gts-sms-eta.vercel.app'
+                          const iframeCode = `<iframe src="${clientOrigin}/forms/${form.slug}" height="600" style="width:100%;border:0;border-radius:12px"></iframe>`
                           const scriptCode = `<script src="${clientOrigin}/forms/${form.slug}/embed.js"></script>`
                           const apiCode = `${API_URL}/forms/${form.slug}/submit`
                           const isActive = form.status === 'active'
@@ -5234,7 +5234,7 @@ const LecturerDashboard = () => {
                         {[
                           { k: 'report_title', label: 'Report Title', ex: 'Q1 Academic Report' },
                           { k: 'report_period', label: 'Report Period', ex: 'Jan — Mar 2026' },
-                          { k: 'report_link', label: 'Report Link', ex: 'https://gts.edu.ng/reports/123' },
+                          { k: 'report_link', label: 'Report Link', ex: 'https://gts-sms-eta.vercel.app/reports/123' },
                         ].map(({ k, label, ex }) => (
                           <div key={k} className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
                             <div>
