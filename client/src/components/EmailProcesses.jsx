@@ -713,33 +713,36 @@ export default function EmailProcesses({ notify }) {
 
       {/* ── Send Modal ── */}
       {sendOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSendOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSendOpen(false)}>
+          <div className="bg-white rounded-[24px] shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-slate-900 flex items-center gap-1.5"><Send size={16} /> Send Template</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Sending <strong>{selectedTemplate?.name || 'Untitled'}</strong></p>
               </div>
-              <button type="button" onClick={() => setSendOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+              <button type="button" onClick={() => setSendOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg shrink-0"><X size={18} /></button>
             </div>
 
-            {/* Step indicator */}
-            <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
-              <span className={`flex items-center gap-1 ${sendStep === 'recipients' ? 'text-slate-900 font-semibold' : ''}`}>
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${sendStep === 'recipients' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>1</span>
-                Select Recipients
-              </span>
-              <span className="text-slate-300">→</span>
-              <span className={`flex items-center gap-1 ${sendStep === 'preview' ? 'text-slate-900 font-semibold' : ''}`}>
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${sendStep === 'preview' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>2</span>
-                Preview & Send
-              </span>
-            </div>
+            {/* Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              {/* Step indicator */}
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className={`flex items-center gap-1 ${sendStep === 'recipients' ? 'text-slate-900 font-semibold' : ''}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${sendStep === 'recipients' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>1</span>
+                  Select Recipients
+                </span>
+                <span className="text-slate-300">→</span>
+                <span className={`flex items-center gap-1 ${sendStep === 'preview' ? 'text-slate-900 font-semibold' : ''}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${sendStep === 'preview' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>2</span>
+                  Preview & Send
+                </span>
+              </div>
 
-            {sendStep === 'recipients' && (
-              <>
-                {/* Recipient mode selection */}
-                <div className="flex gap-2 mb-4">
+              {sendStep === 'recipients' && (
+                <>
+                  {/* Recipient mode selection */}
+                  <div className="flex gap-2">
                   {[
                     { key: 'manual', label: 'Select Students', icon: Users },
                     { key: 'course', label: 'By Course', icon: BookOpen },
@@ -757,7 +760,7 @@ export default function EmailProcesses({ notify }) {
 
                 {/* ── Variable Context panel ── */}
                 {needsVariableContext ? (
-                  <div className="mb-4 border border-amber-200 bg-amber-50/60 rounded-xl p-3 space-y-3">
+                  <div className="border border-amber-200 bg-amber-50/60 rounded-xl p-3 space-y-3">
                     <div className="flex items-center gap-1.5">
                       <Variable size={14} className="text-amber-700" />
                       <h4 className="text-xs font-semibold text-amber-900">Variable Context</h4>
@@ -896,7 +899,7 @@ export default function EmailProcesses({ notify }) {
                 {/* Course dropdown for recipient filtering */}
                 {recipientMode === 'course' && (
                   <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm mb-3"
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
                     value={selectedCourseId}
                     onChange={(e) => handleCourseChange(e.target.value)}
                   >
@@ -909,7 +912,7 @@ export default function EmailProcesses({ notify }) {
 
                 {/* Student search */}
                 {recipientMode !== 'all' && recipientMode !== 'course' && (
-                  <div className="relative mb-3">
+                  <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm" placeholder="Search students..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} />
                   </div>
@@ -917,18 +920,18 @@ export default function EmailProcesses({ notify }) {
 
                 {/* Select/Deselect all */}
                 {recipientMode !== 'course' && filteredStudents.length > 0 && (
-                  <button type="button" className="text-xs text-slate-500 hover:text-slate-900 font-medium mb-2" onClick={selectAllFiltered}>
+                  <button type="button" className="text-xs text-slate-500 hover:text-slate-900 font-medium" onClick={selectAllFiltered}>
                     {filteredStudents.every((s) => selectedRecipients.includes(s.id)) ? 'Deselect all' : 'Select all'}
                   </button>
                 )}
                 {(recipientMode === 'course' && selectedCourseId) && (
-                  <button type="button" className="text-xs text-slate-500 hover:text-slate-900 font-medium mb-2" onClick={selectAllFiltered}>
+                  <button type="button" className="text-xs text-slate-500 hover:text-slate-900 font-medium" onClick={selectAllFiltered}>
                     {filteredStudents.every((s) => selectedRecipients.includes(s.id)) ? 'Deselect all' : 'Select all enrolled'}
                   </button>
                 )}
 
                 {/* Student list */}
-                <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl min-h-[200px] mb-3">
+                <div className="max-h-[300px] overflow-y-auto border border-slate-200 rounded-xl">
                   {filteredStudents.map((s) => (
                     <label key={s.id} className={`flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50 transition-colors ${selectedRecipients.includes(s.id) ? 'bg-sky-50' : ''}`}>
                       <input type="checkbox" checked={selectedRecipients.includes(s.id)}
@@ -945,25 +948,11 @@ export default function EmailProcesses({ notify }) {
                   {!filteredStudents.length && <p className="text-sm text-slate-400 text-center py-8">No students found</p>}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <div>
-                    <p className="text-sm text-slate-500">{selectedRecipients.length} student{selectedRecipients.length !== 1 ? 's' : ''} selected</p>
-                    {needsVariableContext && (needsCourse && !variableCourseId || needsAssignment && !variableAssignmentId || needsExam && !variableExamId) && (
-                      <p className="text-[11px] text-red-600 mt-1">Complete Variable Context above to enable preview.</p>
-                    )}
-                  </div>
-                  <button type="button"
-                    disabled={!selectedRecipients.length || (needsCourse && !variableCourseId) || (needsAssignment && !variableAssignmentId) || (needsExam && !variableExamId)}
-                    onClick={generateSendPreview}
-                    className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
-                    title={needsVariableContext && (needsCourse && !variableCourseId || needsAssignment && !variableAssignmentId || needsExam && !variableExamId) ? 'Complete Variable Context first' : 'Review & Send'}
-                  >Review & Send</button>
-                </div>
               </>
             )}
 
             {sendStep === 'preview' && (
-              <div className="flex-1 overflow-y-auto space-y-4">
+              <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                   <strong>Preview</strong> — showing email rendered with data from first selected recipient.
                 </div>
@@ -1006,29 +995,48 @@ export default function EmailProcesses({ notify }) {
                     <span>{sendResult.text}</span>
                   </div>
                 )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                  {sendResult && sendResult.type !== 'progress' ? (
-                    <button type="button" onClick={() => { setSendOpen(false); setSendResult(null) }}
-                      className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white ml-auto"
-                    >Close</button>
-                  ) : (
-                    <>
-                      <button type="button" onClick={() => setSendStep('recipients')}
-                        className="text-sm text-slate-500 hover:text-slate-900"
-                      >← Back to recipients</button>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => setSendOpen(false)}
-                          className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
-                        >Cancel</button>
-                        <button type="button" disabled={!selectedRecipients.length || sending} onClick={handleSend}
-                          className="px-6 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50 flex items-center gap-1.5"
-                        >{sending ? 'Sending…' : <Send size={14} />}
-                          {sending ? 'Sending…' : `Send to ${selectedRecipients.length}`}</button>
-                      </div>
-                    </>
+              </div>
+            )}
+            </div>
+            {/* Footer */}
+            {sendStep === 'recipients' && (
+              <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">{selectedRecipients.length} student{selectedRecipients.length !== 1 ? 's' : ''} selected</p>
+                  {needsVariableContext && (needsCourse && !variableCourseId || needsAssignment && !variableAssignmentId || needsExam && !variableExamId) && (
+                    <p className="text-[11px] text-red-600 mt-1">Complete Variable Context above to enable preview.</p>
                   )}
                 </div>
+                <button type="button"
+                  disabled={!selectedRecipients.length || (needsCourse && !variableCourseId) || (needsAssignment && !variableAssignmentId) || (needsExam && !variableExamId)}
+                  onClick={generateSendPreview}
+                  className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50 shrink-0"
+                  title={needsVariableContext && (needsCourse && !variableCourseId || needsAssignment && !variableAssignmentId || needsExam && !variableExamId) ? 'Complete Variable Context first' : 'Review & Send'}
+                >Review & Send</button>
+              </div>
+            )}
+            {sendStep === 'preview' && (
+              <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between gap-4">
+                {sendResult && sendResult.type !== 'progress' ? (
+                  <button type="button" onClick={() => { setSendOpen(false); setSendResult(null) }}
+                    className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white ml-auto"
+                  >Close</button>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => setSendStep('recipients')}
+                      className="text-sm text-slate-500 hover:text-slate-900 shrink-0"
+                    >← Back to recipients</button>
+                    <div className="flex gap-2 shrink-0">
+                      <button type="button" onClick={() => setSendOpen(false)}
+                        className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
+                      >Cancel</button>
+                      <button type="button" disabled={!selectedRecipients.length || sending} onClick={handleSend}
+                        className="px-6 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50 flex items-center gap-1.5"
+                      >{sending ? 'Sending…' : <Send size={14} />}
+                        {sending ? 'Sending…' : `Send to ${selectedRecipients.length}`}</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
