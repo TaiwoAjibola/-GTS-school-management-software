@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen } from 'lucide-react'
 import apiClient from '../api/client'
 
@@ -38,6 +38,12 @@ export default function EmailProcesses({ notify }) {
   const [recipientMode, setRecipientMode] = useState('manual')
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [variableCourseId, setVariableCourseId] = useState('')
+  const [variableAssignmentId, setVariableAssignmentId] = useState('')
+  const [variableExamId, setVariableExamId] = useState('')
+  const [variableAssignments, setVariableAssignments] = useState([])
+  const [variableExams, setVariableExams] = useState([])
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false)
+  const [examsLoading, setExamsLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendPreview, setSendPreview] = useState(null)
   const [sendStep, setSendStep] = useState('recipients')
@@ -45,6 +51,32 @@ export default function EmailProcesses({ notify }) {
 
   const bodyRef = useRef(null)
   const subjectRef = useRef(null)
+
+  // ── Detect which variable categories are used in current template ──
+  const neededContexts = useMemo(() => {
+    const text = `${form.subject_template || ''} ${form.body_template || ''}`
+    const keys = [...text.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])
+    const cats = new Set()
+    for (const k of keys) {
+      const v = variables.find((x) => x.variable_key === k)
+      if (v && v.category) cats.add(v.category)
+      else if (k.startsWith('course_')) cats.add('course')
+      else if (k.startsWith('assignment_')) cats.add('assignment')
+      else if (k.startsWith('exam_') || k === 'exam_title' || k === 'exam_link' || k === 'quiz_url' || k === 'access_code') cats.add('exam')
+      else if (k.startsWith('instructor_')) cats.add('instructor')
+    }
+    // Fallback regex checks for prefix even if variable not in library
+    if (/\{\{\s*assignment_/i.test(text)) cats.add('assignment')
+    if (/\{\{\s*exam_/i.test(text)) cats.add('exam')
+    if (/\{\{\s*course_/i.test(text)) cats.add('course')
+    if (/\{\{\s*instructor_/i.test(text)) cats.add('instructor')
+    return cats
+  }, [form.subject_template, form.body_template, variables])
+
+  const needsCourse = neededContexts.has('course') || neededContexts.has('instructor')
+  const needsAssignment = neededContexts.has('assignment')
+  const needsExam = neededContexts.has('exam')
+  const needsVariableContext = needsCourse || needsAssignment || needsExam
 
   const loadTemplates = async () => {
     try {
@@ -190,13 +222,20 @@ export default function EmailProcesses({ notify }) {
         apiClient.get('/courses'),
         apiClient.get('/students'),
       ])
-      setCourses(coursesRes.data || [])
+      const courseList = coursesRes.data || []
+      setCourses(courseList)
       setStudents(studentsRes.data || [])
       setSelectedRecipients([])
       setStudentSearch('')
       setRecipientMode('manual')
       setSelectedCourseId('')
-      setVariableCourseId('')
+      // Default Variable Context course to active course (is_current) or first course
+      const activeCourse = courseList.find((c) => c.is_current) || courseList[0] || null
+      setVariableCourseId(activeCourse ? String(activeCourse.id) : '')
+      setVariableAssignmentId('')
+      setVariableExamId('')
+      setVariableAssignments([])
+      setVariableExams([])
       setSendPreview(null)
       setSendStep('recipients')
       setSelectedId(id)
@@ -248,12 +287,54 @@ export default function EmailProcesses({ notify }) {
     }
   }
 
+  const handleVariableCourseChange = (courseId) => {
+    setVariableCourseId(courseId)
+    setVariableAssignmentId('')
+    setVariableExamId('')
+  }
+
+  // Load assignments/exams for Variable Context when course or needs change
+  useEffect(() => {
+    if (!sendOpen) return
+    const vcId = variableCourseId || ''
+    if (needsAssignment) {
+      if (vcId) {
+        setAssignmentsLoading(true)
+        apiClient.get(`/assignments/course/${vcId}`)
+          .then((res) => setVariableAssignments(res.data || []))
+          .catch(() => setVariableAssignments([]))
+          .finally(() => setAssignmentsLoading(false))
+      } else {
+        setVariableAssignments([])
+      }
+    } else {
+      setVariableAssignments([])
+    }
+    if (needsExam) {
+      if (vcId) {
+        setExamsLoading(true)
+        apiClient.get(`/exams/course/${vcId}`)
+          .then((res) => setVariableExams(res.data || []))
+          .catch(() => setVariableExams([]))
+          .finally(() => setExamsLoading(false))
+      } else {
+        setVariableExams([])
+        // If no course but exam needed, try load all? keep empty and show hint
+      }
+    } else {
+      setVariableExams([])
+    }
+  }, [variableCourseId, sendOpen, needsAssignment, needsExam])
+
   const generateSendPreview = async () => {
     if (!selectedId || !selectedRecipients.length) return
     try {
       const firstId = selectedRecipients[0]
-      const courseId = variableCourseId || selectedCourseId || undefined
-      const params = courseId ? { courseId } : {}
+      const params = {}
+      const cId = variableCourseId || selectedCourseId || undefined
+      if (cId) params.courseId = cId
+      if (variableAssignmentId) params.assignmentId = variableAssignmentId
+      if (variableExamId) params.examId = variableExamId
       const res = await apiClient.get(`/email-processes/${selectedId}/preview/${firstId}`, { params })
       setSendPreview(res.data)
       setSendStep('preview')
@@ -265,10 +346,13 @@ export default function EmailProcesses({ notify }) {
     setSending(true)
     setSendResult(null)
     try {
-      const res = await apiClient.post(`/email-processes/${selectedId}/send`, {
+      const payload = {
         recipientIds: selectedRecipients,
         courseId: variableCourseId || selectedCourseId || undefined,
-      })
+      }
+      if (variableAssignmentId) payload.assignmentId = variableAssignmentId
+      if (variableExamId) payload.examId = variableExamId
+      const res = await apiClient.post(`/email-processes/${selectedId}/send`, payload)
       const jobId = res.data.jobId
       setSendResult({ type: 'progress', text: 'Queued…' })
 
@@ -627,26 +711,97 @@ export default function EmailProcesses({ notify }) {
                   ))}
                 </div>
 
-                {/* Persistent course context for template variables - always visible, independent of recipient filtering */}
-                {courses.length > 0 && (
-                  <div className="mb-3">
-                    <label className="text-xs font-medium text-slate-700 block mb-1">
-                      Course context for variables (course_code, course_name, etc.)
-                      <span className="font-normal text-slate-400"> — Template course (for {'{{course_*}}'} variables)</span>
-                    </label>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 text-sm bg-amber-50/50 border-amber-200 focus:border-amber-300 focus:ring-amber-200"
-                      value={variableCourseId}
-                      onChange={(e) => setVariableCourseId(e.target.value)}
-                    >
-                      <option value="">No course context (use fallback values)</option>
-                      {courses.map((c) => (
-                        <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} - ${c.title}` : c.title}</option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-slate-400 mt-1">Select a course so {'{{course_code}}'}, {'{{course_name}}'}, {'{{course_description}}'}, {'{{course_start_date}}'} render with real data.</p>
+                {/* ── Variable Context panel ── */}
+                {needsVariableContext ? (
+                  <div className="mb-4 border border-amber-200 bg-amber-50/60 rounded-xl p-3 space-y-3">
+                    <div className="flex items-center gap-1.5">
+                      <Variable size={14} className="text-amber-700" />
+                      <h4 className="text-xs font-semibold text-amber-900">Variable Context</h4>
+                      <span className="text-[10px] text-amber-700/70">— map template variables to real entities before preview</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      This template uses <span className="font-mono font-semibold">{[...neededContexts].join(', ')}</span> variables. Select the source entities so <span className="font-mono">{'{{course_*}}'}</span>, <span className="font-mono">{'{{assignment_*}}'}</span> and <span className="font-mono">{'{{exam_*}}'}</span> render with real data.
+                    </p>
+                    {needsCourse && (
+                      <div>
+                        <label className="text-xs font-medium text-slate-700 block mb-1">
+                          Course <span className="text-red-500">*</span>
+                          <span className="font-normal text-slate-400"> — for {'{{course_code}}'}, {'{{course_name}}'}, {'{{course_description}}'}, {'{{course_start_date}}'}, {'{{course_end_date}}'} and {'{{instructor_*}}'}</span>
+                        </label>
+                        <select
+                          className={`w-full border rounded-lg px-3 py-2 text-sm ${!variableCourseId ? 'border-red-300 bg-red-50' : 'bg-white border-amber-200 focus:border-amber-300'}`}
+                          value={variableCourseId}
+                          onChange={(e) => handleVariableCourseChange(e.target.value)}
+                        >
+                          <option value="">Select a course…</option>
+                          {courses.map((c) => (
+                            <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} - ${c.title}` : c.title}{c.is_current ? ' (Active)' : ''}</option>
+                          ))}
+                        </select>
+                        {!variableCourseId && <p className="text-[10px] text-red-600 mt-1">Course is required for course/instructor variables.</p>}
+                        {variableCourseId && (() => {
+                          const cc = courses.find((x) => String(x.id) === String(variableCourseId))
+                          const instr = cc?.lecturer_name || cc?.assigned_lecturer || cc?.lecturer_id || ''
+                          return <p className="text-[10px] text-slate-500 mt-1">Instructor will be <span className="font-medium text-slate-700">{instr || 'derived from course lecturer'}</span> — {'{{instructor_name}}'} / {'{{instructor_email}}'} auto-populated.</p>
+                        })()}
+                      </div>
+                    )}
+                    {needsAssignment && (
+                      <div>
+                        <label className="text-xs font-medium text-slate-700 block mb-1">
+                          Assignment <span className="text-red-500">*</span>
+                          <span className="font-normal text-slate-400"> — for {'{{assignment_title}}'}, {'{{assignment_description}}'}, {'{{due_date}}'}</span>
+                        </label>
+                        {!variableCourseId ? (
+                          <p className="text-[11px] text-amber-700 bg-white border border-amber-200 rounded-lg px-3 py-2">Select a course above to load its assignments.</p>
+                        ) : assignmentsLoading ? (
+                          <p className="text-xs text-slate-400 py-2">Loading assignments…</p>
+                        ) : variableAssignments.length === 0 ? (
+                          <p className="text-[11px] text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-2">No assignments found for this course. Create an assignment first or remove {'{{assignment_*}}'} from template.</p>
+                        ) : (
+                          <select
+                            className={`w-full border rounded-lg px-3 py-2 text-sm ${!variableAssignmentId ? 'border-red-300 bg-red-50' : 'bg-white border-amber-200'}`}
+                            value={variableAssignmentId}
+                            onChange={(e) => setVariableAssignmentId(e.target.value)}
+                          >
+                            <option value="">Select an assignment…</option>
+                            {variableAssignments.map((a) => (
+                              <option key={a.id} value={a.id}>{a.title}{a.due_date ? ` — due ${new Date(a.due_date).toLocaleDateString()}` : ''}</option>
+                            ))}
+                          </select>
+                        )}
+                        {needsAssignment && !variableAssignmentId && variableCourseId && variableAssignments.length > 0 && <p className="text-[10px] text-red-600 mt-1">Assignment is required for assignment variables.</p>}
+                      </div>
+                    )}
+                    {needsExam && (
+                      <div>
+                        <label className="text-xs font-medium text-slate-700 block mb-1">
+                          Exam <span className="text-red-500">*</span>
+                          <span className="font-normal text-slate-400"> — for {'{{exam_title}}'}, {'{{exam_link}}'}, {'{{access_code}}'}, {'{{due_date}}'}</span>
+                        </label>
+                        {!variableCourseId ? (
+                          <p className="text-[11px] text-amber-700 bg-white border border-amber-200 rounded-lg px-3 py-2">Select a course above to load its exams.</p>
+                        ) : examsLoading ? (
+                          <p className="text-xs text-slate-400 py-2">Loading exams…</p>
+                        ) : variableExams.length === 0 ? (
+                          <p className="text-[11px] text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-2">No exams found for this course. Create an exam first or remove {'{{exam_*}}'} from template.</p>
+                        ) : (
+                          <select
+                            className={`w-full border rounded-lg px-3 py-2 text-sm ${!variableExamId ? 'border-red-300 bg-red-50' : 'bg-white border-amber-200'}`}
+                            value={variableExamId}
+                            onChange={(e) => setVariableExamId(e.target.value)}
+                          >
+                            <option value="">Select an exam…</option>
+                            {variableExams.map((ex) => (
+                              <option key={ex.id} value={ex.id}>{ex.title} ({ex.exam_type || 'essay'}){ex.due_date ? ` — due ${new Date(ex.due_date).toLocaleDateString()}` : ''}</option>
+                            ))}
+                          </select>
+                        )}
+                        {needsExam && !variableExamId && variableCourseId && variableExams.length > 0 && <p className="text-[10px] text-red-600 mt-1">Exam is required for exam variables.</p>}
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Course dropdown for recipient filtering */}
                 {recipientMode === 'course' && (
@@ -701,9 +856,17 @@ export default function EmailProcesses({ notify }) {
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <p className="text-sm text-slate-500">{selectedRecipients.length} student{selectedRecipients.length !== 1 ? 's' : ''} selected</p>
-                  <button type="button" disabled={!selectedRecipients.length} onClick={generateSendPreview}
+                  <div>
+                    <p className="text-sm text-slate-500">{selectedRecipients.length} student{selectedRecipients.length !== 1 ? 's' : ''} selected</p>
+                    {needsVariableContext && (needsCourse && !variableCourseId || needsAssignment && !variableAssignmentId || needsExam && !variableExamId) && (
+                      <p className="text-[11px] text-red-600 mt-1">Complete Variable Context above to enable preview.</p>
+                    )}
+                  </div>
+                  <button type="button"
+                    disabled={!selectedRecipients.length || (needsCourse && !variableCourseId) || (needsAssignment && !variableAssignmentId) || (needsExam && !variableExamId)}
+                    onClick={generateSendPreview}
                     className="px-4 py-2 text-sm rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                    title={needsVariableContext && (needsCourse && !variableCourseId || needsAssignment && !variableAssignmentId || needsExam && !variableExamId) ? 'Complete Variable Context first' : 'Review & Send'}
                   >Review & Send</button>
                 </div>
               </>
