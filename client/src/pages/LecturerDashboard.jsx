@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
+import SettingsBookMinistryPanel from '../components/SettingsBookMinistryPanel'
 
 const CLASS_DAY_INDEX = {
   Sunday: 0,
@@ -204,7 +205,14 @@ const LecturerDashboard = () => {
   const [timelinePlanItems, setTimelinePlanItems] = useState([])
   const [timelinePlanLoading, setTimelinePlanLoading] = useState(false)
   const [notice, setNotice] = useState('')
-  const [settingsTab, setSettingsTab] = useState('processes')
+  const [settingsTab, setSettingsTab] = useState('school')
+  const [integrationsSubTab, setIntegrationsSubTab] = useState('book-ministry')
+  const [schoolInfo, setSchoolInfo] = useState({ school_name: '', short_name: '', school_email: '', school_phone: '', school_address: '', logo_url: '', academic_year: '', current_session: '' })
+  const [schoolLoading, setSchoolLoading] = useState(false)
+  const [schoolSaving, setSchoolSaving] = useState(false)
+  const [appearance, setAppearance] = useState({ theme: localStorage.getItem('gts_theme') || 'light', fontSize: localStorage.getItem('gts_font_size') || 'comfortable' })
+  const [appearanceSaving, setAppearanceSaving] = useState(false)
+  const [copiedEmbedId, setCopiedEmbedId] = useState(null)
   const [forms, setForms] = useState([])
   const [formsLoading, setFormsLoading] = useState(false)
   const [editingForm, setEditingForm] = useState(null)
@@ -232,16 +240,6 @@ const LecturerDashboard = () => {
   const [gradVettingReason, setGradVettingReason] = useState('')
   const [gradVettingSaving, setGradVettingSaving] = useState(false)
 
-  const [credentials, setCredentials] = useState([])
-  const [credentialsLoading, setCredentialsLoading] = useState(false)
-  const [credentialFormOpen, setCredentialFormOpen] = useState(false)
-  const [credentialAllStudents, setCredentialAllStudents] = useState([])
-  const [credentialStudentSearch, setCredentialStudentSearch] = useState('')
-  const [credentialStudentId, setCredentialStudentId] = useState(null)
-  const [credentialUsername, setCredentialUsername] = useState('')
-  const [credentialPassword, setCredentialPassword] = useState('')
-  const [credentialPasswordConfirm, setCredentialPasswordConfirm] = useState('')
-  const [credentialSaving, setCredentialSaving] = useState(false)
   const [prospectiveStudents, setProspectiveStudents] = useState([])
   const [prospectiveStudentsLoading, setProspectiveStudentsLoading] = useState(false)
   const [studentsTab, setStudentsTab] = useState('students')
@@ -366,51 +364,65 @@ const LecturerDashboard = () => {
     } catch { /* silently ignore */ }
   }
 
-
-
-  const openCredentialForm = async () => {
-    setCredentialFormOpen(true)
-    setCredentialStudentId(null)
-    setCredentialUsername('')
-    setCredentialPassword('')
-    setCredentialPasswordConfirm('')
-    setCredentialStudentSearch('')
+  const loadSchoolInfo = async () => {
+    setSchoolLoading(true)
     try {
-      const res = await apiClient.get('/students')
-      setCredentialAllStudents(res.data || [])
-    } catch { notify('Failed to load students') }
-  }
-
-  const generateCredentialPassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
-    let pwd = ''
-    for (let i = 0; i < 14; i++) {
-      pwd += chars[Math.floor(Math.random() * chars.length)]
-    }
-    setCredentialPassword(pwd)
-    setCredentialPasswordConfirm(pwd)
-  }
-
-  const saveCredential = async () => {
-    if (!credentialStudentId) { notify('Please select a student'); return }
-    if (!credentialPassword) { notify('Please enter a password'); return }
-    if (credentialPassword !== credentialPasswordConfirm) { notify('Passwords do not match'); return }
-
-    setCredentialSaving(true)
-    try {
-      await apiClient.post('/credentials', {
-        studentId: credentialStudentId,
-        username: credentialUsername,
-        password: credentialPassword,
+      const res = await apiClient.get('/settings')
+      const all = res.data || {}
+      // Backend returns { key: {value, description} } or flat {key: value}
+      const getVal = (k) => {
+        const v = all[k]
+        if (v == null) return ''
+        if (typeof v === 'object' && 'value' in v) return v.value || ''
+        return String(v)
+      }
+      setSchoolInfo({
+        school_name: getVal('school_name') || getVal('name') || '',
+        short_name: getVal('short_name') || getVal('shortName') || '',
+        school_email: getVal('school_email') || getVal('email') || '',
+        school_phone: getVal('school_phone') || getVal('phone') || '',
+        school_address: getVal('school_address') || getVal('address') || '',
+        logo_url: getVal('logo_url') || getVal('logoUrl') || '',
+        academic_year: getVal('academic_year') || getVal('academicYear') || '',
+        current_session: getVal('current_session') || getVal('currentSession') || '',
       })
-      notify('Credential created successfully')
-      setCredentialFormOpen(false)
-    } catch (err) {
-      notify(err?.response?.data?.message || 'Failed to create credential')
-    } finally { setCredentialSaving(false) }
+    } catch {
+      // keep defaults
+    } finally { setSchoolLoading(false) }
   }
 
+  const saveSchoolInfo = async () => {
+    if (!schoolInfo.school_name?.trim()) { notify('School name is required'); return }
+    setSchoolSaving(true)
+    try {
+      const payload = {
+        school_name: schoolInfo.school_name,
+        short_name: schoolInfo.short_name,
+        school_email: schoolInfo.school_email,
+        school_phone: schoolInfo.school_phone,
+        school_address: schoolInfo.school_address,
+        logo_url: schoolInfo.logo_url,
+        academic_year: schoolInfo.academic_year,
+        current_session: schoolInfo.current_session,
+      }
+      await apiClient.patch('/settings', { settings: payload })
+      notify('School info saved')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to save school info')
+    } finally { setSchoolSaving(false) }
+  }
 
+  const saveAppearance = async () => {
+    setAppearanceSaving(true)
+    try {
+      localStorage.setItem('gts_theme', appearance.theme)
+      localStorage.setItem('gts_font_size', appearance.fontSize)
+      try {
+        await apiClient.patch('/settings', { settings: { theme: appearance.theme, font_size: appearance.fontSize } })
+      } catch { /* localStorage fallback is fine */ }
+      notify('Appearance saved')
+    } finally { setAppearanceSaving(false) }
+  }
 
   const loadCourses = async () => {
     const response = await apiClient.get('/courses')
@@ -768,7 +780,20 @@ const LecturerDashboard = () => {
     if (section === 'reports') {
       loadReports()
     }
+    if (section === 'settings') {
+      loadSchoolInfo()
+      loadForms()
+    }
   }, [section, user?.role, reportFilters])
+
+  useEffect(() => {
+    if (section !== 'settings') return
+    if (settingsTab === 'school') loadSchoolInfo()
+    if (settingsTab === 'integrations') {
+      loadForms()
+      if (integrationsSubTab === 'website' && !forms.length) loadForms()
+    }
+  }, [settingsTab, integrationsSubTab])
 
   useEffect(() => {
     if (section === 'assignments' && selectedCourseId) {
@@ -4893,97 +4918,408 @@ const LecturerDashboard = () => {
       ) : null}
 
       {section === 'settings' ? (
-        <div className="space-y-6 flex-1 min-h-0 overflow-auto">
-          <div className="flex flex-wrap gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {/* Tab bar — shrink-0 */}
+          <div className="shrink-0 flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
             {[
-              { key: 'credentials', label: 'Credentials' },
-            ].filter(Boolean).map(({ key, label }) => (
+              { key: 'school', label: 'School Info', icon: Building2 },
+              { key: 'appearance', label: 'Appearance', icon: Palette },
+              { key: 'integrations', label: 'Integrations', icon: Plug },
+              { key: 'recipients', label: 'Recipients', icon: Users },
+              { key: 'system', label: 'System', icon: Shield },
+            ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setSettingsTab(key)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  settingsTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  settingsTab === key ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
+                <Icon size={14} />
                 {label}
               </button>
             ))}
           </div>
 
-          {settingsTab === 'credentials' ? (
-            <div className="max-w-lg">
-              {!credentialFormOpen ? (
-                <div className="card card-pad card-hover p-8 text-center">
-                  <UserCog size={40} className="mx-auto text-slate-300 mb-3" />
-                  <p className="text-sm text-slate-500 mb-4">No student credentials have been created.</p>
-                  <button type="button" onClick={openCredentialForm}
-                    className="inline-flex items-center gap-1.5 btn btn-primary rounded-xl px-5 py-2 text-sm font-medium hover:bg-slate-800 transition-colors"
-                  ><Plus size={15} /> Add Credential</button>
-                </div>
-              ) : (
-                <div className="card card-pad card-hover space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-slate-900">Create Student Credential</h3>
-                    <button type="button" onClick={() => setCredentialFormOpen(false)} className="text-sm text-slate-500 hover:text-slate-900">Cancel</button>
-                  </div>
-                  <label className="text-sm text-slate-600 block">
-                    Student
-                    <div className="relative mt-1">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm" placeholder="Search students..." value={credentialStudentSearch}
-                        onChange={(e) => setCredentialStudentSearch(e.target.value)} />
+          {/* Content — flex-1 overflow-auto */}
+          <div className="flex-1 min-h-0 overflow-auto pr-1 space-y-4 [scrollbar-width:thin]">
+            {/* ── SCHOOL INFO ── */}
+            {settingsTab === 'school' ? (
+              <div className="space-y-4">
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className="font-display font-bold tracking-tight text-slate-900 text-lg flex items-center gap-2"><Building2 size={18} className="text-indigo-600" /> School Information</h3>
+                      <p className="text-sm text-slate-500 mt-1">This is the source of truth for every email template. Values feed <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">{'{{school_*}}'}</code> variables and are used as fallbacks where <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">example_value</code> is hardcoded.</p>
                     </div>
-                    <select className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={credentialStudentId || ''}
-                      onChange={(e) => {
-                        const id = e.target.value ? Number(e.target.value) : null
-                        setCredentialStudentId(id)
-                        const s = credentialAllStudents.find((st) => st.id === id)
-                        setCredentialUsername(s?.email || '')
-                      }}
-                    >
-                      <option value="">Select a student...</option>
-                      {credentialAllStudents.filter((s) =>
-                        !credentialStudentSearch ||
-                        s.full_name?.toLowerCase().includes(credentialStudentSearch.toLowerCase()) ||
-                        s.email?.toLowerCase().includes(credentialStudentSearch.toLowerCase())
-                      ).map((s) => (
-                        <option key={s.id} value={s.id}>{s.full_name} ({s.email})</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-sm text-slate-600 block">
-                    Username
-                    <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={credentialUsername} readOnly
-                      placeholder="Auto-populated from email" />
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="text-sm text-slate-600 block">
-                      Password
-                      <div className="flex gap-2 mt-1">
-                        <input type="password" className="flex-1 border rounded-lg px-3 py-2 text-sm" value={credentialPassword}
-                          onChange={(e) => setCredentialPassword(e.target.value)} placeholder="Enter password" />
-                      </div>
-                    </label>
-                    <label className="text-sm text-slate-600 block">
-                      Confirm Password
-                      <input type="password" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" value={credentialPasswordConfirm}
-                        onChange={(e) => setCredentialPasswordConfirm(e.target.value)}
-                        placeholder="Confirm password" />
-                    </label>
+                    <span className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-2.5 py-1"><Sparkles size={12} /> Email variables</span>
                   </div>
-                  <div className="flex gap-2 justify-end pt-2">
-                    <button type="button" onClick={generateCredentialPassword}
-                      className="text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg hover:bg-slate-100"
-                    >Generate Password</button>
-                    <button type="button" disabled={credentialSaving} onClick={saveCredential}
-                      className="btn btn-primary rounded-xl px-5 py-2 text-sm font-medium disabled:opacity-50"
-                    >{credentialSaving ? 'Saving...' : 'Save Credential'}</button>
+                  {schoolLoading ? (
+                    <p className="text-sm text-slate-400 py-6 text-center">Loading school info…</p>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <label className="text-sm text-slate-700 block">
+                          School name <span className="text-red-500">*</span> <span className="font-mono text-[10px] text-slate-400 ml-1">{'{{school_name}}'}</span>
+                          <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="Grace Theological Seminary" value={schoolInfo.school_name} onChange={(e) => setSchoolInfo((p) => ({ ...p, school_name: e.target.value }))} required />
+                        </label>
+                        <label className="text-sm text-slate-700 block">
+                          Short name <span className="font-mono text-[10px] text-slate-400 ml-1">GTS</span>
+                          <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="GTS" value={schoolInfo.short_name} onChange={(e) => setSchoolInfo((p) => ({ ...p, short_name: e.target.value }))} />
+                        </label>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <label className="text-sm text-slate-700 block">
+                          Email <span className="font-mono text-[10px] text-slate-400 ml-1">{'{{school_email}}'}</span>
+                          <input type="email" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="info@gts.edu.ng" value={schoolInfo.school_email} onChange={(e) => setSchoolInfo((p) => ({ ...p, school_email: e.target.value }))} />
+                        </label>
+                        <label className="text-sm text-slate-700 block">
+                          Phone <span className="font-mono text-[10px] text-slate-400 ml-1">{'{{school_phone}}'}</span>
+                          <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="+234..." value={schoolInfo.school_phone} onChange={(e) => setSchoolInfo((p) => ({ ...p, school_phone: e.target.value }))} />
+                        </label>
+                      </div>
+                      <label className="text-sm text-slate-700 block">
+                        Address <span className="font-mono text-[10px] text-slate-400 ml-1">{'{{school_address}}'}</span>
+                        <textarea className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" rows={2} placeholder="123 Education Street, Lagos" value={schoolInfo.school_address} onChange={(e) => setSchoolInfo((p) => ({ ...p, school_address: e.target.value }))} />
+                      </label>
+                      <label className="text-sm text-slate-700 block">
+                        Logo URL <span className="text-xs text-slate-400">for email header</span>
+                        <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://gts.edu.ng/logo.png" value={schoolInfo.logo_url} onChange={(e) => setSchoolInfo((p) => ({ ...p, logo_url: e.target.value }))} />
+                        {schoolInfo.logo_url ? <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 flex items-center gap-3"><img src={schoolInfo.logo_url} alt="Logo preview" className="h-10 w-auto object-contain bg-white rounded-lg border border-slate-200 px-2 py-1" onError={(e) => (e.target.style.display = 'none')} /><span className="text-xs text-slate-500">Preview</span></div> : null}
+                      </label>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <label className="text-sm text-slate-700 block">
+                          Academic year
+                          <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="2025/2026" value={schoolInfo.academic_year} onChange={(e) => setSchoolInfo((p) => ({ ...p, academic_year: e.target.value }))} />
+                        </label>
+                        <label className="text-sm text-slate-700 block">
+                          Current session
+                          <input className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="First Semester" value={schoolInfo.current_session} onChange={(e) => setSchoolInfo((p) => ({ ...p, current_session: e.target.value }))} />
+                        </label>
+                      </div>
+                      <div className="flex justify-end pt-2">
+                        <button type="button" onClick={saveSchoolInfo} disabled={schoolSaving} className="btn btn-primary btn-sm lift disabled:opacity-50">
+                          {schoolSaving ? 'Saving…' : 'Save School Info'}
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400">Saved via <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">PATCH /settings</code> with <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">{`{settings: {school_*}}`}</code>. On load: <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">GET /settings</code>.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── APPEARANCE ── */}
+            {settingsTab === 'appearance' ? (
+              <div className="space-y-4">
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <h3 className="font-display font-bold tracking-tight text-slate-900 text-lg flex items-center gap-2"><Palette size={18} className="text-indigo-600" /> Appearance</h3>
+                  <p className="text-sm text-slate-500 mt-1">Customize theme and density. Saved to <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">PATCH /settings</code> with <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">{`{settings: {theme, font_size}}`}</code> + localStorage.</p>
+                  <div className="grid md:grid-cols-2 gap-6 mt-5">
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-slate-700">Theme</p>
+                      <div className="space-y-2">
+                        {[
+                          { key: 'light', label: 'Light', desc: 'Clean white background' },
+                          { key: 'dim', label: 'Dim', desc: 'Muted dark for low light' },
+                          { key: 'light-dim', label: 'Light-dim', desc: 'Soft off-white' },
+                        ].map(({ key, label, desc }) => (
+                          <label key={key} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${appearance.theme === key ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                            <input type="radio" name="gts-theme" value={key} checked={appearance.theme === key} onChange={() => setAppearance((p) => ({ ...p, theme: key }))} className="w-4 h-4" />
+                            <span className="flex-1">
+                              <span className="block text-sm font-medium text-slate-800">{label}</span>
+                              <span className="block text-xs text-slate-400">{desc}</span>
+                            </span>
+                            {appearance.theme === key ? <span className="h-2 w-2 rounded-full bg-indigo-600" /> : null}
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-sm font-medium text-slate-700 pt-2">Font size / density</p>
+                      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+                        {[
+                          { key: 'comfortable', label: 'Comfortable' },
+                          { key: 'compact', label: 'Compact' },
+                        ].map(({ key, label }) => (
+                          <button key={key} type="button" onClick={() => setAppearance((p) => ({ ...p, fontSize: key }))} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${appearance.fontSize === key ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-400">Compact is ideal for dense tables.</p>
+                      <button type="button" onClick={saveAppearance} disabled={appearanceSaving} className="btn btn-primary btn-sm lift disabled:opacity-50 mt-2">{appearanceSaving ? 'Saving…' : 'Save Appearance'}</button>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-slate-700">Preview</p>
+                      <div className={`rounded-[20px] border border-slate-200 p-4 shadow-sm transition-colors ${appearance.theme === 'dim' ? 'bg-slate-900 text-slate-100 border-slate-800' : appearance.theme === 'light-dim' ? 'bg-[#F8FAFC] text-slate-900' : 'bg-white text-slate-900'}`}>
+                        <p className="font-display font-bold tracking-tight text-base">GTS Dashboard Preview</p>
+                        <p className="text-xs opacity-60 mt-1">Theme: {appearance.theme} · Font: {appearance.fontSize}</p>
+                        <div className={`mt-3 rounded-xl border p-3 ${appearance.theme === 'dim' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-medium ${appearance.fontSize === 'compact' ? 'text-xs' : 'text-sm'}`}>Student Directory</span>
+                            <span className="text-xs bg-white border border-slate-200 rounded-full px-2 py-0.5 text-slate-600">24 students</span>
+                          </div>
+                          <div className={`mt-2 space-y-1.5 ${appearance.fontSize === 'compact' ? '[&>div]:py-1' : '[&>div]:py-2'}`}>
+                            <div className={`rounded-lg border px-3 flex items-center justify-between ${appearance.theme === 'dim' ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'}`}><span className="text-xs">Taiwo Ajibola</span><span className="text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5">Active</span></div>
+                            <div className={`rounded-lg border px-3 flex items-center justify-between ${appearance.theme === 'dim' ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'}`}><span className="text-xs">Grace Okon</span><span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">Prospective</span></div>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400">Default: Light. Use Light-dim for warmer whites.</p>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-          ) : null}
+              </div>
+            ) : null}
+
+            {/* ── INTEGRATIONS ── */}
+            {settingsTab === 'integrations' ? (
+              <div className="space-y-4">
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <h3 className="font-display font-bold tracking-tight text-slate-900 text-lg flex items-center gap-2"><Plug size={18} className="text-indigo-600" /> Integrations</h3>
+                      <p className="text-sm text-slate-500 mt-1">Book Ministry is now inside Settings. Website / Forms embed codes are below.</p>
+                    </div>
+                    <span className="text-xs rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 font-medium">Settings → Integrations</span>
+                  </div>
+                  <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mt-4">
+                    {[
+                      { key: 'book-ministry', label: 'Book Ministry' },
+                      { key: 'website', label: 'Website / Forms Embed' },
+                    ].map(({ key, label }) => (
+                      <button key={key} type="button" onClick={() => setIntegrationsSubTab(key)} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${integrationsSubTab === key ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {integrationsSubTab === 'book-ministry' ? (
+                  <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm bg-white overflow-hidden">
+                    <div className="shrink-0 px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Library size={16} className="text-indigo-600" /> Book Ministry</span>
+                      <span className="text-xs text-slate-400">Moved from <code className="font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded">/lecturer/book-ministry</code> → <code className="font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded">Settings → Integrations → Book Ministry</code></span>
+                    </div>
+                    <div className="p-4">
+                      <SettingsBookMinistryPanel notify={notify} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                      <h4 className="font-semibold text-slate-900 flex items-center gap-2"><ExternalLink size={16} className="text-indigo-600" /> Website / Forms Embed</h4>
+                      <p className="text-sm text-slate-500 mt-1">For each Form (<code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">GET /forms</code>), copy iframe / script / API code. Toggle Active / Paused and use Preview.</p>
+                    </div>
+                    {formsLoading ? (
+                      <p className="text-sm text-slate-400 py-6 text-center">Loading forms…</p>
+                    ) : !forms.length ? (
+                      <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-8 text-center bg-white">
+                        <FileText size={28} className="mx-auto text-slate-300 mb-2" />
+                        <p className="text-sm text-slate-500">No forms yet. Create one in <Link to="/lecturer/forms" className="text-indigo-600 underline">Forms</Link>.</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4">
+                        {forms.map((form) => {
+                          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+                          const clientOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://gts.edu.ng'
+                          const iframeCode = `<iframe src="https://gts.edu.ng/forms/${form.slug}" height="600" style="width:100%;border:0;border-radius:12px"></iframe>`
+                          const scriptCode = `<script src="${clientOrigin}/forms/${form.slug}/embed.js"></script>`
+                          const apiCode = `${API_URL}/forms/${form.slug}/submit`
+                          const isActive = form.status === 'active'
+                          const copy = (text, id) => {
+                            navigator.clipboard.writeText(text)
+                            setCopiedEmbedId(id)
+                            setTimeout(() => setCopiedEmbedId(null), 1500)
+                            notify('Copied to clipboard')
+                          }
+                          return (
+                            <div key={form.id} className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                              <div className="flex items-start justify-between gap-3 flex-wrap">
+                                <div>
+                                  <h4 className="font-semibold text-slate-900">{form.title}</h4>
+                                  <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                                    <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{form.slug}</code>
+                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />{isActive ? 'Active' : 'Paused'}</span>
+                                    {form.maps_to_student ? <span className="rounded-full bg-sky-100 text-indigo-700 px-2 py-0.5 text-[11px] font-medium">Student Application</span> : null}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" onClick={async () => {
+                                    const nextStatus = isActive ? 'closed' : 'active'
+                                    try {
+                                      await apiClient.patch(`/forms/${form.id}`, { status: nextStatus })
+                                      notify(`Form ${nextStatus === 'active' ? 'opened' : 'paused'}`)
+                                      const res = await apiClient.get('/forms')
+                                      setForms(res.data)
+                                    } catch (err) { notify(err?.response?.data?.message || 'Failed to update') }
+                                  }} className={`text-xs rounded-lg px-3 py-1.5 font-medium border ${isActive ? 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50' : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'}`}>
+                                    {isActive ? 'Pause' : 'Activate'}
+                                  </button>
+                                  <a href={`/forms/${form.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs rounded-lg bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-800"><ExternalLink size={12} /> View on website</a>
+                                </div>
+                              </div>
+                              <div className="mt-4 space-y-3">
+                                {[
+                                  { label: 'Iframe embed', code: iframeCode, id: `iframe-${form.id}` },
+                                  { label: 'Script embed', code: scriptCode, id: `script-${form.id}` },
+                                  { label: 'Direct API URL', code: apiCode, id: `api-${form.id}` },
+                                ].map(({ label, code, id }) => (
+                                  <div key={id} className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-semibold text-slate-600">{label}</span>
+                                      <button type="button" onClick={() => copy(code, id)} className={`inline-flex items-center gap-1 text-xs rounded-lg px-2.5 py-1 border ${copiedEmbedId === id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                                        <Copy size={12} />{copiedEmbedId === id ? 'Copied!' : 'Copy'}
+                                      </button>
+                                    </div>
+                                    <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap break-all text-slate-700">{code}</pre>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {/* ── RECIPIENTS & VARIABLES ── */}
+            {settingsTab === 'recipients' ? (
+              <div className="space-y-4">
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <h3 className="font-display font-bold tracking-tight text-slate-900 text-lg flex items-center gap-2"><Users size={18} className="text-indigo-600" /> Recipients & Variables</h3>
+                  <p className="text-sm text-slate-500 mt-1">How email personalization works, which categories are real, and who can receive.</p>
+                </div>
+
+                <div className="rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                  <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Custom category removed — deprecated</p>
+                    <p className="text-xs text-amber-800 mt-1">The <code className="font-mono bg-white border border-amber-200 px-1 py-0.5 rounded">custom</code> category (<code className="font-mono bg-white border px-1 py-0.5 rounded">custom_01</code>, <code className="font-mono bg-white border px-1 py-0.5 rounded">custom_02</code>) is deprecated and will be ignored. Use real categories below. Existing templates using <code className="font-mono bg-white border px-1 py-0.5 rounded">{'{{custom_*}}'}</code> should migrate.</p>
+                  </div>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                    <h4 className="font-semibold text-slate-900 text-sm mb-3">Real variable categories</h4>
+                    <div className="space-y-2.5 text-sm">
+                      {[
+                        { key: 'student', desc: 'Student record', vars: 'student_name, student_email, student_phone, student_id, student_status, enrollment_date, matric_no, cohort_name' },
+                        { key: 'course', desc: 'via Plan → Course', vars: 'course_name, course_code, course_start_date, course_end_date, course_description' },
+                        { key: 'assignment', desc: 'Assignment', vars: 'assignment_title, assignment_description, due_date, assignment_instructions, total_points' },
+                        { key: 'exam', desc: 'Exam / quiz', vars: 'exam_title, exam_link, access_code, due_date, course_title' },
+                        { key: 'instructor', desc: 'auto from course lecturer', vars: 'instructor_name, instructor_email' },
+                        { key: 'school', desc: 'from School Info tab', vars: 'school_name, school_email, school_address, school_phone, current_date' },
+                        { key: 'cohort', desc: 'Batch / cohort', vars: 'cohort_name, cohort_year, batch_name' },
+                        { key: 'report', desc: 'new — mailed reports', vars: 'report_title, report_period, report_link', badge: 'new' },
+                      ].map(({ key, desc, vars, badge }) => (
+                        <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <code className="font-mono text-xs bg-white border border-slate-200 px-1.5 py-0.5 rounded font-semibold text-indigo-700">{key}</code>
+                            <span className="text-xs text-slate-500">{desc}</span>
+                            {badge ? <span className="text-[10px] font-bold tracking-wide uppercase bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 border border-emerald-200">{badge}</span> : null}
+                          </div>
+                          <p className="font-mono text-[11px] text-slate-600 mt-1 break-all">{vars}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                      <h4 className="font-semibold text-slate-900 text-sm mb-2">Report variables (new)</h4>
+                      <p className="text-xs text-slate-500 mb-3">For when reports are mailed not just to students.</p>
+                      <div className="space-y-2">
+                        {[
+                          { k: 'report_title', label: 'Report Title', ex: 'Q1 Academic Report' },
+                          { k: 'report_period', label: 'Report Period', ex: 'Jan — Mar 2026' },
+                          { k: 'report_link', label: 'Report Link', ex: 'https://gts.edu.ng/reports/123' },
+                        ].map(({ k, label, ex }) => (
+                          <div key={k} className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                            <div>
+                              <code className="font-mono text-xs font-semibold text-indigo-700">{`{{${k}}}`}</code>
+                              <span className="text-xs text-slate-500 ml-2">{label}</span>
+                            </div>
+                            <span className="font-mono text-[11px] text-slate-400">{ex}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                      <h4 className="font-semibold text-slate-900 text-sm mb-2">Recipients — expanded</h4>
+                      <p className="text-xs text-slate-500 mb-3">Send modal will support these audiences (documentation for now; expansion is future work).</p>
+                      <div className="space-y-3 text-sm">
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5">
+                          <p className="font-medium text-indigo-900 flex items-center gap-1.5"><Users size={14} /> Students</p>
+                          <p className="text-xs text-indigo-800 mt-1">Including <strong>Prospective</strong> — filter <code className="font-mono bg-white border border-indigo-200 px-1 py-0.5 rounded text-[11px]">status=Prospective</code> (<code className="font-mono bg-white border px-1 py-0.5 rounded">GET /students?status=Prospective</code>). Use for admissions comms.</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                          <p className="font-medium text-slate-800 flex items-center gap-1.5"><UserCog size={14} /> Lecturers</p>
+                          <p className="text-xs text-slate-600 mt-1"><code className="font-mono bg-white border px-1 py-0.5 rounded">GET /lecturers</code> or <code className="font-mono bg-white border px-1 py-0.5 rounded">GET /users?role=lecturer</code>. For staff reports and coordination.</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                          <p className="font-medium text-slate-800 flex items-center gap-1.5"><Mail size={14} /> External emails</p>
+                          <p className="text-xs text-slate-600 mt-1">Paste comma-separated emails in a textarea. For partners, parents, alumni outside the DB.</p>
+                          <textarea className="mt-2 w-full border rounded-lg px-3 py-2 text-xs font-mono bg-slate-50" rows={2} placeholder="parent@example.com, partner@gts.edu.ng, alumni@example.com" readOnly />
+                          <p className="text-[11px] text-slate-400 mt-1">Future Send modal will validate and de-duplicate.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <h4 className="font-semibold text-slate-900 text-sm mb-2">Variable mapping tips</h4>
+                  <ul className="text-xs text-slate-600 list-disc pl-4 space-y-1 leading-relaxed">
+                    <li><code className="font-mono bg-slate-100 px-1 py-0.5 rounded">{'{{course_*}}'}</code> resolves via <strong>Plan → Course</strong> link; <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">{'{{instructor_*}}'}</code> is auto-derived from the course lecturer.</li>
+                    <li><code className="font-mono bg-slate-100 px-1 py-0.5 rounded">{'{{school_*}}'}</code> falls back to School Info tab when template_variables example_value is placeholder.</li>
+                    <li>Use <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">{'{{report_*}}'}</code> only in report-mailing templates, not per-student notices.</li>
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── SYSTEM ── */}
+            {settingsTab === 'system' ? (
+              <div className="space-y-4">
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <h3 className="font-display font-bold tracking-tight text-slate-900 text-lg flex items-center gap-2"><Shield size={18} className="text-indigo-600" /> System</h3>
+                  <p className="text-sm text-slate-500 mt-1">Credentials UI has been removed. Manage system info and danger zone below.</p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                    <h4 className="font-semibold text-slate-900 text-sm">Version</h4>
+                    <div className="mt-3 flex items-baseline gap-3">
+                      <span className="font-mono text-2xl font-bold tracking-tight text-slate-900">v1.0.0</span>
+                      <span className="text-xs rounded-full bg-slate-100 text-slate-600 px-2.5 py-1 font-medium border border-slate-200">build 2026.08</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">GTS Academic Platform · Lecturer Dashboard</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 font-medium">API: {import.meta.env.VITE_API_URL || 'http://localhost:5000'}</span>
+                      <span className="rounded-full bg-slate-50 text-slate-600 border border-slate-200 px-2.5 py-1 font-mono">{typeof window !== 'undefined' ? window.location.origin : ''}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                    <h4 className="font-semibold text-amber-900 text-sm flex items-center gap-2"><AlertTriangle size={16} /> Danger zone — placeholder</h4>
+                    <p className="text-xs text-amber-800 mt-1">Destructive actions will be added here. No operation is wired yet.</p>
+                    <div className="mt-4 space-y-2">
+                      <button type="button" disabled className="w-full rounded-xl border border-amber-200 bg-white text-amber-700 px-4 py-2 text-sm font-medium opacity-60 cursor-not-allowed">Clear cached reports</button>
+                      <button type="button" disabled className="w-full rounded-xl border border-red-200 bg-white text-red-600 px-4 py-2 text-sm font-medium opacity-60 cursor-not-allowed">Reset all settings to defaults</button>
+                    </div>
+                    <p className="text-[11px] text-amber-700 mt-2 italic">Buttons disabled — coming soon.</p>
+                  </div>
+                </div>
+                <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">
+                  <h4 className="font-semibold text-slate-900 text-sm">Other system notes</h4>
+                  <ul className="text-xs text-slate-600 list-disc pl-4 mt-2 space-y-1 leading-relaxed">
+                    <li>Single-viewport layout preserved: header tabs are <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">shrink-0</code>, content is <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">flex-1 min-h-0 overflow-auto</code>.</li>
+                    <li>Credentials tab removed per spec — use System &gt; Users or Lecturers for account management.</li>
+                    <li>Appearance lives in localStorage (<code className="font-mono bg-slate-100 px-1 py-0.5 rounded">gts_theme</code>, <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">gts_font_size</code>) + backend <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">PATCH /settings</code>.</li>
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

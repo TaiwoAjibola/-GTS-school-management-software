@@ -186,6 +186,22 @@ export const previewProcess = async (req, res, next) => {
       sampleValues[row.variable_key] = row.example_value || `[${row.display_label}]`
     }
 
+    let schoolSettings = {}
+    try {
+      const settingsResult = await query("SELECT key, value FROM settings WHERE key LIKE 'school_%' OR key IN ('school_name','school_email','school_address','school_phone','short_name','logo_url')")
+      for (const row of settingsResult.rows) schoolSettings[row.key] = row.value
+    } catch {}
+
+    // Prefer real school settings over template_variables fallback
+    sampleValues.school_name = schoolSettings.school_name || sampleValues.school_name || 'GTS Academy'
+    sampleValues.school_email = schoolSettings.school_email || sampleValues.school_email || ''
+    sampleValues.school_address = schoolSettings.school_address || sampleValues.school_address || ''
+    sampleValues.school_phone = schoolSettings.school_phone || sampleValues.school_phone || ''
+    if (schoolSettings.short_name) sampleValues.short_name = schoolSettings.short_name
+    else if (!sampleValues.short_name) sampleValues.short_name = ''
+    if (schoolSettings.logo_url) sampleValues.logo_url = schoolSettings.logo_url
+    else if (!sampleValues.logo_url) sampleValues.logo_url = ''
+
     // If courseId provided, fetch real course + instructor data and override sample values
     // Plan-specific dates when planId provided, fallback to generic course dates
     if (courseId) {
@@ -311,6 +327,12 @@ export const previewWithStudent = async (req, res, next) => {
     const fallback = {}
     for (const row of tvResult.rows) fallback[row.variable_key] = row.example_value || ''
 
+    let schoolSettings = {}
+    try {
+      const settingsResult = await query("SELECT key, value FROM settings WHERE key LIKE 'school_%' OR key IN ('school_name','school_email','school_address','school_phone','short_name','logo_url')")
+      for (const row of settingsResult.rows) schoolSettings[row.key] = row.value
+    } catch {}
+
     // Fetch course if courseId provided (with instructor derivation) — plan-specific dates when planId given
     let course = null
     if (courseId) {
@@ -359,10 +381,12 @@ export const previewWithStudent = async (req, res, next) => {
       course_description: course?.course_description || fallback.course_description || '',
       course_start_date: course?.course_start_date ? formatLongDate(course.course_start_date) : fallback.course_start_date || '',
       course_end_date: course?.course_end_date ? formatLongDate(course.course_end_date) : fallback.course_end_date || '',
-      school_name: fallback.school_name || 'GTS Academy',
-      school_email: fallback.school_email || '',
-      school_address: fallback.school_address || '',
-      school_phone: fallback.school_phone || '',
+      school_name: schoolSettings.school_name || fallback.school_name || 'GTS Academy',
+      school_email: schoolSettings.school_email || fallback.school_email || '',
+      school_address: schoolSettings.school_address || fallback.school_address || '',
+      school_phone: schoolSettings.school_phone || fallback.school_phone || '',
+      short_name: schoolSettings.short_name || fallback.short_name || '',
+      logo_url: schoolSettings.logo_url || fallback.logo_url || '',
       current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
       instructor_name: course?.instructor_name || fallback.instructor_name || '',
       instructor_email: course?.instructor_email || fallback.instructor_email || '',
@@ -494,6 +518,12 @@ export const sendTemplate = async (req, res, next) => {
     const fallback = {}
     for (const row of tvResult.rows) fallback[row.variable_key] = row.example_value || ''
 
+    let schoolSettings = {}
+    try {
+      const settingsResult = await query("SELECT key, value FROM settings WHERE key LIKE 'school_%' OR key IN ('school_name','school_email','school_address','school_phone','short_name','logo_url')")
+      for (const row of settingsResult.rows) schoolSettings[row.key] = row.value
+    } catch {}
+
     const toHtml = (text) => {
       const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
       return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
@@ -514,10 +544,12 @@ export const sendTemplate = async (req, res, next) => {
         course_description: course?.course_description || fallback.course_description || '',
         course_start_date: course?.course_start_date ? formatLongDate(course.course_start_date) : fallback.course_start_date || '',
         course_end_date: course?.course_end_date ? formatLongDate(course.course_end_date) : fallback.course_end_date || '',
-        school_name: fallback.school_name || 'GTS Academy',
-        school_email: fallback.school_email || '',
-        school_address: fallback.school_address || '',
-        school_phone: fallback.school_phone || '',
+        school_name: schoolSettings.school_name || fallback.school_name || 'GTS Academy',
+        school_email: schoolSettings.school_email || fallback.school_email || '',
+        school_address: schoolSettings.school_address || fallback.school_address || '',
+        school_phone: schoolSettings.school_phone || fallback.school_phone || '',
+        short_name: schoolSettings.short_name || fallback.short_name || '',
+        logo_url: schoolSettings.logo_url || fallback.logo_url || '',
         current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
         instructor_name: course?.instructor_name || fallback.instructor_name || '',
         instructor_email: course?.instructor_email || fallback.instructor_email || '',
@@ -550,6 +582,9 @@ export const sendTemplate = async (req, res, next) => {
       for (const [k, v] of Object.entries(fallback)) {
         if (!(k in values)) values[k] = v || ''
       }
+      // Ensure schoolSettings values are not overwritten by fallback loop (already prioritized)
+      if (schoolSettings.short_name && !values.short_name) values.short_name = schoolSettings.short_name
+      if (schoolSettings.logo_url && !values.logo_url) values.logo_url = schoolSettings.logo_url
       const render = (tpl) => (tpl || '').replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] != null ? values[key] : `{{${key}}}`)
       const subject = render(process.subject_template)
       let body
