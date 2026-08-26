@@ -459,31 +459,35 @@ export default function StudentProfilePage() {
         </div>
       )}
 
-      {/* Status Confirm Modal */}
+      {/* Status Confirm Modal — single-viewport modal */}
       {statusConfirmOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={() => setStatusConfirmOpen(false)}
         >
           <div
-            className="card p-5 max-w-md w-full rounded-[24px] !bg-white"
+            className="bg-white rounded-[24px] shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden isolate"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-display font-extrabold text-slate-900 mb-2">Change Status</h3>
-            <p className="text-sm text-slate-600 mb-4">
-              Move <strong>{student.full_name}</strong> from{' '}
-              <strong>{student.status}</strong> → <strong>{pendingStatus}</strong>
-            </p>
-            <label className="field-label block mb-4">
-              Reason for change
-              <input
-                className="input mt-1 !rounded-[12px]"
-                placeholder="e.g. Completed orientation"
-                value={statusTransitionReason}
-                onChange={(e) => setStatusTransitionReason(e.target.value)}
-              />
-            </label>
-            <div className="flex gap-2 justify-end">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 bg-white">
+              <h3 className="font-display font-extrabold text-slate-900">Change Status</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Move <strong>{student.full_name}</strong> from{' '}
+                <strong>{student.status}</strong> → <strong>{pendingStatus}</strong>
+              </p>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              <label className="field-label block">
+                Reason for change
+                <input
+                  className="input mt-1 !rounded-[12px]"
+                  placeholder="e.g. Completed orientation"
+                  value={statusTransitionReason}
+                  onChange={(e) => setStatusTransitionReason(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex gap-2 justify-end">
               <button
                 type="button"
                 className="btn btn-ghost btn-sm lift gap-2"

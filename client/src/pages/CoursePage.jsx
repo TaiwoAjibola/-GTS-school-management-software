@@ -864,20 +864,19 @@ export default function CoursePage() {
 
       {/* Materials tab — bento */}
       {activeTab === 'materials' ? (
-        <div className="grid lg:grid-cols-[380px_1fr] gap-4 flex-1 min-h-0 overflow-auto">
-          <form onSubmit={uploadMaterial} className="card card-hover h-fit !p-0 overflow-hidden">
-            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-violet-500 to-indigo-600" />
-            <div className="p-5 space-y-4">
-              <div className="flex items-start gap-3">
-                <span className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
-                  <Send size={16} />
-                </span>
-                <div>
-                  <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Upload Course Material</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">Upload general materials or assign a section number.</p>
-                </div>
+        <div className="grid lg:grid-cols-[380px_1fr] gap-4 flex-1 min-h-0 overflow-hidden">
+          <form onSubmit={uploadMaterial} className="card card-hover flex flex-col overflow-hidden max-h-[65vh]">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-violet-500 to-indigo-600 shrink-0" />
+            <div className="shrink-0 px-5 py-4 border-b border-slate-100 bg-white flex items-start gap-3">
+              <span className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+                <Send size={16} />
+              </span>
+              <div>
+                <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Upload Course Material</h3>
+                <p className="text-sm text-slate-500 mt-0.5">Upload general materials or assign a section number.</p>
               </div>
-
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
               <label className="block">
                 <span className="field-label">Title</span>
                 <input
@@ -922,6 +921,8 @@ export default function CoursePage() {
                 />
               </label>
 
+              </div>
+            <div className="shrink-0 px-5 py-4 border-t border-slate-100 bg-white">
               <button className="btn btn-sm lift gap-2 btn-primary w-full justify-center py-3 text-sm">
                 <Send size={14} /> Upload Material
               </button>
@@ -1217,30 +1218,34 @@ export default function CoursePage() {
       {/* Edit panel */}
       {/* Withdraw modal */}
       {withdrawTarget ? (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setWithdrawTarget(null)}>
-          <div className="bg-white rounded-[1.5rem] shadow-2xl p-5 max-w-md w-full border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="h-1 -mx-6 -mt-6  bg-gradient-to-r from-rose-500 via-orange-500 to-rose-600" />
-            <div className="flex items-start gap-3 mb-1">
-              <span className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
-                <XCircle size={18} />
-              </span>
-              <div>
-                <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Withdraw Student</h3>
-                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                  Remove <strong className="text-slate-900">{withdrawTarget.full_name}</strong> from this course? Their enrollment will be marked as withdrawn.
-                </p>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setWithdrawTarget(null)}>
+          <div className="bg-white rounded-[24px] shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 bg-white">
+              <div className="h-1 -mx-6 -mt-4 mb-4 bg-gradient-to-r from-rose-500 via-orange-500 to-rose-600" />
+              <div className="flex items-start gap-3">
+                <span className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                  <XCircle size={18} />
+                </span>
+                <div>
+                  <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Withdraw Student</h3>
+                  <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                    Remove <strong className="text-slate-900">{withdrawTarget.full_name}</strong> from this course? Their enrollment will be marked as withdrawn.
+                  </p>
+                </div>
               </div>
             </div>
-            <label className="block mt-4">
-              <span className="field-label">Reason <span className="font-normal text-slate-400">(optional)</span></span>
-              <input
-                className="input"
-                placeholder="e.g. Student requested withdrawal, transferred, etc."
-                value={withdrawReason}
-                onChange={(e) => setWithdrawReason(e.target.value)}
-              />
-            </label>
-            <div className="flex justify-end gap-2 mt-5">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              <label className="block">
+                <span className="field-label">Reason <span className="font-normal text-slate-400">(optional)</span></span>
+                <input
+                  className="input"
+                  placeholder="e.g. Student requested withdrawal, transferred, etc."
+                  value={withdrawReason}
+                  onChange={(e) => setWithdrawReason(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => { setWithdrawTarget(null); setWithdrawReason('') }}
@@ -1275,8 +1280,8 @@ export default function CoursePage() {
       ) : null}
 
       {editing && editForm ? (
-        <div className="fixed right-0 top-0 h-full w-[420px] max-w-[92vw] bg-white border-l border-slate-200 shadow-2xl z-50 overflow-y-auto">
-          <div className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+        <div className="fixed right-0 top-0 h-full w-[420px] max-w-[92vw] bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col overflow-hidden isolate">
+          <div className="shrink-0 bg-white/90 backdrop-blur-xl border-b border-slate-200 px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="h-8 w-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
                 <Pencil size={14} />
@@ -1288,7 +1293,8 @@ export default function CoursePage() {
             </button>
           </div>
 
-          <form onSubmit={saveCourse} className="p-5 space-y-4">
+          <form onSubmit={saveCourse} id="course-edit-form" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
             <label className="block">
               <span className="field-label">Title</span>
               <input
@@ -1426,9 +1432,9 @@ export default function CoursePage() {
                 <span className="flex items-center gap-2"><Award size={14} className="text-violet-500" /> Has Exam</span>
               </label>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              <button type="submit" className="btn btn-sm lift gap-2 btn-primary py-3">
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white grid grid-cols-2 gap-2">
+              <button type="submit" form="course-edit-form" className="btn btn-sm lift gap-2 btn-primary py-3">
                 Save Changes
               </button>
               <button

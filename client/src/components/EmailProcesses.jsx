@@ -467,10 +467,10 @@ export default function EmailProcesses({ notify }) {
   if (loading) return <p className="text-sm text-slate-500 py-12 text-center">Loading templates...</p>
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px]">
+    <div className="h-full flex gap-4 overflow-hidden">
       {/* ── Left Panel: Variable Library ── */}
-      <div className="w-72 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
-        <div className="p-3 border-b border-slate-100">
+      <div className="w-72 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden isolate">
+        <div className="shrink-0 p-3 border-b border-slate-100 bg-white">
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-1.5 mb-2">
             <Variable size={15} />
             Variable Library
@@ -522,7 +522,7 @@ export default function EmailProcesses({ notify }) {
           </div>
           <p className="text-[10px] text-slate-400 mt-1.5">Click to insert, or drag into editor</p>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
           {Object.entries(groupedVars).map(([cat, vars]) => (
             <div key={cat}>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 py-1">{cat}</p>
@@ -546,10 +546,10 @@ export default function EmailProcesses({ notify }) {
       </div>
 
       {/* ── Center Panel: Template Builder ── */}
-      <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+      <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden isolate">
         {selectedId || isNew ? (
-          <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="shrink-0 p-4 border-b border-slate-100 bg-white flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900">
                 {isNew ? 'New Template' : selectedTemplate?.name || 'Edit Template'}
               </h3>
@@ -566,7 +566,7 @@ export default function EmailProcesses({ notify }) {
                 )}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
               <label className="text-sm text-slate-600 block">
                 Template Name
                 <input
@@ -603,7 +603,7 @@ export default function EmailProcesses({ notify }) {
                 />
               </label>
             </div>
-            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
               <button type="button" onClick={() => { setSelectedId(null); setIsNew(false) }}
                 className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200"
               >Cancel</button>
@@ -626,14 +626,14 @@ export default function EmailProcesses({ notify }) {
       </div>
 
       {/* ── Right Panel: My Templates ── */}
-      <div className="w-80 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
-        <div className="p-3 border-b border-slate-100 flex items-center justify-between">
+      <div className="w-80 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden isolate">
+        <div className="shrink-0 p-3 border-b border-slate-100 bg-white flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">My Templates</h3>
           <button type="button" onClick={newTemplate}
             className="flex items-center gap-1 text-xs font-medium bg-slate-900 text-white rounded-lg px-3 py-1.5 hover:bg-slate-800 transition-colors"
           ><Plus size={13} /> New</button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {templates.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-8">No templates yet. Create your first one!</p>
           ) : (
