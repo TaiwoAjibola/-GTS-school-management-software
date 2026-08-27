@@ -119,7 +119,7 @@ const PublicFormPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center bg-slate-50">
+      <div className="h-screen overflow-y-auto grid place-items-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
           <p className="text-sm text-slate-500 font-medium">Loading form...</p>
@@ -130,7 +130,7 @@ const PublicFormPage = () => {
 
   if (error && !form) {
     return (
-      <div className="min-h-screen grid place-items-center bg-slate-50 p-4">
+      <div className="h-screen overflow-y-auto grid place-items-center bg-slate-50 p-4">
         <div className="max-w-md w-full text-center bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-slate-900">Form Unavailable</h1>
@@ -148,7 +148,7 @@ const PublicFormPage = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen grid place-items-center bg-slate-50 p-4">
+      <div className="h-screen overflow-y-auto grid place-items-center bg-slate-50 p-4">
         <div className="max-w-md w-full text-center bg-white p-10 rounded-3xl shadow-sm border border-slate-200 animate-in fade-in zoom-in duration-300">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-8 h-8 text-emerald-600" />
@@ -167,7 +167,7 @@ const PublicFormPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
+    <div className="h-screen overflow-y-auto bg-slate-50 py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           {/* Form Header */}

@@ -74,7 +74,7 @@ export default function PublicQuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-screen overflow-y-auto bg-slate-50 flex items-center justify-center">
         <p className="text-slate-500 text-sm">Loading quiz…</p>
       </div>
     )
@@ -82,7 +82,7 @@ export default function PublicQuizPage() {
 
   if (error && !meta) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="h-screen overflow-y-auto bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-8 max-w-md w-full text-center shadow-sm">
           <img src={gtsLogo} alt="GTS" className="h-12 mx-auto mb-4" />
           <p className="text-rose-600 font-medium">{error}</p>
@@ -92,7 +92,7 @@ export default function PublicQuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4">
+    <div className="h-screen overflow-y-auto bg-slate-50 py-10 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <img src={gtsLogo} alt="GTS" className="h-10" />
