@@ -140,6 +140,9 @@ const LecturerDashboard = () => {
   const [showDeleteSessionConfirm, setShowDeleteSessionConfirm] = useState(false)
   const [showAddAttendance, setShowAddAttendance] = useState(false)
   const [showAttendanceHistory, setShowAttendanceHistory] = useState(false)
+  const [attendanceStudentSort, setAttendanceStudentSort] = useState('name')
+  const [attendanceStudentFilter, setAttendanceStudentFilter] = useState('all')
+  const [attendanceStudentSearch, setAttendanceStudentSearch] = useState('')
 
   const [courseResults, setCourseResults] = useState([])
   const [resultSortBy, setResultSortBy] = useState('name')
@@ -5945,7 +5948,7 @@ const LecturerDashboard = () => {
       {/* ── Add New Attendance modal ───────────────────────────────── */}
       {showAddAttendance ? (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddAttendance(false)}>
-          <div className="bg-white rounded-[24px] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-[24px] shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
             <div className="shrink-0 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-slate-900">Add New Attendance</h3>
@@ -5955,52 +5958,150 @@ const LecturerDashboard = () => {
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-              <label className="text-sm text-slate-600 block">
-                Select Class
-                <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={selectedClassNumber} onChange={(event) => setSelectedClassNumber(event.target.value)}>
-                  {classOptions.map((classNo) => (
-                    <option key={classNo} value={classNo}>{`Class ${classNo}`}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm text-slate-600 block">
-                Session Date
-                <input type="date" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.date} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, date: event.target.value }))} />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm text-slate-600 block">
-                  Start Time
-                  <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.startTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, startTime: event.target.value }))} />
-                </label>
-                <label className="text-sm text-slate-600 block">
-                  End Time
-                  <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.endTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, endTime: event.target.value }))} />
-                </label>
-              </div>
-              <label className="text-sm text-slate-600 block">
-                Secondary Lecturer
-                <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.secondaryLecturerId || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || '' }))}>
-                  <option value="">— No secondary lecturer —</option>
-                  {lecturers.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm text-slate-600 block">
-                Session Notes
-                <textarea className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" rows={2} value={attendanceForm.lecturerNotes || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, lecturerNotes: event.target.value }))} placeholder="Optional notes for this session" />
-              </label>
-              <div className="flex gap-2">
-                <button type="button" onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="flex-1 btn btn-primary px-4 py-2 disabled:opacity-50">Start Attendance</button>
-                <button type="button" onClick={closeAttendance} disabled={!attendanceStatus.activeSession} className="flex-1 bg-slate-200 text-slate-800 rounded-lg px-4 py-2 disabled:opacity-50">Close Attendance</button>
-              </div>
-              <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700 space-y-1">
-                <p>Class: {selectedClassNumber}</p>
-                <p>Completed: {attendanceStatus.classCompleted ? 'Yes' : 'No'}</p>
-                <p>Active: {attendanceStatus.activeSession ? 'Yes' : 'No'}</p>
-                <p>Ends: {attendanceStatus.activeSession?.end_time ? new Date(attendanceStatus.activeSession.end_time).toLocaleString() : '-'}</p>
-                <p>Present: {attendanceStatus.attendeeCount || 0}</p>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="grid lg:grid-cols-[380px_1fr] gap-6">
+                {/* Left = form */}
+                <div className="space-y-4">
+                  <label className="text-sm text-slate-600 block">
+                    Select Class
+                    <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={selectedClassNumber} onChange={(event) => setSelectedClassNumber(event.target.value)}>
+                      {classOptions.map((classNo) => (
+                        <option key={classNo} value={classNo}>{`Class ${classNo}`}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Session Date
+                    <input type="date" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.date} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, date: event.target.value }))} />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm text-slate-600 block">
+                      Start Time
+                      <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.startTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, startTime: event.target.value }))} />
+                    </label>
+                    <label className="text-sm text-slate-600 block">
+                      End Time
+                      <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.endTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, endTime: event.target.value }))} />
+                    </label>
+                  </div>
+                  <label className="text-sm text-slate-600 block">
+                    Secondary Lecturer
+                    <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.secondaryLecturerId || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || '' }))}>
+                      <option value="">— No secondary lecturer —</option>
+                      {lecturers.map((l) => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Session Notes
+                    <textarea className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" rows={2} value={attendanceForm.lecturerNotes || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, lecturerNotes: event.target.value }))} placeholder="Optional notes for this session" />
+                  </label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="flex-1 btn btn-primary px-4 py-2 disabled:opacity-50">Start Attendance</button>
+                    <button type="button" onClick={closeAttendance} disabled={!attendanceStatus.activeSession} className="flex-1 bg-slate-200 text-slate-800 rounded-lg px-4 py-2 disabled:opacity-50">Close Attendance</button>
+                  </div>
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700 space-y-1">
+                    <p>Class: {selectedClassNumber}</p>
+                    <p>Completed: {attendanceStatus.classCompleted ? 'Yes' : 'No'}</p>
+                    <p>Active: {attendanceStatus.activeSession ? 'Yes' : 'No'}</p>
+                    <p>Ends: {attendanceStatus.activeSession?.end_time ? new Date(attendanceStatus.activeSession.end_time).toLocaleString() : '-'}</p>
+                    <p>Present: {attendanceStatus.attendeeCount || 0}</p>
+                  </div>
+                </div>
+                {/* Right = list of students */}
+                <div className="card card-hover flex flex-col overflow-hidden border border-slate-200 rounded-xl min-h-[420px] max-h-[62vh]">
+                  <div className="shrink-0 px-4 py-3 border-b border-slate-100 bg-white flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-slate-900 text-sm">Enrolled Students</h4>
+                      <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2.5 py-1 font-medium">{courseStudents.length} enrolled</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="relative flex-1 min-w-[160px]">
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search name or matric…"
+                          value={attendanceStudentSearch}
+                          onChange={(e) => setAttendanceStudentSearch(e.target.value)}
+                          className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                        />
+                      </div>
+                      <select value={attendanceStudentSort} onChange={(e) => setAttendanceStudentSort(e.target.value)} className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white">
+                        <option value="name">Sort: Name</option>
+                        <option value="matric">Sort: Matric</option>
+                        <option value="status">Sort: Status</option>
+                      </select>
+                      <select value={attendanceStudentFilter} onChange={(e) => setAttendanceStudentFilter(e.target.value)} className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white">
+                        <option value="all">All</option>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    {courseStudents.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-8 px-4">No students enrolled in this course yet.</p>
+                    ) : (() => {
+                      const presentMap = new Map(attendanceRoster.map((r) => [Number(r.student_id), Boolean(r.present)]))
+                      const q = attendanceStudentSearch.trim().toLowerCase()
+                      let visible = [...courseStudents]
+                      if (q) {
+                        visible = visible.filter((s) => (s.full_name || '').toLowerCase().includes(q) || (s.matric_no || '').toLowerCase().includes(q) || (s.email || '').toLowerCase().includes(q))
+                      }
+                      if (attendanceStudentFilter !== 'all') {
+                        visible = visible.filter((s) => {
+                          const isPresent = presentMap.get(Number(s.student_id)) || false
+                          return attendanceStudentFilter === 'present' ? isPresent : !isPresent
+                        })
+                      }
+                      if (attendanceStudentSort === 'name') visible.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+                      else if (attendanceStudentSort === 'matric') visible.sort((a, b) => (a.matric_no || '').localeCompare(b.matric_no || ''))
+                      else if (attendanceStudentSort === 'status') visible.sort((a, b) => (a.status || '').localeCompare(b.status || '') || (a.full_name || '').localeCompare(b.full_name || ''))
+                      const presentCount = courseStudents.filter((s) => presentMap.get(Number(s.student_id))).length
+                      const absentCount = courseStudents.length - presentCount
+                      return (
+                        <>
+                          <div className="sticky top-0 bg-slate-50 border-b border-slate-100 px-4 py-2 flex gap-3 text-xs font-medium text-slate-500">
+                            <span className="text-emerald-700">{presentCount} present</span>
+                            <span>·</span>
+                            <span className="text-red-600">{absentCount} absent</span>
+                            <span>·</span>
+                            <span>{visible.length} shown</span>
+                          </div>
+                          <ul className="divide-y divide-slate-100">
+                            {visible.map((s) => {
+                              const isPresent = presentMap.get(Number(s.student_id)) || false
+                              const canMark = Boolean(attendanceStatus.activeSession)
+                              return (
+                                <li key={s.student_id} className={`flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors ${isPresent ? 'bg-emerald-50/40' : ''}`}>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-slate-900 truncate">{s.full_name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                      {s.matric_no ? <span className="text-xs font-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{s.matric_no}</span> : null}
+                                      {s.status ? <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${STATUS_COLORS[s.status] || 'bg-slate-100 text-slate-600'}`}>{s.status}</span> : null}
+                                      <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${isPresent ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{isPresent ? 'Present' : 'Absent'}</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => markStudentPresent(s.student_id)}
+                                    disabled={!canMark || isPresent}
+                                    className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${isPresent ? 'bg-emerald-100 border-emerald-200 text-emerald-700 cursor-default' : canMark ? 'bg-white border-slate-200 text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                    title={canMark ? (isPresent ? 'Already present' : 'Mark present') : 'Start attendance to mark'}
+                                  >
+                                    {isPresent ? 'Present ✓' : canMark ? 'Mark present' : '—'}
+                                  </button>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                          {visible.length === 0 ? <p className="text-xs text-slate-400 text-center py-6">No students match filters.</p> : null}
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
