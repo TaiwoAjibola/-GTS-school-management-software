@@ -138,6 +138,8 @@ const LecturerDashboard = () => {
   const [editSessionLoading, setEditSessionLoading] = useState(false)
   const [deleteSessionReason, setDeleteSessionReason] = useState('')
   const [showDeleteSessionConfirm, setShowDeleteSessionConfirm] = useState(false)
+  const [showAddAttendance, setShowAddAttendance] = useState(false)
+  const [showAttendanceHistory, setShowAttendanceHistory] = useState(false)
 
   const [courseResults, setCourseResults] = useState([])
   const [resultSortBy, setResultSortBy] = useState('name')
@@ -1606,6 +1608,20 @@ const LecturerDashboard = () => {
             <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" className="stat-hover" />
             <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" className="stat-hover" />
             <Card title="Current Course" value={selectedCourse ? selectedCourse.title : '—'} hint={selectedCourse?.class_day || ''} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
+          </div>
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display font-bold tracking-tight text-slate-900 text-lg">Attendance</h2>
+              <p className="text-sm text-slate-500 mt-0.5">{selectedCourse ? selectedCourse.title : 'Select a course to view attendance — set one as current in Courses'}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setShowAddAttendance(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
+                <Plus size={14} /> Add New Attendance
+              </button>
+              <button type="button" onClick={() => setShowAttendanceHistory(true)} className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5">
+                <ClipboardCheck size={14} /> Attendance History
+              </button>
+            </div>
           </div>
         </div>
 
@@ -3525,7 +3541,17 @@ const LecturerDashboard = () => {
           <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden isolate rounded-[24px]">
             <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 bg-white rounded-t-[24px]">
               <h3 className="font-semibold text-slate-900">Attendance Summary by Student</h3>
-              <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{attendanceSummary.length} students</span>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-slate-600 flex items-center gap-2">
+                  Class
+                  <select className="border rounded-lg px-2.5 py-1.5 text-sm bg-white" value={selectedClassNumber} onChange={(event) => setSelectedClassNumber(event.target.value)}>
+                    {classOptions.map((classNo) => (
+                      <option key={classNo} value={classNo}>{`Class ${classNo}`}</option>
+                    ))}
+                  </select>
+                </label>
+                <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 font-medium">{attendanceSummary.length} students</span>
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="data-table w-full text-sm">
@@ -5915,10 +5941,114 @@ const LecturerDashboard = () => {
           </div>
         )
       })() : null}
-      </div>
-    </AppShell>
-  )
-}
+
+      {/* ── Add New Attendance modal ───────────────────────────────── */}
+      {showAddAttendance ? (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddAttendance(false)}>
+          <div className="bg-white rounded-[24px] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900">Add New Attendance</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{selectedCourse ? `${selectedCourse.title} · Class ${selectedClassNumber}` : 'Select a course to start'}</p>
+              </div>
+              <button type="button" onClick={() => setShowAddAttendance(false)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              <label className="text-sm text-slate-600 block">
+                Select Class
+                <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={selectedClassNumber} onChange={(event) => setSelectedClassNumber(event.target.value)}>
+                  {classOptions.map((classNo) => (
+                    <option key={classNo} value={classNo}>{`Class ${classNo}`}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600 block">
+                Session Date
+                <input type="date" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.date} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, date: event.target.value }))} />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-sm text-slate-600 block">
+                  Start Time
+                  <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.startTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, startTime: event.target.value }))} />
+                </label>
+                <label className="text-sm text-slate-600 block">
+                  End Time
+                  <input type="time" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.endTime} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, endTime: event.target.value }))} />
+                </label>
+              </div>
+              <label className="text-sm text-slate-600 block">
+                Secondary Lecturer
+                <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={attendanceForm.secondaryLecturerId || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, secondaryLecturerId: event.target.value || '' }))}>
+                  <option value="">— No secondary lecturer —</option>
+                  {lecturers.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600 block">
+                Session Notes
+                <textarea className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" rows={2} value={attendanceForm.lecturerNotes || ''} onChange={(event) => setAttendanceForm((prev) => ({ ...prev, lecturerNotes: event.target.value }))} placeholder="Optional notes for this session" />
+              </label>
+              <div className="flex gap-2">
+                <button type="button" onClick={startAttendance} disabled={!selectedCourseId || Boolean(attendanceStatus.classCompleted) || Boolean(attendanceStatus.activeSession)} className="flex-1 btn btn-primary px-4 py-2 disabled:opacity-50">Start Attendance</button>
+                <button type="button" onClick={closeAttendance} disabled={!attendanceStatus.activeSession} className="flex-1 bg-slate-200 text-slate-800 rounded-lg px-4 py-2 disabled:opacity-50">Close Attendance</button>
+              </div>
+              <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700 space-y-1">
+                <p>Class: {selectedClassNumber}</p>
+                <p>Completed: {attendanceStatus.classCompleted ? 'Yes' : 'No'}</p>
+                <p>Active: {attendanceStatus.activeSession ? 'Yes' : 'No'}</p>
+                <p>Ends: {attendanceStatus.activeSession?.end_time ? new Date(attendanceStatus.activeSession.end_time).toLocaleString() : '-'}</p>
+                <p>Present: {attendanceStatus.attendeeCount || 0}</p>
+              </div>
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
+              <button type="button" onClick={() => setShowAddAttendance(false)} className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200">Close</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Attendance History drawer ───────────────────────────────── */}
+      {showAttendanceHistory ? (
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setShowAttendanceHistory(false)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div className="relative bg-white w-[420px] max-w-[92vw] h-full shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0 px-5 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900">Attendance History</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{attendanceHistory.length} session(s)</p>
+              </div>
+              <button type="button" onClick={() => setShowAttendanceHistory(false)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+              {attendanceHistory.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No attendance sessions yet.</p>
+              ) : (
+                attendanceHistory.map((session) => (
+                  <div key={session.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900">Class {session.class_number}</p>
+                      <p className="text-xs text-slate-500">{new Date(session.start_time).toLocaleString()}</p>
+                      <p className="text-xs text-slate-500">{session.attendees} present</p>
+                    </div>
+                    <button type="button" onClick={() => openEditSession(session)} className="shrink-0 rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                      Edit
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+       </div>
+     </AppShell>
+   )
+ }
 
 export default LecturerDashboard
 
