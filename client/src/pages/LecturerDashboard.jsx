@@ -293,18 +293,40 @@ const LecturerDashboard = () => {
   const saveForm = async (formData) => {
     try {
       // Only PATCH when editing an existing form with a real id (templates use id: null)
+      let savedForm = null
       if (editingForm?.id) {
-        await apiClient.patch(`/forms/${editingForm.id}`, formData)
+        const res = await apiClient.patch(`/forms/${editingForm.id}`, formData)
+        savedForm = res.data
         notify('Form updated')
       } else {
-        await apiClient.post('/forms', formData)
+        const res = await apiClient.post('/forms', formData)
+        savedForm = res.data
         notify('Form created')
       }
       setEditingForm(null)
       setFormBuilderOpen(false)
+      if (savedForm) {
+        // Optimistically update local state with the authoritative server response (includes fields)
+        setForms((prev) => {
+          const exists = prev.some((f) => String(f.id) === String(savedForm.id))
+          if (exists) return prev.map((f) => (String(f.id) === String(savedForm.id) ? savedForm : f))
+          return [savedForm, ...prev]
+        })
+      }
       await loadForms()
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to save form')
+    }
+  }
+
+  const openFormForEdit = async (form) => {
+    try {
+      // Always fetch the full form (with fields) by id to avoid stale list data that may lack fields
+      const res = await apiClient.get(`/forms/${form.id}`)
+      setEditingForm(res.data)
+      setFormBuilderOpen(true)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to load form details')
     }
   }
 
@@ -5670,7 +5692,7 @@ const LecturerDashboard = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setEditingForm(form); setFormBuilderOpen(true) }}
+                        onClick={() => openFormForEdit(form)}
                         className="text-xs bg-sky-100 text-indigo-700 rounded-lg px-3 py-1.5 hover:bg-sky-200"
                       >
                         Edit
@@ -5774,6 +5796,7 @@ const LecturerDashboard = () => {
           {/* Form Builder Drawer */}
           {formBuilderOpen && (
             <FormBuilderDrawer
+              key={editingForm?.id || 'new'}
               form={editingForm}
               batches={batches}
               onClose={() => { setFormBuilderOpen(false); setEditingForm(null) }}
@@ -6282,6 +6305,32 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
     apiClient.get('/cohorts').then(res => setCohorts(res.data)).catch(() => {})
   }, [])
 
+  // Keep local form state in sync when the `form` prop changes (e.g., after fetching full form by id)
+  // This handles the case where listForms previously lacked fields and we now open with a freshly fetched form.
+  useEffect(() => {
+    setTitle(form?.title || '')
+    setSlug(form?.slug || '')
+    setDescription(form?.description || '')
+    setStatus(form?.status || 'draft')
+    setMapsToStudent(form?.maps_to_student || false)
+    setCohortId(form?.cohort_id || '')
+    setFields(
+      form?.fields?.map((f) => ({
+        id: f.id,
+        fieldType: f.field_type || f.fieldType,
+        label: f.label,
+        placeholder: f.placeholder || '',
+        required: f.required || false,
+        options: f.options || [],
+        validation: f.validation || {},
+        section: f.section || '',
+        width: f.width || 'full',
+        fieldConditions: f.field_conditions || f.fieldConditions || null,
+        mapsToColumn: f.maps_to_column || f.mapsToColumn || '',
+      })) || []
+    )
+  }, [form?.id])
+
   useEffect(() => {
     if (!mapsToStudent) return
     setFields(prev => {
@@ -6384,13 +6433,12 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
   }
 
   const addSlot = (fieldIndex) => {
-    const idx = fields[fieldIndex]?.options?.length || 0
     setFields((prev) =>
-      prev.map((f, i) =>
-        i === fieldIndex
-          ? { ...f, options: [...f.options, { label: '', value: `slot_${idx + 1}`, date: '', start: '', end: '', capacity: 1 }] }
-          : f
-      )
+      prev.map((f, i) => {
+        if (i !== fieldIndex) return f
+        const idx = f.options?.length || 0
+        return { ...f, options: [...f.options, { label: '', value: `slot_${idx + 1}`, date: '', start: '', end: '', capacity: 1 }] }
+      })
     )
   }
 

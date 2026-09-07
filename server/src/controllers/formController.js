@@ -156,7 +156,23 @@ export const listForms = async (req, res, next) => {
        LEFT JOIN cohorts co ON co.id = f.cohort_id
        ORDER BY f.created_at DESC`
     )
-    res.json(result.rows)
+    const forms = result.rows
+    if (forms.length) {
+      const formIds = forms.map((f) => f.id)
+      const fieldsResult = await query(
+        'SELECT * FROM form_fields WHERE form_id = ANY($1) ORDER BY form_id, order_index ASC',
+        [formIds]
+      )
+      const fieldsByForm = {}
+      for (const field of fieldsResult.rows) {
+        if (!fieldsByForm[field.form_id]) fieldsByForm[field.form_id] = []
+        fieldsByForm[field.form_id].push(field)
+      }
+      for (const form of forms) {
+        form.fields = fieldsByForm[form.id] || []
+      }
+    }
+    res.json(forms)
   } catch (error) {
     next(error)
   }
