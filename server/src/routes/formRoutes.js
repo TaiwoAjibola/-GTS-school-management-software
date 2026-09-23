@@ -14,6 +14,7 @@ import {
   getProspectiveStudents,
   getFormAvailability,
   getGraduatingStudentsForForms,
+  exportSubmissions,
 } from '../controllers/formController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
@@ -35,6 +36,7 @@ router.get('/:id', authorize('admin', 'lecturer'), getForm)
 router.patch('/:id', authorize('admin', 'lecturer'), updateForm)
 router.delete('/:id', authorize('admin'), deleteForm)
 router.get('/:formId/submissions', authorize('admin', 'lecturer'), listSubmissions)
+router.get('/:formId/submissions/export', authorize('admin', 'lecturer'), exportSubmissions)
 router.patch('/submissions/:submissionId/review', authorize('admin', 'lecturer'), reviewSubmission)
 router.delete('/submissions/:submissionId', authorize('admin'), deleteSubmission)
 

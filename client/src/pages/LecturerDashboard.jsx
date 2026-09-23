@@ -5721,10 +5721,36 @@ const LecturerDashboard = () => {
             <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
               <div className="bg-white w-full max-w-3xl h-full overflow-y-auto shadow-2xl">
                 <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-900">Submissions</h3>
-                  <button type="button" onClick={() => setSelectedFormForSubmissions(null)} className="rounded-lg p-1 hover:bg-slate-100">
-                    <X size={18} />
-                  </button>
+                  <h3 className="font-semibold text-slate-900">Submissions {formSubmissions.length > 0 && <span className="text-sm font-normal text-slate-500">({formSubmissions.length})</span>}</h3>
+                  <div className="flex items-center gap-2">
+                    {formSubmissions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('token')
+                            const res = await fetch(`${api}/forms/${selectedFormForSubmissions}/submissions/export`, {
+                              headers: { Authorization: `Bearer ${token}` }
+                            })
+                            if (!res.ok) throw new Error('Export failed')
+                            const blob = await res.blob()
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.download = `${selectedFormForSubmissions}-submissions.xlsx`
+                            a.click()
+                            URL.revokeObjectURL(url)
+                          } catch (err) { console.error(err) }
+                        }}
+                        className="btn btn-sm btn-ghost lift text-indigo-600 hover:bg-indigo-50 gap-1"
+                      >
+                        <Download size={14}/> Export
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setSelectedFormForSubmissions(null)} className="rounded-lg p-1 hover:bg-slate-100">
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
                 <div className="p-5">
                   {submissionsLoading ? (

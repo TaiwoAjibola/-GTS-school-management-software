@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import * as XLSX from 'xlsx'
 import { pool, query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 
@@ -645,6 +646,70 @@ export const getFormAvailability = async (req, res, next) => {
     }
 
     res.json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const exportSubmissions = async (req, res, next) => {
+  try {
+    const { formId } = req.params
+
+    const formResult = await query('SELECT id, title, slug FROM forms WHERE id = $1', [formId])
+    if (!formResult.rows.length) throw httpError(404, 'Form not found')
+    const form = formResult.rows[0]
+
+    const fieldsResult = await query(
+      `SELECT id, label, field_type, "order" FROM form_fields WHERE form_id = $1 ORDER BY "order"`,
+      [formId]
+    )
+    const fields = fieldsResult.rows
+
+    const subsResult = await query(
+      `SELECT fs.*, u.full_name AS submitter_name, u.email AS submitter_email
+       FROM form_submissions fs
+       LEFT JOIN users u ON u.id = fs.submitter_id
+       WHERE fs.form_id = $1
+       ORDER BY fs.created_at ASC`,
+      [formId]
+    )
+
+    const header = ['#', 'Submitted At', 'Submitter Name', 'Submitter Email', 'Status']
+    for (const f of fields) {
+      header.push(f.label)
+    }
+
+    const rows = subsResult.rows.map((sub, idx) => {
+      const row = [
+        idx + 1,
+        new Date(sub.created_at).toLocaleString(),
+        sub.submitter_name || sub.submitter_email || '—',
+        sub.submitter_email || '',
+        sub.status,
+      ]
+      for (const f of fields) {
+        const val = sub.data?.[f.id]
+        if (Array.isArray(val)) row.push(val.join(', '))
+        else if (val != null && typeof val === 'object') row.push(JSON.stringify(val))
+        else row.push(val ?? '')
+      }
+      return row
+    })
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
+
+    ws['!cols'] = [
+      { wch: 5 }, { wch: 22 }, { wch: 24 }, { wch: 28 }, { wch: 12 },
+      ...fields.map(() => ({ wch: 22 })),
+    ]
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Submissions')
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${form.title || form.slug || 'submissions'}.xlsx"`)
+    res.send(buf)
   } catch (error) {
     next(error)
   }
