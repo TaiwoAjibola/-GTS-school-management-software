@@ -239,21 +239,32 @@ export const updateForm = async (req, res, next) => {
   const client = await pool.connect()
   try {
     const { id } = req.params
-    const { title, description, status, fields, mapsToStudent, cohortId, logoUrl } = req.body
+    const { title, description, slug, status, fields, mapsToStudent, cohortId, logoUrl } = req.body
 
     await client.query('BEGIN')
+
+    if (slug) {
+      const existing = await client.query(
+        'SELECT id FROM forms WHERE slug = $1 AND id != $2',
+        [slug, id]
+      )
+      if (existing.rows.length) {
+        throw httpError(409, 'Slug is already in use by another form')
+      }
+    }
 
     const formResult = await client.query(
       `UPDATE forms SET
         title = COALESCE($1, title),
         description = COALESCE($2, description),
-        status = COALESCE($3, status),
-        maps_to_student = COALESCE($4, maps_to_student),
-        cohort_id = COALESCE($5, cohort_id),
-        logo_url = COALESCE($6, logo_url),
+        slug = COALESCE($3, slug),
+        status = COALESCE($4, status),
+        maps_to_student = COALESCE($5, maps_to_student),
+        cohort_id = COALESCE($6, cohort_id),
+        logo_url = COALESCE($7, logo_url),
         updated_at = NOW()
-       WHERE id = $7 RETURNING *`,
-      [title, description, status, mapsToStudent, cohortId || null, logoUrl || null, id]
+       WHERE id = $8 RETURNING *`,
+      [title, description, slug, status, mapsToStudent, cohortId || null, logoUrl || null, id]
     )
 
     if (!formResult.rows.length) {
