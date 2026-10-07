@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import { pool, query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
-import { drawReportPdf } from '../utils/graduationPdf.js'
+import { drawGraduationPdf } from '../utils/graduationPdf.js'
 
 const SET_STATUSES = ['active', 'completed', 'archived']
 
@@ -469,39 +469,7 @@ export const exportSetReportPdf = async (req, res, next) => {
     const { set, courses, members } = await buildSetDetail(setId)
     const now = new Date()
 
-    const graduatesRows = {
-      columns: [
-        { key: 'sn', label: 'S/N', width: 30, align: 'right' },
-        { key: 'matric', label: 'Matric No', width: 70 },
-        { key: 'name', label: 'Full Name', width: 130 },
-        { key: 'email', label: 'Email', width: 150 },
-        { key: 'batch', label: 'Batch', width: 90 },
-        { key: 'status', label: 'Status', width: 70 },
-        { key: 'passed', label: 'Courses Passed', width: 85, align: 'center' },
-        { key: 'progress', label: 'Progress %', width: 60, align: 'right' },
-      ],
-      rows: members.map((member, index) => [
-        index + 1,
-        member.matric_no || '',
-        member.full_name,
-        member.email || '',
-        member.cohort_name || '',
-        member.status,
-        `${member.passed} of ${member.total}`,
-        `${member.completion_pct}%`,
-      ]),
-    }
-
-    const takenGroups = members
-      .map((member) => ({
-        name: member.full_name,
-        matricNo: member.matric_no || '',
-        batch: member.cohort_name || '',
-        rows: buildTakenRows(courses, member.results),
-      }))
-      .filter((group) => group.rows.length)
-
-    drawReportPdf(res, {
+    drawGraduationPdf(res, {
       title: `Graduation Set Report — ${set.name}`,
       filename: `${safeFileName(set.name)}-graduation-report.pdf`,
       subtitleLines: [
@@ -509,13 +477,17 @@ export const exportSetReportPdf = async (req, res, next) => {
         set.graduation_date ? `Graduation date: ${formatDate(set.graduation_date)}` : null,
         `Set status: ${set.status}`,
       ].filter(Boolean),
-      stats: [
-        `Graduates: ${members.length}`,
-        `Courses: ${courses.length}`,
-        `Passed: ${members.reduce((sum, member) => sum + member.passed, 0)}`,
+      statCards: [
+        { label: 'Graduates', value: members.length },
+        { label: 'Set Courses', value: courses.length },
+        { label: 'Passed', value: members.reduce((sum, member) => sum + member.passed, 0) },
+        {
+          label: 'Avg. Progress',
+          value: `${members.length ? Math.round(members.reduce((sum, m) => sum + m.completion_pct, 0) / members.length) : 0}%`,
+        },
       ],
-      graduatesRows,
-      takenGroups,
+      students: members,
+      courses,
     })
   } catch (error) {
     next(error)

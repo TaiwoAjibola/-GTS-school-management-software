@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { pool, query } from '../db/pool.js'
 import { formatMatricNumber } from '../utils/matric.js'
 import { httpError } from '../utils/httpError.js'
-import { drawReportPdf } from '../utils/graduationPdf.js'
+import { drawGraduationPdf } from '../utils/graduationPdf.js'
 import {
   sendWelcomeEmail,
   sendGraduationEmail,
@@ -1033,62 +1033,21 @@ export const exportGraduationReportPdf = async (req, res, next) => {
 
     const now = new Date()
 
-    const graduatesRows = {
-      columns: [
-        { key: 'sn', label: 'S/N', width: 28, align: 'right' },
-        { key: 'matric', label: 'Matric No', width: 66 },
-        { key: 'name', label: 'Full Name', width: 120 },
-        { key: 'email', label: 'Email', width: 150 },
-        { key: 'batch', label: 'Batch', width: 90 },
-        { key: 'status', label: 'Status', width: 70 },
-        { key: 'passed', label: 'Courses Passed', width: 66, align: 'center' },
-        { key: 'failed', label: 'Courses Failed', width: 66, align: 'center' },
-        { key: 'progress', label: 'Progress %', width: 58, align: 'right' },
-      ],
-      rows: filtered.map((s, idx) => [
-        idx + 1,
-        s.matric_no || '',
-        s.full_name,
-        s.email || '',
-        s.cohort_name || '',
-        s.status,
-        s.passed,
-        s.failed,
-        `${s.completion_pct}%`,
-      ]),
-    }
-
-    const takenGroups = filtered
-      .map((student) => ({
-        name: student.full_name,
-        matricNo: student.matric_no || '',
-        batch: student.cohort_name || '',
-        rows: courses
-          .map((course) => {
-            const info = student.courses[course.id]
-            if (!info || (!info.result_status && info.enrollment_status !== 'active')) return null
-            return [
-              course.course_code || '',
-              course.title || '',
-              info.result_status || (info.enrollment_status === 'active' ? 'In Progress' : '—'),
-              info.score ?? '',
-            ]
-          })
-          .filter(Boolean),
-      }))
-      .filter((group) => group.rows.length)
-
-    drawReportPdf(res, {
+    drawGraduationPdf(res, {
       title: 'Graduation Report',
       filename: 'graduation-report.pdf',
       subtitleLines: [`Generated: ${now.toLocaleString()}`, `Filters: ${filterLabel}`],
-      stats: [
-        `Graduates: ${filtered.length}`,
-        `Courses: ${courses.length}`,
-        `Passed: ${filtered.reduce((n, s) => n + s.passed, 0)}`,
+      statCards: [
+        { label: 'Graduates', value: filtered.length },
+        { label: 'Courses', value: courses.length },
+        { label: 'Passed', value: filtered.reduce((n, s) => n + s.passed, 0) },
+        {
+          label: 'Avg. Progress',
+          value: `${filtered.length ? Math.round(filtered.reduce((n, s) => n + s.completion_pct, 0) / filtered.length) : 0}%`,
+        },
       ],
-      graduatesRows,
-      takenGroups,
+      students: filtered,
+      courses,
     })
   } catch (error) {
     next(error)
