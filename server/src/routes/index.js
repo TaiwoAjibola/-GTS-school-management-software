@@ -19,6 +19,7 @@ import emailProcessRoutes from './emailProcessRoutes.js'
 import credentialRoutes from './credentialRoutes.js'
 import reportRoutes from './reportRoutes.js'
 import bookMinistryRoutes from './bookMinistryRoutes.js'
+import graduatingSetRoutes from './graduatingSetRoutes.js'
 
 const router = Router()
 
@@ -58,5 +59,6 @@ router.use('/email-processes', emailProcessRoutes)
 router.use('/credentials', credentialRoutes)
 router.use('/reports', reportRoutes)
 router.use('/book-ministry', bookMinistryRoutes)
+router.use('/graduation-sets', graduatingSetRoutes)
 
 export default router

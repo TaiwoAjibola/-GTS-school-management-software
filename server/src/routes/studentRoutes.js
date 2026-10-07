@@ -7,6 +7,7 @@ import {
 	exportStudents,
 	getGraduationMatrix,
 	exportGraduationReport,
+	exportGraduationReportPdf,
 	getStudent,
 	listStudents,
 	updateStudent,
@@ -28,6 +29,7 @@ router.get('/', authorize('admin', 'lecturer'), listStudents)
 router.get('/export', authorize('admin', 'lecturer'), exportStudents)
 router.get('/graduation-matrix', authorize('admin', 'lecturer'), getGraduationMatrix)
 router.get('/graduation-report', authorize('admin', 'lecturer'), exportGraduationReport)
+router.get('/graduation-report.pdf', authorize('admin', 'lecturer'), exportGraduationReportPdf)
 router.get('/template', authorize('admin', 'lecturer'), downloadStudentTemplate)
 router.post('/', authorize('admin', 'lecturer'), createStudent)
 router.post('/enroll', authorize('admin', 'lecturer'), enrollStudent)

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer, Trash2 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -204,6 +204,13 @@ const LecturerDashboard = () => {
   const [graduationStatusFilter, setGraduationStatusFilter] = useState('all')
   const [graduationCohortFilter, setGraduationCohortFilter] = useState('')
   const [showGradReport, setShowGradReport] = useState(false)
+  const [graduationSets, setGraduationSets] = useState([])
+  const [graduationView, setGraduationView] = useState('matrix')
+  const [setEditor, setSetEditor] = useState(null)
+  const [showSetReport, setShowSetReport] = useState(null)
+  const [setReportData, setSetReportData] = useState(null)
+  const [setReportDataLoading, setSetReportDataLoading] = useState(false)
+  const [setEditorSaving, setSetEditorSaving] = useState(false)
   const [lecturers, setLecturers] = useState([])
   const [lecturerForm, setLecturerForm] = useState({ name: '', email: '', phone: '' })
   const [editingLecturerId, setEditingLecturerId] = useState(null)
@@ -489,6 +496,13 @@ const LecturerDashboard = () => {
     setGraduationMatrix(response.data)
   }
 
+  const loadGraduationSets = async () => {
+    try {
+      const response = await apiClient.get('/graduation-sets')
+      setGraduationSets(Array.isArray(response.data) ? response.data : [])
+    } catch { /* silent — sets list is non-critical on load */ }
+  }
+
   const loadBatches = async (courseId) => {
     if (!courseId) {
       setBatches([])
@@ -566,6 +580,7 @@ const LecturerDashboard = () => {
     loadCourses()
     loadAllStudents()
     loadGraduationMatrix()
+    loadGraduationSets()
     loadCohorts()
     loadLecturers()
   }, [user?.id])
@@ -724,6 +739,47 @@ const LecturerDashboard = () => {
     if (graduationSearch.trim()) parts.push(`Search: “${graduationSearch.trim()}”`)
     return parts.join(' · ')
   }, [graduationStatusFilter, graduationCohortFilter, graduationSearch, cohorts])
+
+  const setEditorCourseOptions = useMemo(() => {
+    if (!setEditor) return []
+    const query = (setEditor.searchCourses || '').trim().toLowerCase()
+    if (!query) return courses
+    return courses.filter((course) =>
+      String(course.title || '').toLowerCase().includes(query) ||
+      String(course.course_code || '').toLowerCase().includes(query)
+    )
+  }, [setEditor, courses])
+
+  const setEditorStudentOptions = useMemo(() => {
+    if (!setEditor) return []
+    const query = (setEditor.studentSearch || '').trim().toLowerCase()
+    const selectedIds = new Set(setEditor.studentIds.map(Number))
+    let rows = allStudents.filter((student) => !selectedIds.has(Number(student.id)))
+    if (setEditor.studentStatusFilter) {
+      rows = rows.filter((student) => student.status === setEditor.studentStatusFilter)
+    }
+    if (query) {
+      rows = rows.filter(
+        (student) =>
+          String(student.full_name || '').toLowerCase().includes(query) ||
+          String(student.matric_no || '').toLowerCase().includes(query)
+      )
+    }
+    return [...rows].sort((a, b) => {
+      const aGraduating = a.status === 'Graduating' ? 0 : 1
+      const bGraduating = b.status === 'Graduating' ? 0 : 1
+      return aGraduating - bGraduating || String(a.full_name || '').localeCompare(String(b.full_name || ''))
+    })
+  }, [setEditor, allStudents])
+
+  const setReportDataStats = useMemo(() => {
+    const members = setReportData?.members || []
+    return {
+      members: members.length,
+      courses: setReportData?.courses?.length || 0,
+      totalPasses: members.reduce((sum, member) => sum + (Number(member.passed) || 0), 0),
+    }
+  }, [setReportData])
 
   const currentCourseResultMap = useMemo(() => {
     const map = new Map()
@@ -1036,6 +1092,283 @@ const LecturerDashboard = () => {
       URL.revokeObjectURL(href)
     } catch (err) {
       notify(err?.response?.data?.message || 'Unable to download graduation report')
+    }
+  }
+
+  const downloadGraduationReportPdf = async () => {
+    try {
+      const params = {}
+      if (graduationStatusFilter && graduationStatusFilter !== 'all') params.status = graduationStatusFilter
+      if (graduationCohortFilter) params.cohortId = graduationCohortFilter
+      if (graduationSearch.trim()) params.q = graduationSearch.trim()
+      const response = await apiClient.get('/students/graduation-report.pdf', { params, responseType: 'blob' })
+      const href = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = href
+      link.setAttribute('download', 'graduation-report.pdf')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(href)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to download graduation report')
+    }
+  }
+
+  const openSetReport = async (row) => {
+    setShowSetReport(row)
+    setSetReportData(null)
+    setSetReportDataLoading(true)
+    try {
+      const response = await apiClient.get(`/graduation-sets/${row.id}`)
+      setSetReportData(response.data)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to load graduation set report')
+      setShowSetReport(null)
+    } finally {
+      setSetReportDataLoading(false)
+    }
+  }
+
+  const downloadSetReportFile = async (ext) => {
+    if (!showSetReport) return
+    try {
+      const response = await apiClient.get(`/graduation-sets/${showSetReport.id}/report.${ext}`, { responseType: 'blob' })
+      const baseName = String(showSetReport.name || 'graduating-set').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'graduating-set'
+      const href = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = href
+      link.setAttribute('download', `${baseName}-graduation-report.${ext === 'pdf' ? 'pdf' : 'xlsx'}`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(href)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to download graduation set report')
+    }
+  }
+
+  const openSetEditorCreate = () => {
+    setSetEditor({
+      mode: 'create',
+      id: undefined,
+      name: '',
+      description: '',
+      graduation_date: '',
+      status: 'active',
+      courseIds: [],
+      studentIds: [],
+      members: [],
+      searchCourses: '',
+      studentSearch: '',
+      studentStatusFilter: '',
+      initial: null,
+    })
+  }
+
+  const openSetEditorEdit = async (row) => {
+    const base = {
+      mode: 'edit',
+      id: row.id,
+      name: row.name || '',
+      description: row.description || '',
+      graduation_date: row.graduation_date || '',
+      status: row.status || 'active',
+      courseIds: [],
+      studentIds: [],
+      members: [],
+      searchCourses: '',
+      studentSearch: '',
+      studentStatusFilter: '',
+      initial: {
+        name: row.name || '',
+        description: row.description || '',
+        graduation_date: row.graduation_date || '',
+        status: row.status || 'active',
+      },
+    }
+    setSetEditor(base)
+    try {
+      const response = await apiClient.get(`/graduation-sets/${row.id}`)
+      const detail = response.data
+      setSetEditor((prev) => (
+        prev && prev.mode === 'edit' && String(prev.id) === String(row.id)
+          ? {
+              ...prev,
+              courseIds: (detail.courses || []).map((course) => Number(course.id)),
+              studentIds: (detail.members || []).map((member) => Number(member.id)),
+              members: detail.members || [],
+            }
+          : prev
+      ))
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to load graduating set details')
+    }
+  }
+
+  const refreshSetEditorMembership = async (setId) => {
+    const response = await apiClient.get(`/graduation-sets/${setId}`)
+    const detail = response.data
+    setSetEditor((prev) => (
+      prev && prev.mode === 'edit' && String(prev.id) === String(setId)
+        ? {
+            ...prev,
+            courseIds: (detail.courses || []).map((course) => Number(course.id)),
+            studentIds: (detail.members || []).map((member) => Number(member.id)),
+            members: detail.members || [],
+          }
+        : prev
+    ))
+  }
+
+  const toggleSetCourse = async (course) => {
+    if (!setEditor || setEditorSaving) return
+    const courseId = Number(course.id)
+    const selected = setEditor.courseIds.includes(courseId)
+    if (setEditor.mode === 'create') {
+      setSetEditor((prev) => ({
+        ...prev,
+        courseIds: selected ? prev.courseIds.filter((id) => id !== courseId) : [...prev.courseIds, courseId],
+      }))
+      return
+    }
+    setSetEditorSaving(true)
+    try {
+      if (selected) {
+        await apiClient.delete(`/graduation-sets/${setEditor.id}/courses/${courseId}`)
+        setSetEditor((prev) => ({ ...prev, courseIds: prev.courseIds.filter((id) => id !== courseId) }))
+      } else {
+        await apiClient.post(`/graduation-sets/${setEditor.id}/courses`, { courseIds: [courseId] })
+        setSetEditor((prev) => ({ ...prev, courseIds: [...prev.courseIds, courseId] }))
+      }
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to update set courses')
+    } finally {
+      setSetEditorSaving(false)
+    }
+  }
+
+  const addSetStudent = async (student) => {
+    if (!setEditor || setEditorSaving) return
+    const studentId = Number(student.id)
+    if (setEditor.studentIds.includes(studentId)) return
+    if (setEditor.mode === 'create') {
+      setSetEditor((prev) => ({
+        ...prev,
+        studentIds: [...prev.studentIds, studentId],
+        members: [...prev.members, { ...student }],
+      }))
+      return
+    }
+    setSetEditorSaving(true)
+    try {
+      await apiClient.post(`/graduation-sets/${setEditor.id}/members`, { studentIds: [studentId] })
+      await refreshSetEditorMembership(setEditor.id)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to add student to set')
+    } finally {
+      setSetEditorSaving(false)
+    }
+  }
+
+  const removeSetStudent = async (studentId) => {
+    if (!setEditor || setEditorSaving) return
+    const id = Number(studentId)
+    if (setEditor.mode === 'create') {
+      setSetEditor((prev) => ({
+        ...prev,
+        studentIds: prev.studentIds.filter((studentId) => studentId !== id),
+        members: prev.members.filter((member) => Number(member.id) !== id),
+      }))
+      return
+    }
+    setSetEditorSaving(true)
+    try {
+      await apiClient.delete(`/graduation-sets/${setEditor.id}/members/${id}`)
+      await refreshSetEditorMembership(setEditor.id)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to remove student from set')
+    } finally {
+      setSetEditorSaving(false)
+    }
+  }
+
+  const saveSetEditor = async () => {
+    if (!setEditor || setEditorSaving) return
+    if (!setEditor.name.trim()) {
+      notify('Set name is required')
+      return
+    }
+    setSetEditorSaving(true)
+    try {
+      if (setEditor.mode === 'create') {
+        const payload = {
+          name: setEditor.name.trim(),
+          description: setEditor.description?.trim() || undefined,
+          graduation_date: setEditor.graduation_date || undefined,
+          courseIds: setEditor.courseIds,
+          studentIds: setEditor.studentIds,
+        }
+        const response = await apiClient.post('/graduation-sets', payload)
+        notify('Graduating set created')
+        await loadGraduationSets()
+        const created = response.data
+        if (created?.id) {
+          await openSetEditorEdit({
+            id: created.id,
+            name: created.name || payload.name,
+            description: created.description ?? payload.description ?? '',
+            graduation_date: created.graduation_date || payload.graduation_date || '',
+            status: created.status || 'active',
+          })
+        } else {
+          setSetEditor(null)
+        }
+      } else {
+        const meta = {
+          name: setEditor.name.trim(),
+          description: setEditor.description || '',
+          graduation_date: setEditor.graduation_date || '',
+          status: setEditor.status || 'active',
+        }
+        const initial = setEditor.initial || meta
+        const changed = ['name', 'description', 'graduation_date', 'status']
+          .some((key) => String(meta[key] ?? '') !== String(initial[key] ?? ''))
+        if (changed) {
+          await apiClient.patch(`/graduation-sets/${setEditor.id}`, meta)
+          notify('Graduating set updated')
+          await loadGraduationSets()
+        }
+        setSetEditor(null)
+      }
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to save graduating set')
+    } finally {
+      setSetEditorSaving(false)
+    }
+  }
+
+  const completeSet = async (row) => {
+    if (!window.confirm(`Mark "${row.name}" as completed? Students who passed every set course will be graduated.`)) return
+    try {
+      const response = await apiClient.post(`/graduation-sets/${row.id}/complete`)
+      const graduated = response.data?.graduated?.length || 0
+      const remaining = response.data?.remaining?.length || 0
+      notify(`Set completed: ${graduated} graduated, ${remaining} remaining`)
+      await Promise.all([loadGraduationSets(), loadGraduationMatrix()])
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to complete graduating set')
+    }
+  }
+
+  const deleteSet = async (row) => {
+    if (!window.confirm(`Delete "${row.name}"? This cannot be undone.`)) return
+    try {
+      await apiClient.delete(`/graduation-sets/${row.id}`)
+      notify('Graduating set deleted')
+      await loadGraduationSets()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to delete graduating set')
     }
   }
 
@@ -1596,7 +1929,7 @@ const LecturerDashboard = () => {
 
   const updateStudentLifecycle = async (student, status) => {
     await apiClient.put(`/students/${student.id}`, { status })
-    await Promise.all([loadAllStudents(), loadGraduationMatrix()])
+    await Promise.all([loadAllStudents(), loadGraduationMatrix(), loadGraduationSets()])
     notify(`Student moved to ${status}`)
   }
 
@@ -1627,7 +1960,7 @@ const LecturerDashboard = () => {
         reason: gradVettingReason || null,
         courseIds: graduationMatrix.courses.map((course) => course.id),
       })
-      await Promise.all([loadAllStudents(), loadGraduationMatrix()])
+      await Promise.all([loadAllStudents(), loadGraduationMatrix(), loadGraduationSets()])
       setGradVetting(null)
       notify(`Student moved to ${gradVetting.targetStatus}`)
     } catch (err) {
@@ -3467,7 +3800,7 @@ const LecturerDashboard = () => {
                           status: quickSelectedStatus,
                           reason: quickStatusReason || null,
                         })
-                        await Promise.all([loadAllStudents(), loadGraduationMatrix()])
+                        await Promise.all([loadAllStudents(), loadGraduationMatrix(), loadGraduationSets()])
                         setShowQuickStatus(false)
                         notify(`Status changed to ${quickSelectedStatus}`)
                       } catch (err) {
@@ -3509,6 +3842,13 @@ const LecturerDashboard = () => {
                   className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5"
                 >
                   <Download size={14} /> Download Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadGraduationReportPdf}
+                  className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5"
+                >
+                  <Download size={14} /> Download PDF
                 </button>
                 <button
                   type="button"
@@ -3652,6 +3992,421 @@ const LecturerDashboard = () => {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Graduating set editor modal ───────────────────────────── */}
+      {setEditor ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setSetEditor(null)}>
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display font-bold text-slate-900">{setEditor.mode === 'create' ? 'New Graduating Set' : 'Edit Graduating Set'}</h3>
+                <p className="text-sm text-slate-500 mt-0.5">Group graduating students with the courses they must complete.</p>
+              </div>
+              <button type="button" onClick={() => setSetEditor(null)} className="rounded-lg p-1 hover:bg-slate-100" aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="grid lg:grid-cols-[360px_1fr] gap-6">
+                {/* Left — set meta */}
+                <div className="space-y-4">
+                  <label className="text-sm text-slate-600 block">
+                    Set Name <span className="text-red-500">*</span>
+                    <input
+                      type="text"
+                      className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                      value={setEditor.name}
+                      onChange={(event) => setSetEditor((prev) => ({ ...prev, name: event.target.value }))}
+                      placeholder="e.g. May 2026 Graduating Set"
+                    />
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Graduation Date
+                    <input
+                      type="date"
+                      className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                      value={setEditor.graduation_date || ''}
+                      onChange={(event) => setSetEditor((prev) => ({ ...prev, graduation_date: event.target.value }))}
+                    />
+                  </label>
+                  <label className="text-sm text-slate-600 block">
+                    Description
+                    <textarea
+                      rows={4}
+                      className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                      value={setEditor.description || ''}
+                      onChange={(event) => setSetEditor((prev) => ({ ...prev, description: event.target.value }))}
+                      placeholder="Optional notes about this set"
+                    />
+                  </label>
+                  {setEditor.mode === 'edit' ? (
+                    <label className="text-sm text-slate-600 block">
+                      Status
+                      <select
+                        className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                        value={setEditor.status || 'active'}
+                        onChange={(event) => setSetEditor((prev) => ({ ...prev, status: event.target.value }))}
+                      >
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                    </label>
+                  ) : null}
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-600 leading-relaxed">
+                    {setEditor.mode === 'create'
+                      ? 'Course and student selections are submitted when you create the set.'
+                      : 'Course and student changes are saved immediately.'}
+                  </div>
+                </div>
+
+                {/* Right — courses + students */}
+                <div className="space-y-6">
+                  <div className="card flex flex-col overflow-hidden min-h-[220px] max-h-[38vh]">
+                    <div className="shrink-0 px-4 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-slate-900 text-sm">Set Courses</h4>
+                        <span className="text-xs bg-indigo-50 text-indigo-700 rounded-full px-2.5 py-1 font-medium">{setEditor.courseIds.length} selected</span>
+                      </div>
+                      <div className="relative w-56">
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search courses…"
+                          value={setEditor.searchCourses || ''}
+                          onChange={(event) => setSetEditor((prev) => ({ ...prev, searchCourses: event.target.value }))}
+                          className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+                      {setEditorCourseOptions.length === 0 ? (
+                        <p className="px-4 py-6 text-sm text-slate-500 text-center">No courses match your search.</p>
+                      ) : setEditorCourseOptions.map((course) => {
+                        const selected = setEditor.courseIds.includes(Number(course.id))
+                        return (
+                          <button
+                            key={course.id}
+                            type="button"
+                            onClick={() => toggleSetCourse(course)}
+                            className={`w-full text-left px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-slate-50 ${selected ? 'bg-indigo-50/60' : ''}`}
+                          >
+                            <span className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center ${selected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                              {selected ? <span className="text-white text-[10px] leading-none font-bold">✓</span> : null}
+                            </span>
+                            <span className="font-mono text-xs text-slate-500 whitespace-nowrap">{course.course_code || '—'}</span>
+                            <span className="text-sm text-slate-900 flex-1 truncate">{course.title}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="card flex flex-col overflow-hidden min-h-[260px] max-h-[46vh]">
+                    <div className="shrink-0 px-4 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-slate-900 text-sm">Graduating Students</h4>
+                        <span className="text-xs bg-indigo-50 text-indigo-700 rounded-full px-2.5 py-1 font-medium">{setEditor.members.length} selected</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative w-48">
+                          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search name or matric…"
+                            value={setEditor.studentSearch || ''}
+                            onChange={(event) => setSetEditor((prev) => ({ ...prev, studentSearch: event.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                          />
+                        </div>
+                        <select
+                          value={setEditor.studentStatusFilter || ''}
+                          onChange={(event) => setSetEditor((prev) => ({ ...prev, studentStatusFilter: event.target.value }))}
+                          className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                        >
+                          <option value="">All Statuses</option>
+                          <option value="Graduating">Graduating</option>
+                          <option value="Graduated">Graduated</option>
+                          <option value="Active">Active</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+                      {setEditorStudentOptions.length === 0 ? (
+                        <p className="px-4 py-6 text-sm text-slate-500 text-center">No students match the current filters.</p>
+                      ) : setEditorStudentOptions.map((student) => (
+                        <button
+                          key={student.id}
+                          type="button"
+                          disabled={setEditorSaving}
+                          onClick={() => addSetStudent(student)}
+                          className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                        >
+                          <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold">+</span>
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-sm text-slate-900 truncate">{student.full_name}</span>
+                            <span className="block text-xs text-slate-500">{student.matric_no || '—'}</span>
+                          </span>
+                          <span className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[student.status] || 'bg-slate-100 text-slate-600'}`}>
+                            {student.status || '—'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {setEditor.members.length > 0 ? (
+                      <div className="shrink-0 border-t border-slate-100 bg-slate-50/60 max-h-[170px] overflow-y-auto divide-y divide-slate-100">
+                        <div className="px-4 py-2 text-[0.68rem] uppercase tracking-[0.08em] text-slate-500 font-semibold sticky top-0 bg-slate-50">
+                          Selected ({setEditor.members.length})
+                        </div>
+                        {setEditor.members.map((member) => (
+                          <div key={member.id} className="px-4 py-2 flex items-center gap-3">
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-sm text-slate-900 truncate">{member.full_name}</span>
+                              <span className="block text-xs text-slate-500">{member.matric_no || '—'}</span>
+                            </span>
+                            <span className={`shrink-0 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[member.status] || 'bg-slate-100 text-slate-600'}`}>
+                              {member.status || '—'}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={setEditorSaving}
+                              onClick={() => removeSetStudent(member.id)}
+                              className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-red-600 disabled:opacity-40"
+                              aria-label={`Remove ${member.full_name}`}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-500">
+                {setEditor.courseIds.length} course{setEditor.courseIds.length !== 1 ? 's' : ''} · {setEditor.members.length} student{setEditor.members.length !== 1 ? 's' : ''}
+              </p>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setSetEditor(null)} className="btn btn-ghost btn-sm lift">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveSetEditor}
+                  disabled={!setEditor.name.trim() || setEditorSaving}
+                  className="btn btn-primary btn-sm lift disabled:opacity-50"
+                >
+                  {setEditorSaving ? 'Saving…' : setEditor.mode === 'create' ? 'Create Set' : 'Done'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Graduating set report modal ───────────────────────────── */}
+      {showSetReport ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden isolate">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display font-bold text-slate-900">Graduation Report — {showSetReport.name}</h3>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {setReportDataLoading ? 'Loading report…' : `Generated ${new Date().toLocaleString()}`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  disabled={setReportDataLoading}
+                  className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Printer size={14} /> Print
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadSetReportFile('pdf')}
+                  disabled={setReportDataLoading}
+                  className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Download size={14} /> Download PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadSetReportFile('xlsx')}
+                  disabled={setReportDataLoading}
+                  className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Download size={14} /> Download Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowSetReport(null); setSetReportData(null) }}
+                  className="rounded-lg p-1 hover:bg-slate-100"
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              {setReportDataLoading ? (
+                <div className="text-center py-16 text-sm text-slate-500">Loading graduation report…</div>
+              ) : !setReportData ? (
+                <div className="text-center py-16 text-sm text-slate-500">Unable to load the report for this set.</div>
+              ) : (
+                <div className="report-print text-slate-900">
+                  {/* Masthead */}
+                  <div className="text-center pb-6 mb-6 border-b border-slate-200">
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Grace Theological Seminary</p>
+                    <h2 className="font-display font-bold text-2xl mt-2">{setReportData.name}</h2>
+                    <p className="text-sm text-slate-500 mt-1">Generated {new Date().toLocaleString()}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Graduation date: {setReportData.graduation_date ? fmtDate(setReportData.graduation_date) : 'Not set'}
+                      {' · '}Status: {setReportData.status ? setReportData.status.charAt(0).toUpperCase() + setReportData.status.slice(1) : '—'}
+                    </p>
+                    <div className="mt-5 grid grid-cols-3 gap-3 max-w-xl mx-auto">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">Members</p>
+                        <p className="font-display font-bold text-xl mt-0.5">{setReportDataStats.members}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">Set Courses</p>
+                        <p className="font-display font-bold text-xl mt-0.5">{setReportDataStats.courses}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                        <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">Total Passes</p>
+                        <p className="font-display font-bold text-xl mt-0.5">{setReportDataStats.totalPasses}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(setReportData.members || []).length === 0 ? (
+                    <div className="text-center py-10 text-sm text-slate-500">
+                      No students in this set yet.
+                    </div>
+                  ) : (
+                    <>
+                      {/* Section 1 — Graduates */}
+                      <section className="mb-8">
+                        <h4 className="font-display font-bold text-lg mb-3">Graduates</h4>
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50">
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">S/N</th>
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Matric No</th>
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Full Name</th>
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Batch</th>
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Status</th>
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Courses Passed</th>
+                                <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Progress %</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(setReportData.members || []).map((member, index) => {
+                                const statusTone =
+                                  member.status === 'Graduated' ? 'bg-emerald-100 text-emerald-700'
+                                  : member.status === 'Alumni' ? 'bg-indigo-100 text-indigo-700'
+                                  : member.status === 'Graduating' ? 'bg-amber-100 text-amber-700'
+                                  : member.status === 'Active' ? 'bg-sky-100 text-sky-700'
+                                  : 'bg-slate-100 text-slate-600'
+                                return (
+                                  <tr key={member.id} className="even:bg-slate-50">
+                                    <td className="px-3 py-2 border-b border-slate-100 text-slate-700">{index + 1}</td>
+                                    <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{member.matric_no || '—'}</td>
+                                    <td className="px-3 py-2 border-b border-slate-100 text-slate-900 font-medium">{member.full_name}</td>
+                                    <td className="px-3 py-2 border-b border-slate-100 text-slate-700">{member.cohort_name || '—'}</td>
+                                    <td className="px-3 py-2 border-b border-slate-100">
+                                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusTone}`}>{member.status || '—'}</span>
+                                    </td>
+                                    <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{member.passed || 0} of {member.total || setReportDataStats.courses}</td>
+                                    <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{member.completion_pct ?? 0}%</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+
+                      {/* Section 2 — Courses Taken */}
+                      <section>
+                        <h4 className="font-display font-bold text-lg mb-3">Courses Taken</h4>
+                        {(setReportData.courses || []).length === 0 ? (
+                          <div className="text-center py-8 text-sm text-slate-500 rounded-xl border border-dashed border-slate-200">
+                            No courses have been added to this set yet.
+                          </div>
+                        ) : (setReportData.members || []).map((member) => (
+                          <div key={member.id} className="mb-6">
+                            <div className="flex items-baseline justify-between gap-3 mb-2 pb-1.5 border-b border-slate-200">
+                              <span className="font-semibold text-slate-900">{member.full_name}</span>
+                              <span className="text-xs text-slate-500">
+                                {member.matric_no || '—'}
+                                {member.cohort_name ? ` · ${member.cohort_name}` : ''}
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto rounded-xl border border-slate-200">
+                              <table className="w-full text-sm border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-50">
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Course Code</th>
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Course Title</th>
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Result</th>
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Score</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(setReportData.courses || []).map((course) => {
+                                    const info = member.results?.[course.id]
+                                    const resultStatus = info?.result_status || ''
+                                    let resultLabel = '—'
+                                    let resultTone = 'bg-slate-100 text-slate-600'
+                                    if (resultStatus === 'Pass') {
+                                      resultLabel = 'Pass'
+                                      resultTone = 'bg-emerald-100 text-emerald-700'
+                                    } else if (resultStatus === 'Fail') {
+                                      resultLabel = 'Fail'
+                                      resultTone = 'bg-red-100 text-red-700'
+                                    } else if (resultStatus) {
+                                      resultLabel = resultStatus
+                                      resultTone = 'bg-amber-100 text-amber-700'
+                                    } else if (info?.enrollment_status === 'active') {
+                                      resultLabel = 'In Progress'
+                                      resultTone = 'bg-amber-100 text-amber-700'
+                                    }
+                                    const hasScore = info && info.score !== null && info.score !== undefined && info.score !== ''
+                                    return (
+                                      <tr key={course.id} className="even:bg-slate-50">
+                                        <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{course.course_code || '—'}</td>
+                                        <td className="px-3 py-2 border-b border-slate-100 text-slate-900">{course.title}</td>
+                                        <td className="px-3 py-2 border-b border-slate-100">
+                                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${resultTone}`}>{resultLabel}</span>
+                                        </td>
+                                        <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{hasScore ? info.score : '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </section>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -4204,8 +4959,22 @@ const LecturerDashboard = () => {
         <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
           {/* Header row — Graduation Matrix + filters + Create Calendar (opens same formBuilderOpen slider) */}
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-display font-bold tracking-tight text-slate-900">Graduation Matrix</h3>
+            <h3 className="font-display font-bold tracking-tight text-slate-900">{graduationView === 'sets' ? 'Graduating Sets' : 'Graduation Matrix'}</h3>
             <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+                {[{ key: 'matrix', label: 'Matrix' }, { key: 'sets', label: 'Sets' }].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setGraduationView(tab.key)}
+                    className={`rounded-full px-3 py-1 text-xs border cursor-pointer ${graduationView === tab.key ? 'btn btn-primary border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {graduationView === 'matrix' ? (
+              <>
               {['all', 'Active', 'Graduating', 'Graduated', 'Alumni'].map((value) => (
                 <button
                   key={value}
@@ -4242,9 +5011,21 @@ const LecturerDashboard = () => {
               >
                 <Plus size={14} /> Create Calendar
               </button>
+              </>
+              ) : (
+              <button
+                type="button"
+                onClick={openSetEditorCreate}
+                className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5"
+              >
+                <Plus size={14} /> New Set
+              </button>
+              )}
             </div>
           </div>
 
+          {graduationView === 'matrix' ? (
+          <>
           {/* Stats — pushed up, shrink-0, bento/grid at top */}
           <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card title="Total Students" value={graduationStatusCounts.total} className="card card-hover stat" />
@@ -4381,7 +5162,109 @@ const LecturerDashboard = () => {
             />
               </div>
             </div>
+          </>
+          ) : (
+          <div className="card card-hover flex flex-col flex-1 min-h-0 overflow-hidden isolate">
+            <div className="shrink-0 px-5 py-4 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-display font-bold tracking-tight text-slate-900 text-base">Graduating Sets</h3>
+                <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2.5 py-1 font-medium">{graduationSets.length}</span>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto">
+              {graduationSets.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center px-6 py-14">
+                  <GraduationCap size={36} className="text-slate-300" />
+                  <p className="mt-3 text-sm text-slate-500 max-w-sm">
+                    No graduating sets yet. Create one to group graduating students and their courses.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={openSetEditorCreate}
+                    className="mt-4 btn btn-primary btn-sm lift inline-flex items-center gap-1.5"
+                  >
+                    <Plus size={14} /> New Set
+                  </button>
+                </div>
+              ) : (
+                <table className="data-table w-full text-sm">
+                  <thead className="text-left text-slate-500 sticky top-0 bg-[#F8FAFC]">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Name</th>
+                      <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Graduation Date</th>
+                      <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Members</th>
+                      <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Courses</th>
+                      <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B]">Status</th>
+                      <th className="px-4 py-3 font-semibold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748B] text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {graduationSets.map((row) => (
+                      <tr key={row.id} className="border-t border-slate-100 hover:bg-[#EEF2FF] [&>td]:hover:bg-transparent hover:shadow-[inset_3px_0_0_#6366f1] transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-900">{row.name}</p>
+                          {row.description ? <p className="text-xs text-slate-500 truncate max-w-[320px]">{row.description}</p> : null}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{row.graduation_date ? fmtDate(row.graduation_date) : '—'}</td>
+                        <td className="px-4 py-3 text-slate-700 tabular-nums">{row.member_count ?? 0}</td>
+                        <td className="px-4 py-3 text-slate-700 tabular-nums">{row.course_count ?? 0}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            row.status === 'active' ? 'bg-indigo-100 text-indigo-700'
+                            : row.status === 'completed' ? 'bg-slate-100 text-slate-700'
+                            : row.status === 'archived' ? 'bg-amber-100 text-amber-700'
+                            : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              title="Report"
+                              onClick={() => openSetReport(row)}
+                              className="btn btn-ghost btn-sm lift rounded-lg p-2"
+                            >
+                              <FileText size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              title="Edit"
+                              onClick={() => openSetEditorEdit(row)}
+                              className="btn btn-ghost btn-sm lift rounded-lg p-2"
+                            >
+                              <SquarePen size={15} />
+                            </button>
+                            {row.status === 'active' ? (
+                              <button
+                                type="button"
+                                title="Complete set"
+                                onClick={() => completeSet(row)}
+                                className="btn btn-ghost btn-sm lift rounded-lg p-2"
+                              >
+                                <GraduationCap size={15} />
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              title="Delete"
+                              onClick={() => deleteSet(row)}
+                              className="btn btn-ghost btn-sm lift rounded-lg p-2 hover:text-red-600"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
+          )}
+        </div>
       ) : null}
 
       {section === 'assignments' ? (
