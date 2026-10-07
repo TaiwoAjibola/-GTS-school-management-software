@@ -469,9 +469,16 @@ export const exportSetReportPdf = async (req, res, next) => {
     const { set, courses, members } = await buildSetDetail(setId)
     const now = new Date()
 
+    let schoolName = ''
+    try {
+      const s = await query("SELECT value FROM settings WHERE key = 'school_name' LIMIT 1")
+      schoolName = s.rows[0]?.value || ''
+    } catch {}
+
     drawGraduationPdf(res, {
       title: `Graduation Set Report — ${set.name}`,
       filename: `${safeFileName(set.name)}-graduation-report.pdf`,
+      schoolName,
       subtitleLines: [
         `Generated: ${now.toLocaleString()}`,
         set.graduation_date ? `Graduation date: ${formatDate(set.graduation_date)}` : null,

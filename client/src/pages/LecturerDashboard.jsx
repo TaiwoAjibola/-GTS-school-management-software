@@ -583,6 +583,7 @@ const LecturerDashboard = () => {
     loadGraduationSets()
     loadCohorts()
     loadLecturers()
+    loadSchoolInfo()
   }, [user?.id])
 
   useEffect(() => {
@@ -3865,7 +3866,7 @@ const LecturerDashboard = () => {
               <div className="report-print text-slate-900">
                 {/* Masthead */}
                 <div className="text-center pb-6 mb-6 border-b border-slate-200">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Grace Theological Seminary</p>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{schoolInfo.school_name || 'Grace Theological Seminary'}</p>
                   <h2 className="font-display font-bold text-2xl mt-2">Graduation Report</h2>
                   <p className="text-sm text-slate-500 mt-1">Generated {new Date().toLocaleString()}</p>
                   <p className="text-xs text-slate-500 mt-1">Filters: {gradReportFilterSummary}</p>
@@ -4268,7 +4269,7 @@ const LecturerDashboard = () => {
                 <div className="report-print text-slate-900">
                   {/* Masthead */}
                   <div className="text-center pb-6 mb-6 border-b border-slate-200">
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Grace Theological Seminary</p>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{schoolInfo.school_name || 'Grace Theological Seminary'}</p>
                     <h2 className="font-display font-bold text-2xl mt-2">{setReportData.name}</h2>
                     <p className="text-sm text-slate-500 mt-1">Generated {new Date().toLocaleString()}</p>
                     <p className="text-xs text-slate-500 mt-1">

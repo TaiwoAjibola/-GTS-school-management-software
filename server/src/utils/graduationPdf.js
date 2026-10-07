@@ -353,8 +353,17 @@ const drawFooters = (doc, footerLabel) => {
  */
 export function drawGraduationPdf(
   res,
-  { title, subtitleLines = [], statCards = [], students = [], courses = [], filename = 'graduation-report.pdf' }
+  {
+    title,
+    subtitleLines = [],
+    statCards = [],
+    students = [],
+    courses = [],
+    schoolName = '',
+    filename = 'graduation-report.pdf',
+  }
 ) {
+  const school = (schoolName || '').trim() || 'Grace Theological Seminary'
   const doc = new PDFDocument({
     margin: MARGIN,
     size: 'A4',
@@ -381,7 +390,7 @@ export function drawGraduationPdf(
   let y = MARGIN + 10
 
   doc.font('InterSemi').fontSize(8.5).fillColor(C.indigo)
-  doc.text('GRACE THEOLOGICAL SEMINARY', left, y, {
+  doc.text(school.toUpperCase(), left, y, {
     width: contentW,
     align: 'center',
     characterSpacing: 2.4,
@@ -455,6 +464,6 @@ export function drawGraduationPdf(
     drawStudentPage(doc, student, { courses })
   }
 
-  drawFooters(doc, 'Grace Theological Seminary  •  Graduation Report')
+  drawFooters(doc, `${school}  •  Graduation Report`)
   doc.end()
 }

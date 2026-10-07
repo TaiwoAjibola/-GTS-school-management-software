@@ -1033,9 +1033,16 @@ export const exportGraduationReportPdf = async (req, res, next) => {
 
     const now = new Date()
 
+    let schoolName = ''
+    try {
+      const s = await query("SELECT value FROM settings WHERE key = 'school_name' LIMIT 1")
+      schoolName = s.rows[0]?.value || ''
+    } catch {}
+
     drawGraduationPdf(res, {
       title: 'Graduation Report',
       filename: 'graduation-report.pdf',
+      schoolName,
       subtitleLines: [`Generated: ${now.toLocaleString()}`, `Filters: ${filterLabel}`],
       statCards: [
         { label: 'Graduates', value: filtered.length },
