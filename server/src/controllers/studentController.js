@@ -783,87 +783,222 @@ export const exportStudents = async (req, res, next) => {
   }
 }
 
+const buildGraduationMatrix = async () => {
+  const coursesResult = await query(
+    `SELECT id, title, course_code, start_date, class_day, class_time
+     FROM courses
+     ORDER BY created_at ASC`
+  )
+  const courses = coursesResult.rows
+
+  const matrixResult = await query(
+    `SELECT
+       s.id AS student_id,
+       u.full_name,
+       u.email,
+       s.matric_no,
+       s.status AS student_status,
+       s.cohort_id,
+       co.name AS cohort_name,
+       c.id AS course_id,
+       rr.status AS result_status,
+       rr.score,
+       rr.result_type,
+       e.status AS enrollment_status
+     FROM students s
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN cohorts co ON co.id = s.cohort_id
+     CROSS JOIN courses c
+     LEFT JOIN enrollments e ON e.student_id = s.id AND e.course_id = c.id
+     LEFT JOIN LATERAL (
+       SELECT r.status, r.score, r.result_type
+       FROM results r
+       WHERE r.student_id = s.id AND r.course_id = c.id
+       ORDER BY r.uploaded_at DESC
+       LIMIT 1
+     ) rr ON TRUE
+     ORDER BY u.full_name ASC, c.created_at ASC`
+  )
+
+  const studentMap = {}
+  for (const row of matrixResult.rows) {
+    if (!studentMap[row.student_id]) {
+      studentMap[row.student_id] = {
+        id: row.student_id,
+        full_name: row.full_name,
+        email: row.email,
+        matric_no: row.matric_no,
+        status: row.student_status,
+        cohort_id: row.cohort_id,
+        cohort_name: row.cohort_name,
+        courses: {},
+      }
+    }
+    studentMap[row.student_id].courses[row.course_id] = {
+      result_status: row.result_status,
+      score: row.score,
+      enrollment_status: row.enrollment_status,
+    }
+  }
+
+  const students = Object.values(studentMap).map((student) => {
+    let passed = 0
+    let failed = 0
+    let enrolled = 0
+    for (const c of courses) {
+      const info = student.courses[c.id]
+      if (info?.result_status === 'Pass') passed++
+      else if (info?.result_status === 'Fail') failed++
+      else if (info?.enrollment_status === 'active') enrolled++
+    }
+    return {
+      ...student,
+      passed,
+      failed,
+      enrolled_active: enrolled,
+      total: courses.length,
+      remaining: courses.length - passed,
+      completion_pct: courses.length > 0 ? Math.round((passed / courses.length) * 100) : 0,
+    }
+  })
+
+  return { courses, students }
+}
+
 export const getGraduationMatrix = async (req, res, next) => {
   try {
-    const coursesResult = await query(
-      `SELECT id, title, course_code, start_date, class_day, class_time
-       FROM courses
-       ORDER BY created_at ASC`
-    )
-    const courses = coursesResult.rows
+    const { courses, students } = await buildGraduationMatrix()
+    res.json({ courses, students })
+  } catch (error) {
+    next(error)
+  }
+}
 
-    const matrixResult = await query(
-      `SELECT
-         s.id AS student_id,
-         u.full_name,
-         u.email,
-         s.matric_no,
-         s.status AS student_status,
-         s.cohort_id,
-         co.name AS cohort_name,
-         c.id AS course_id,
-         rr.status AS result_status,
-         rr.score,
-         rr.result_type,
-         e.status AS enrollment_status
-       FROM students s
-       JOIN users u ON u.id = s.user_id
-       LEFT JOIN cohorts co ON co.id = s.cohort_id
-       CROSS JOIN courses c
-       LEFT JOIN enrollments e ON e.student_id = s.id AND e.course_id = c.id
-       LEFT JOIN LATERAL (
-         SELECT r.status, r.score, r.result_type
-         FROM results r
-         WHERE r.student_id = s.id AND r.course_id = c.id
-         ORDER BY r.uploaded_at DESC
-         LIMIT 1
-       ) rr ON TRUE
-       ORDER BY u.full_name ASC, c.created_at ASC`
-    )
+export const exportGraduationReport = async (req, res, next) => {
+  try {
+    const { status = '', cohortId = '', q = '' } = req.query
+    const { courses, students } = await buildGraduationMatrix()
 
-    const studentMap = {}
-    for (const row of matrixResult.rows) {
-      if (!studentMap[row.student_id]) {
-        studentMap[row.student_id] = {
-          id: row.student_id,
-          full_name: row.full_name,
-          email: row.email,
-          matric_no: row.matric_no,
-          status: row.student_status,
-          cohort_id: row.cohort_id,
-          cohort_name: row.cohort_name,
-          courses: {},
-        }
-      }
-      studentMap[row.student_id].courses[row.course_id] = {
-        result_status: row.result_status,
-        score: row.score,
-        enrollment_status: row.enrollment_status,
+    let filtered = students
+    if (status && status !== 'all') filtered = filtered.filter((s) => s.status === status)
+    if (cohortId) filtered = filtered.filter((s) => String(s.cohort_id) === String(cohortId))
+    if (q) {
+      const needle = q.toLowerCase()
+      filtered = filtered.filter(
+        (s) =>
+          (s.full_name || '').toLowerCase().includes(needle) ||
+          (s.matric_no || '').toLowerCase().includes(needle) ||
+          (s.email || '').toLowerCase().includes(needle)
+      )
+    }
+
+    const filterLabel = [
+      status && status !== 'all' ? `Status: ${status}` : null,
+      cohortId ? `Batch: #${cohortId}` : null,
+      q ? `Search: "${q}"` : null,
+    ]
+      .filter(Boolean)
+      .join('  •  ') || 'All students'
+
+    const now = new Date()
+
+    const graduatesRows = [
+      ['Grace Theological Seminary', '', '', '', '', '', '', '', ''],
+      ['Graduation Report', '', '', '', '', '', '', '', ''],
+      [`Generated: ${now.toLocaleString()}`, '', '', '', '', '', '', '', ''],
+      [`Filters: ${filterLabel}`, '', '', '', '', '', '', '', ''],
+      [],
+      [
+        'S/N',
+        'Matric No',
+        'Full Name',
+        'Email',
+        'Batch',
+        'Status',
+        'Courses Passed',
+        'Courses Failed',
+        'Progress %',
+      ],
+      ...filtered.map((s, idx) => [
+        idx + 1,
+        s.matric_no || '',
+        s.full_name,
+        s.email || '',
+        s.cohort_name || '',
+        s.status,
+        s.passed,
+        s.failed,
+        s.completion_pct,
+      ]),
+      [],
+      [
+        `Total: ${filtered.length} student(s)`,
+        '',
+        '',
+        '',
+        '',
+        '',
+        `Passed: ${filtered.reduce((n, s) => n + s.passed, 0)}`,
+        `Failed: ${filtered.reduce((n, s) => n + s.failed, 0)}`,
+        '',
+      ],
+    ]
+
+    const takenRows = [
+      ['Courses Taken', '', '', '', '', '', ''],
+      [`Generated: ${now.toLocaleString()}`, '', '', '', '', '', ''],
+      [],
+      ['S/N', 'Matric No', 'Full Name', 'Course Code', 'Course Title', 'Result', 'Score'],
+    ]
+    let sn = 0
+    for (const s of filtered) {
+      for (const c of courses) {
+        const info = s.courses[c.id]
+        const taken =
+          info && (info.result_status || info.enrollment_status === 'active')
+        if (!taken) continue
+        sn++
+        takenRows.push([
+          sn,
+          s.matric_no || '',
+          s.full_name,
+          c.course_code || '',
+          c.title || '',
+          info.result_status || (info.enrollment_status === 'active' ? 'In Progress' : '—'),
+          info.score ?? '',
+        ])
       }
     }
 
-    const students = Object.values(studentMap).map((student) => {
-      let passed = 0
-      let failed = 0
-      let enrolled = 0
-      for (const c of courses) {
-        const info = student.courses[c.id]
-        if (info?.result_status === 'Pass') passed++
-        else if (info?.result_status === 'Fail') failed++
-        else if (info?.enrollment_status === 'active') enrolled++
-      }
-      return {
-        ...student,
-        passed,
-        failed,
-        enrolled_active: enrolled,
-        total: courses.length,
-        remaining: courses.length - passed,
-        completion_pct: courses.length > 0 ? Math.round((passed / courses.length) * 100) : 0,
-      }
-    })
+    const wb = XLSX.utils.book_new()
 
-    res.json({ courses, students })
+    const ws1 = XLSX.utils.aoa_to_sheet(graduatesRows)
+    ws1['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } },
+    ]
+    ws1['!cols'] = [
+      { wch: 6 }, { wch: 14 }, { wch: 28 }, { wch: 30 },
+      { wch: 18 }, { wch: 13 }, { wch: 16 }, { wch: 16 }, { wch: 11 },
+    ]
+    XLSX.utils.book_append_sheet(wb, ws1, 'Graduates')
+
+    const ws2 = XLSX.utils.aoa_to_sheet(takenRows)
+    ws2['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+    ]
+    ws2['!cols'] = [
+      { wch: 6 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 30 }, { wch: 13 }, { wch: 9 },
+    ]
+    XLSX.utils.book_append_sheet(wb, ws2, 'Courses Taken')
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', 'attachment; filename="graduation-report.xlsx"')
+    res.send(buffer)
   } catch (error) {
     next(error)
   }

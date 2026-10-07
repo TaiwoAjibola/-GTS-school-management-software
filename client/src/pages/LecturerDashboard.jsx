@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -203,6 +203,7 @@ const LecturerDashboard = () => {
   const [graduationSortBy, setGraduationSortBy] = useState('progress')
   const [graduationStatusFilter, setGraduationStatusFilter] = useState('all')
   const [graduationCohortFilter, setGraduationCohortFilter] = useState('')
+  const [showGradReport, setShowGradReport] = useState(false)
   const [lecturers, setLecturers] = useState([])
   const [lecturerForm, setLecturerForm] = useState({ name: '', email: '', phone: '' })
   const [editingLecturerId, setEditingLecturerId] = useState(null)
@@ -708,6 +709,22 @@ const LecturerDashboard = () => {
     return counts
   }, [graduationMatrix.students])
 
+  const gradReportStats = useMemo(() => ({
+    graduates: filteredGraduationStudents.length,
+    totalCourses: graduationMatrix.courses?.length || 0,
+    coursesPassed: filteredGraduationStudents.reduce((sum, student) => sum + (student.passed || 0), 0),
+  }), [filteredGraduationStudents, graduationMatrix.courses])
+
+  const gradReportFilterSummary = useMemo(() => {
+    const parts = []
+    parts.push(graduationStatusFilter && graduationStatusFilter !== 'all' ? graduationStatusFilter : 'All students')
+    if (graduationCohortFilter) {
+      parts.push(cohorts.find((cohort) => String(cohort.id) === graduationCohortFilter)?.name || 'Selected batch')
+    }
+    if (graduationSearch.trim()) parts.push(`Search: “${graduationSearch.trim()}”`)
+    return parts.join(' · ')
+  }, [graduationStatusFilter, graduationCohortFilter, graduationSearch, cohorts])
+
   const currentCourseResultMap = useMemo(() => {
     const map = new Map()
     for (const row of courseResults) {
@@ -1000,6 +1017,26 @@ const LecturerDashboard = () => {
     link.click()
     link.remove()
     URL.revokeObjectURL(href)
+  }
+
+  const downloadGraduationReport = async () => {
+    try {
+      const params = {}
+      if (graduationStatusFilter && graduationStatusFilter !== 'all') params.status = graduationStatusFilter
+      if (graduationCohortFilter) params.cohortId = graduationCohortFilter
+      if (graduationSearch.trim()) params.q = graduationSearch.trim()
+      const response = await apiClient.get('/students/graduation-report', { params, responseType: 'blob' })
+      const href = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = href
+      link.setAttribute('download', 'graduation-report.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(href)
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Unable to download graduation report')
+    }
   }
 
   const uploadStudents = async () => {
@@ -3450,6 +3487,176 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
 
+      {showGradReport ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden isolate">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display font-bold text-slate-900">Graduation Report</h3>
+                <p className="text-sm text-slate-500 mt-0.5">Generated {new Date().toLocaleString()}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5"
+                >
+                  <Printer size={14} /> Print
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadGraduationReport}
+                  className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5"
+                >
+                  <Download size={14} /> Download Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGradReport(false)}
+                  className="rounded-lg p-1 hover:bg-slate-100"
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="report-print text-slate-900">
+                {/* Masthead */}
+                <div className="text-center pb-6 mb-6 border-b border-slate-200">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Grace Theological Seminary</p>
+                  <h2 className="font-display font-bold text-2xl mt-2">Graduation Report</h2>
+                  <p className="text-sm text-slate-500 mt-1">Generated {new Date().toLocaleString()}</p>
+                  <p className="text-xs text-slate-500 mt-1">Filters: {gradReportFilterSummary}</p>
+                  <div className="mt-5 grid grid-cols-3 gap-3 max-w-xl mx-auto">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                      <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">Graduates</p>
+                      <p className="font-display font-bold text-xl mt-0.5">{gradReportStats.graduates}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                      <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">Total Courses</p>
+                      <p className="font-display font-bold text-xl mt-0.5">{gradReportStats.totalCourses}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                      <p className="text-[0.65rem] uppercase tracking-wide text-slate-500">Courses Passed</p>
+                      <p className="font-display font-bold text-xl mt-0.5">{gradReportStats.coursesPassed}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {filteredGraduationStudents.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-slate-500">
+                    No students match the current filters.
+                  </div>
+                ) : (
+                  <>
+                    {/* Section 1 — Graduates */}
+                    <section className="mb-8">
+                      <h4 className="font-display font-bold text-lg mb-3">Graduates</h4>
+                      <div className="overflow-x-auto rounded-xl border border-slate-200">
+                        <table className="w-full text-sm border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50">
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">S/N</th>
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Matric No</th>
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Full Name</th>
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Batch</th>
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Status</th>
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Courses Passed</th>
+                              <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Progress %</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredGraduationStudents.map((student, index) => {
+                              const statusTone =
+                                student.status === 'Graduated' ? 'bg-emerald-100 text-emerald-700'
+                                : student.status === 'Alumni' ? 'bg-indigo-100 text-indigo-700'
+                                : student.status === 'Graduating' ? 'bg-amber-100 text-amber-700'
+                                : student.status === 'Active' ? 'bg-sky-100 text-sky-700'
+                                : 'bg-slate-100 text-slate-600'
+                              return (
+                                <tr key={student.id} className="even:bg-slate-50">
+                                  <td className="px-3 py-2 border-b border-slate-100 text-slate-700">{index + 1}</td>
+                                  <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{student.matric_no || '—'}</td>
+                                  <td className="px-3 py-2 border-b border-slate-100 text-slate-900 font-medium">{student.full_name}</td>
+                                  <td className="px-3 py-2 border-b border-slate-100 text-slate-700">{student.cohort_name || '—'}</td>
+                                  <td className="px-3 py-2 border-b border-slate-100">
+                                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusTone}`}>{student.status || '—'}</span>
+                                  </td>
+                                  <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{student.passed || 0} of {student.total || gradReportStats.totalCourses}</td>
+                                  <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{student.completion_pct ?? 0}%</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    {/* Section 2 — Courses Taken */}
+                    <section>
+                      <h4 className="font-display font-bold text-lg mb-3">Courses Taken</h4>
+                      {filteredGraduationStudents.map((student) => {
+                        const taken = graduationMatrix.courses.filter((course) => {
+                          const info = student.courses?.[course.id]
+                          if (!info) return false
+                          return Boolean(info.result_status) || info.enrollment_status === 'active'
+                        })
+                        if (taken.length === 0) return null
+                        return (
+                          <div key={student.id} className="mb-6">
+                            <div className="flex items-baseline justify-between gap-3 mb-2 pb-1.5 border-b border-slate-200">
+                              <span className="font-semibold text-slate-900">{student.full_name}</span>
+                              <span className="text-xs text-slate-500">
+                                {student.matric_no || '—'}
+                                {student.cohort_name ? ` · ${student.cohort_name}` : ''}
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto rounded-xl border border-slate-200">
+                              <table className="w-full text-sm border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-50">
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Course Code</th>
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Course Title</th>
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Result</th>
+                                    <th className="text-left text-xs uppercase tracking-wide text-slate-500 font-semibold px-3 py-2 border-b border-slate-200 whitespace-nowrap">Score</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {taken.map((course) => {
+                                    const info = student.courses[course.id]
+                                    const isPass = info.result_status === 'Pass'
+                                    const isFail = info.result_status === 'Fail'
+                                    const resultLabel = isPass ? 'Pass' : isFail ? 'Fail' : info.result_status || 'In Progress'
+                                    const resultTone = isPass ? 'bg-emerald-100 text-emerald-700' : isFail ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                                    const hasScore = info.score !== null && info.score !== undefined && info.score !== ''
+                                    return (
+                                      <tr key={course.id} className="even:bg-slate-50">
+                                        <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{course.course_code || '—'}</td>
+                                        <td className="px-3 py-2 border-b border-slate-100 text-slate-900">{course.title}</td>
+                                        <td className="px-3 py-2 border-b border-slate-100">
+                                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${resultTone}`}>{resultLabel}</span>
+                                        </td>
+                                        <td className="px-3 py-2 border-b border-slate-100 text-slate-700 whitespace-nowrap">{hasScore ? info.score : '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </section>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {gradVetting ? (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -4021,6 +4228,13 @@ const LecturerDashboard = () => {
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => setShowGradReport(true)}
+                className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5"
+              >
+                <FileText size={14} /> Report
+              </button>
               <button
                 type="button"
                 onClick={openGraduationCalendarTemplate}

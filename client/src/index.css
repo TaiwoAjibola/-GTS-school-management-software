@@ -344,3 +344,17 @@ table.data-table .truncate-cell { max-width: 16rem; overflow: hidden; text-overf
   .skeleton::after { animation: none; }
   html { scroll-behavior: auto; }
 }
+
+/* — Print — report modal only — */
+@media print {
+  body * { visibility: hidden !important; }
+  .report-print, .report-print * { visibility: visible !important; }
+  .report-print {
+    position: absolute !important;
+    left: 0; top: 0; width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .report-print table { width: 100% !important; }
+}
