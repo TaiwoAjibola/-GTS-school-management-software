@@ -33,15 +33,15 @@ export const login = async (req, res, next) => {
     const user = result.rows[0]
     if (!user) {
       console.log('[LOGIN] User not found')
-      throw httpError(401, 'Invalid credentials')
+      throw httpError(401, 'No account found with this email')
     }
 
     console.log('[LOGIN] Comparing password...')
     const isValid = await bcrypt.compare(password, user.password_hash)
     console.log('[LOGIN] Password valid:', isValid)
-    
+
     if (!isValid) {
-      throw httpError(401, 'Invalid credentials')
+      throw httpError(401, 'Incorrect password')
     }
 
     // Temporarily block student logins as per requirement #7
