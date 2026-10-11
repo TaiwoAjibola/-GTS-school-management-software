@@ -16,6 +16,8 @@ const allowedOrigins = new Set([
   ...env.clientUrls,
   'https://gts-sms-eta.vercel.app',
   'https://gts-backend-pskw.onrender.com',
+  'https://admin.gtslagos.com',
+  'https://api.gtslagos.com',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5189',
