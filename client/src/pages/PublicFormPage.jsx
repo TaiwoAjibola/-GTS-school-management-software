@@ -142,6 +142,10 @@ const PublicFormPage = () => {
     })
   }
 
+  // Stable option identifier: fall back to label when value is empty.
+  const optionKey = (opt) =>
+    (opt.value != null && String(opt.value).trim() !== '') ? opt.value : opt.label
+
   if (loading) {
     return (
       <div className="h-screen overflow-y-auto grid place-items-center bg-slate-50">
@@ -382,21 +386,23 @@ const PublicFormPage = () => {
                           ))}
                         </select>
                       ) : field.field_type === 'multiselect' ? (
-                        <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
                           {field.options?.map(opt => {
-                            const checked = Array.isArray(formData[field.id]) && formData[field.id].includes(opt.value)
+                            const key = optionKey(opt)
+                            const checked = Array.isArray(formData[field.id]) && formData[field.id].includes(key)
                             return (
-                              <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => toggleMulti(field.id, opt.value)}
-                                  className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-                                />
-                                <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                                  {opt.label}
-                                </span>
-                              </label>
+                              <button
+                                type="button"
+                                key={key}
+                                onClick={() => toggleMulti(field.id, key)}
+                                className={`px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                                  checked
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
                             )
                           })}
                           {!field.options?.length && (
@@ -407,13 +413,14 @@ const PublicFormPage = () => {
                         field.options?.length ? (
                           <div className="space-y-2">
                             {field.options.map(opt => {
-                              const checked = Array.isArray(formData[field.id]) && formData[field.id].includes(opt.value)
+                              const key = optionKey(opt)
+                              const checked = Array.isArray(formData[field.id]) && formData[field.id].includes(key)
                               return (
-                                <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                                <label key={key} className="flex items-center gap-3 cursor-pointer group">
                                   <input
                                     type="checkbox"
                                     checked={checked}
-                                    onChange={() => toggleMulti(field.id, opt.value)}
+                                    onChange={() => toggleMulti(field.id, key)}
                                     className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                                   />
                                   <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
