@@ -233,6 +233,7 @@ const LecturerDashboard = () => {
   const [formSubmissions, setFormSubmissions] = useState([])
   const [submissionsLoading, setSubmissionsLoading] = useState(false)
   const [selectedFormForSubmissions, setSelectedFormForSubmissions] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
   const [statusTransitionReason, setStatusTransitionReason] = useState('')
@@ -285,6 +286,13 @@ const LecturerDashboard = () => {
       setSubmissionsLoading(false)
     }
   }
+
+  // Map a submission data key (field id) to its human label for display.
+  const selectedFormFields = forms.find(
+    (f) => String(f.id) === String(selectedFormForSubmissions)
+  )?.fields || []
+  const labelFor = (id) =>
+    selectedFormFields.find((f) => String(f.id) === String(id))?.label || id
 
   const loadProspectiveStudents = async () => {
     setProspectiveStudentsLoading(true)
@@ -389,6 +397,19 @@ const LecturerDashboard = () => {
       }
     } catch (err) {
       notify(err?.response?.data?.message || 'Failed to review submission')
+    }
+  }
+
+  const deleteSubmission = async (submissionId) => {
+    try {
+      await apiClient.delete(`/forms/submissions/${submissionId}`)
+      notify('Submission deleted')
+      setConfirmDeleteId(null)
+      if (selectedFormForSubmissions) {
+        await loadFormSubmissions(selectedFormForSubmissions)
+      }
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to delete submission')
     }
   }
 
@@ -6872,14 +6893,41 @@ const LecturerDashboard = () => {
                                 {sub.status}
                               </span>
                               <span className="text-xs text-slate-400">{new Date(sub.created_at).toLocaleDateString()}</span>
+                              {confirmDeleteId === sub.id ? (
+                                <span className="flex items-center gap-1.5 pl-1 border-l border-slate-200">
+                                  <span className="text-xs text-red-600">Delete?</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSubmission(sub.id)}
+                                    className="text-xs bg-red-600 text-white rounded-lg px-2 py-1 hover:bg-red-700"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="text-xs bg-slate-200 text-slate-700 rounded-lg px-2 py-1 hover:bg-slate-300"
+                                  >
+                                    Cancel
+                                  </button>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(sub.id)}
+                                  className="text-xs text-red-500 hover:text-red-700 hover:underline pl-1"
+                                >
+                                  Delete
+                                </button>
+                              )}
                             </div>
                           </div>
                           {/* Submission data */}
                           <div className="bg-slate-50 rounded-lg p-3 text-sm space-y-1 mb-3">
                             {Object.entries(sub.data || {}).map(([key, value]) => (
                               <div key={key} className="flex gap-2">
-                                <span className="text-slate-500 shrink-0">#{key}:</span>
-                                <span className="text-slate-800">{String(value)}</span>
+                                <span className="text-slate-500 shrink-0">{labelFor(key)}:</span>
+                                <span className="text-slate-800">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
                               </div>
                             ))}
                           </div>
