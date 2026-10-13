@@ -71,9 +71,24 @@ const PublicFormPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
-    setError('')
-    try {
+      setSubmitting(true)
+      setError('')
+
+      const invalid = visibleFields.find(f => {
+        if (!f.required) return false
+        const val = formData[f.id]
+        if (f.field_type === 'multiselect') return !Array.isArray(val) || val.length === 0
+        if (f.field_type === 'checkbox') return Array.isArray(val) ? val.length === 0 : !val
+        return val === '' || val == null
+      })
+      if (invalid) {
+        setError(`"${invalid.label || 'A required field'}" is required`)
+        setSubmitting(false)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
+      try {
       let submitterName = formData.submitter_name || ''
       let submitterEmail = formData.submitter_email || ''
 
