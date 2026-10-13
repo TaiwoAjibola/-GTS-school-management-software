@@ -28,7 +28,7 @@ const PublicFormPage = () => {
         setGraduates(res.data.graduates || [])
         const initial = {}
         res.data.fields.forEach(f => {
-          initial[f.id] = f.field_type === 'checkbox' ? false : ''
+          initial[f.id] = (f.field_type === 'multiselect' || f.field_type === 'checkbox') ? [] : ''
         })
         setFormData(initial)
         if (res.data.fields.some(f => f.field_type === 'availability')) {
@@ -115,6 +115,16 @@ const PublicFormPage = () => {
 
   const handleChange = (fieldId, value) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }))
+  }
+
+  const toggleMulti = (fieldId, value) => {
+    setFormData(prev => {
+      const cur = Array.isArray(prev[fieldId]) ? prev[fieldId] : []
+      const next = cur.includes(value)
+        ? cur.filter(v => v !== value)
+        : [...cur, value]
+      return { ...prev, [fieldId]: next }
+    })
   }
 
   if (loading) {
@@ -357,32 +367,60 @@ const PublicFormPage = () => {
                           ))}
                         </select>
                       ) : field.field_type === 'multiselect' ? (
-                        <select
-                          multiple
-                          required={field.required}
-                          value={formData[field.id] || []}
-                          onChange={(e) => {
-                            const selected = Array.from(e.target.selectedOptions, o => o.value)
-                            handleChange(field.id, selected)
-                          }}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
-                        >
-                          {field.options?.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
+                        <div className="space-y-2">
+                          {field.options?.map(opt => {
+                            const checked = Array.isArray(formData[field.id]) && formData[field.id].includes(opt.value)
+                            return (
+                              <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleMulti(field.id, opt.value)}
+                                  className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                                />
+                                <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                                  {opt.label}
+                                </span>
+                              </label>
+                            )
+                          })}
+                          {!field.options?.length && (
+                            <p className="text-xs text-slate-400">No options configured.</p>
+                          )}
+                        </div>
                       ) : field.field_type === 'checkbox' ? (
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            checked={!!formData[field.id]}
-                            onChange={(e) => handleChange(field.id, e.target.checked)}
-                            className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-                          />
-                          <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
-                            {field.placeholder || 'Yes'}
-                          </span>
-                        </label>
+                        field.options?.length ? (
+                          <div className="space-y-2">
+                            {field.options.map(opt => {
+                              const checked = Array.isArray(formData[field.id]) && formData[field.id].includes(opt.value)
+                              return (
+                                <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleMulti(field.id, opt.value)}
+                                    className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                                  />
+                                  <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                                    {opt.label}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <label className="flex items-center gap-3 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={!!formData[field.id]}
+                              onChange={(e) => handleChange(field.id, e.target.checked)}
+                              className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                            />
+                            <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">
+                              {field.placeholder || 'Yes'}
+                            </span>
+                          </label>
+                        )
                       ) : field.field_type === 'radio' ? (
                         <div className="space-y-2">
                           {field.options?.map(opt => (

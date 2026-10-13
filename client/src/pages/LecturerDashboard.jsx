@@ -7993,8 +7993,8 @@ function FormBuilderDrawer({ form, onClose, onSave }) {
                     </div>
                   </details>
 
-                  {/* Options for select/multiselect/radio */}
-                  {['select', 'multiselect', 'radio'].includes(field.fieldType) && (
+                  {/* Options for select/multiselect/radio/checkbox */}
+                  {['select', 'multiselect', 'radio', 'checkbox'].includes(field.fieldType) && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-slate-700">Options</span>
