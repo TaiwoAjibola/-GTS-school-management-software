@@ -6880,7 +6880,7 @@ const LecturerDashboard = () => {
                         <div key={sub.id} className="border border-slate-200 rounded-xl p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div>
-                              <p className="font-medium text-slate-900">{sub.submitter_name || 'Anonymous'}</p>
+                              {sub.submitter_name && <p className="font-medium text-slate-900">{sub.submitter_name}</p>}
                               {sub.submitter_email && <p className="text-xs text-slate-500">{sub.submitter_email}</p>}
                             </div>
                             <div className="flex items-center gap-2">
