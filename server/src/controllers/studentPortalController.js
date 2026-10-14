@@ -10,7 +10,7 @@ const getStudentId = async (userId) => {
 
 const requireEnrollment = async (studentId, courseId) => {
   const result = await query(
-    "SELECT 1 FROM enrollments WHERE student_id = $1 AND course_id = $2 AND status = 'active' LIMIT 1",
+    'SELECT 1 FROM enrollments WHERE student_id = $1 AND course_id = $2 LIMIT 1',
     [studentId, courseId]
   )
   if (!result.rows.length) throw httpError(403, 'You are not enrolled in this course')
@@ -153,8 +153,9 @@ export const getMyReports = async (req, res, next) => {
     const studentId = await getStudentId(req.user.userId)
     const result = await query(
       `SELECT c.id, c.title, c.course_code, c.min_attendance_required,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'present') AS present_count,
-              COUNT(ar.id) FILTER (WHERE ar.status = 'absent') AS absent_count
+              COUNT(DISTINCT s.id) AS total_sessions,
+              COUNT(ar.id)::int AS present_count,
+              (COUNT(DISTINCT s.id) - COUNT(ar.id))::int AS absent_count
        FROM enrollments e
        JOIN courses c ON c.id = e.course_id
        LEFT JOIN attendance_sessions s ON s.course_id = c.id
@@ -163,12 +164,17 @@ export const getMyReports = async (req, res, next) => {
        GROUP BY c.id, c.title, c.course_code, c.min_attendance_required`,
       [studentId]
     )
-    const rows = result.rows.map((r) => ({
-      ...r,
-      present_count: Number(r.present_count || 0),
-      absent_count: Number(r.absent_count || 0),
-      eligible: r.min_attendance_required != null && Number(r.present_count || 0) >= r.min_attendance_required,
-    }))
+    const rows = result.rows.map((r) => {
+      const present = Number(r.present_count || 0)
+      const total = Number(r.total_sessions || 0)
+      const absent = Math.max(0, total - present)
+      return {
+        ...r,
+        present_count: present,
+        absent_count: absent,
+        eligible: r.min_attendance_required != null && present >= Number(r.min_attendance_required),
+      }
+    })
     res.json(rows)
   } catch (error) {
     next(error)
