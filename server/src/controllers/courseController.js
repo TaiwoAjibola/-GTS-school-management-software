@@ -20,6 +20,7 @@ export const createCourse = async (req, res, next) => {
       endDate,
       classDay,
       classTime,
+      meetLink,
     } = req.body
 
     if (!title || !durationWeeks || minAttendanceRequired === undefined) {
@@ -59,12 +60,13 @@ export const createCourse = async (req, res, next) => {
          class_time,
          lecturer_id,
          lecturer_name,
-         secondary_lecturer_id,
-         secondary_lecturer_name,
-         created_by
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-       RETURNING *`,
+          secondary_lecturer_id,
+          secondary_lecturer_name,
+          created_by,
+          meet_link
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        RETURNING *`,
       [
         title,
         description || null,
@@ -83,6 +85,7 @@ export const createCourse = async (req, res, next) => {
         secondaryLecturerId || null,
         secondaryLecturerName || null,
         req.user.userId,
+        meetLink || null,
       ]
     )
 
@@ -218,23 +221,26 @@ export const updateCourse = async (req, res, next) => {
       throw httpError(400, 'endDate cannot be earlier than startDate')
     }
 
+    const meetLink = req.body.meet_link
+
     await query(
       `UPDATE courses SET
-         title = $1,
-         description = $2,
-         course_code = $3,
-         duration_weeks = $4,
-         min_attendance_required = $5,
-         has_assignment = $6,
-         has_exam = $7,
-         requires_score = $8,
-         lecturer_name = $9,
-         secondary_lecturer_name = $10,
-         start_date = $11,
-         end_date = $12,
-         class_day = $13,
-         class_time = $14
-       WHERE id = $15`,
+        title = $1,
+        description = $2,
+        course_code = $3,
+        duration_weeks = $4,
+        min_attendance_required = $5,
+        has_assignment = $6,
+        has_exam = $7,
+        requires_score = $8,
+        lecturer_name = $9,
+        secondary_lecturer_name = $10,
+        start_date = $11,
+        end_date = $12,
+        class_day = $13,
+        class_time = $14
+        ${meetLink !== undefined ? ', meet_link = $15' : ''}
+      WHERE id = $${meetLink !== undefined ? 16 : 15}`,
       [
         title,
         description || null,
@@ -250,7 +256,7 @@ export const updateCourse = async (req, res, next) => {
         endDate || null,
         classDay || null,
         classTime || null,
-        courseId,
+        ...(meetLink !== undefined ? [meetLink || null, courseId] : [courseId]),
       ]
     )
 

@@ -117,10 +117,11 @@ export const getStudentResults = async (req, res, next) => {
 
     const result = await query(
       `SELECT r.id, r.score, r.status, c.title AS course_title
-       FROM results r
-       JOIN courses c ON c.id = r.course_id
-       WHERE r.student_id = $1
-       ORDER BY r.uploaded_at DESC`,
+        FROM results r
+        JOIN courses c ON c.id = r.course_id
+        WHERE r.student_id = $1
+          AND (r.published IS NULL OR r.published = TRUE)
+        ORDER BY r.uploaded_at DESC`,
       [student.id]
     )
 

@@ -68,6 +68,35 @@ export const updateSettingsBulk = async (req, res, next) => {
   }
 }
 
+// Safe, public read of branding/contact settings only.
+// Intentionally excludes any secret keys (smtp_pass, smtp_user, api keys, etc.)
+const PUBLIC_SETTING_KEYS = [
+  'school_name',
+  'short_name',
+  'school_email',
+  'school_phone',
+  'school_address',
+  'logo_url',
+  'academic_year',
+  'current_session',
+]
+
+export const getPublicSettings = async (req, res, next) => {
+  try {
+    const result = await query(
+      'SELECT key, value FROM settings WHERE key = ANY($1)',
+      [PUBLIC_SETTING_KEYS]
+    )
+    const settings = {}
+    for (const row of result.rows) {
+      settings[row.key] = row.value
+    }
+    res.json(settings)
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const getSetting = async (req, res, next) => {
   try {
     const { key } = req.params

@@ -1,0 +1,2 @@
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS meet_link TEXT;
+ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS meet_link TEXT;

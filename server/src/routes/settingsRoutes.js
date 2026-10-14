@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   getAllSettings,
+  getPublicSettings,
   getSetting,
   updateSetting,
   updateSettingsBulk,
@@ -8,6 +9,9 @@ import {
 import { authenticate, authorize } from '../middleware/auth.js'
 
 const router = Router()
+
+// Public, safe branding read — no secrets, no auth required.
+router.get('/public', getPublicSettings)
 
 router.use(authenticate)
 router.get('/', authorize('admin'), getAllSettings)

@@ -412,6 +412,14 @@ export const unlockPublicQuiz = async (req, res, next) => {
     if (!examResult.rows.length) throw httpError(404, 'Quiz not found')
     const exam = examResult.rows[0]
 
+    const now = new Date()
+    if (exam.open_at && now < new Date(exam.open_at)) {
+      throw httpError(403, 'This exam is not open yet')
+    }
+    if (exam.close_at && now > new Date(exam.close_at)) {
+      throw httpError(403, 'This exam is now closed')
+    }
+
     const deliveryResult = await query(
       `SELECT d.id AS delivery_id, d.student_id, d.access_code,
               u.full_name AS student_name, u.email AS student_email
@@ -479,6 +487,14 @@ export const submitPublicQuiz = async (req, res, next) => {
     )
     if (!examResult.rows.length) throw httpError(404, 'Quiz not found')
     const exam = examResult.rows[0]
+
+    const now = new Date()
+    if (exam.open_at && now < new Date(exam.open_at)) {
+      throw httpError(403, 'This exam is not open yet')
+    }
+    if (exam.close_at && now > new Date(exam.close_at)) {
+      throw httpError(403, 'This exam is now closed')
+    }
 
     const deliveryResult = await client.query(
       `SELECT d.id AS delivery_id, d.student_id
@@ -636,6 +652,155 @@ export const sendExamResults = async (req, res, next) => {
     }
 
     res.json({ sent, failed, errors, total: submissions.length })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const submitStudentExam = async (req, res, next) => {
+  const client = await pool.connect()
+  try {
+    const examId = Number(req.params.examId)
+    if (!examId) throw httpError(400, 'Valid examId is required')
+
+    const { answers, type } = req.body || {}
+    if (!type || !['essay', 'assignment'].includes(type)) {
+      throw httpError(400, 'type must be essay or assignment')
+    }
+
+    const studentResult = await client.query(
+      'SELECT id FROM students WHERE user_id = $1',
+      [req.user.userId]
+    )
+    const student = studentResult.rows[0]
+    if (!student) throw httpError(404, 'Student profile not found')
+    const studentId = student.id
+
+    const examResult = await client.query(
+      `SELECT ex.id, ex.course_id, ex.batch_id, ex.exam_type,
+              c.min_attendance_required
+       FROM exams ex
+       JOIN courses c ON c.id = ex.course_id
+       WHERE ex.id = $1`,
+      [examId]
+    )
+    if (!examResult.rows.length) throw httpError(404, 'Exam not found')
+    const exam = examResult.rows[0]
+
+    const enrollmentResult = await client.query(
+      `SELECT id FROM enrollments
+       WHERE course_id = $1 AND student_id = $2 AND status IN ('active', 'completed', 'failed')
+       LIMIT 1`,
+      [exam.course_id, studentId]
+    )
+    if (!enrollmentResult.rows.length) {
+      throw httpError(403, 'You are not eligible to submit this exam')
+    }
+
+    const attendanceResult = await client.query(
+      `SELECT COUNT(*)::int AS attendance_count
+       FROM attendance_records ar
+       JOIN attendance_sessions sa ON sa.id = ar.session_id
+       WHERE sa.course_id = $1
+         AND ($2::int IS NULL OR sa.batch_id = $2)
+         AND ar.student_id = $3`,
+      [exam.course_id, exam.batch_id, studentId]
+    )
+    const attendanceCount = attendanceResult.rows[0].attendance_count
+    const minRequired = Number(exam.min_attendance_required || 0)
+    if (attendanceCount < minRequired) {
+      throw httpError(403, 'You are not eligible to submit this exam')
+    }
+
+    const existing = await client.query(
+      'SELECT id FROM exam_submissions WHERE exam_id = $1 AND student_id = $2',
+      [examId, studentId]
+    )
+    if (existing.rows.length) {
+      throw httpError(400, 'Already submitted')
+    }
+
+    const insert = await client.query(
+      `INSERT INTO exam_submissions (exam_id, student_id, answers, status, submitted_at)
+       VALUES ($1, $2, $3, 'pending_marking', NOW())
+       RETURNING id`,
+      [examId, studentId, JSON.stringify(answers || {})]
+    )
+
+    res.status(201).json({ submissionId: insert.rows[0].id, status: 'pending_marking' })
+  } catch (error) {
+    next(error)
+  } finally {
+    client.release()
+  }
+}
+
+export const markSubmission = async (req, res, next) => {
+  const client = await pool.connect()
+  try {
+    const examId = Number(req.params.id)
+    const submissionId = Number(req.params.submissionId)
+    if (!examId) throw httpError(400, 'Valid examId is required')
+    if (!submissionId) throw httpError(400, 'Valid submissionId is required')
+
+    const { score, feedback } = req.body || {}
+    const gradedBy = req.user.userId
+
+    if (score === undefined || score === null || score === '') {
+      throw httpError(400, 'score is required')
+    }
+    const numericScore = Number(score)
+    if (Number.isNaN(numericScore) || numericScore < 0 || numericScore > 100) {
+      throw httpError(400, 'score must be between 0 and 100')
+    }
+
+    await client.query('BEGIN')
+
+    const update = await client.query(
+      `UPDATE exam_submissions
+       SET status = 'marked', feedback_text = $1, graded_by = $2, graded_at = NOW()
+       WHERE id = $3 AND exam_id = $4
+       RETURNING *`,
+      [feedback || null, gradedBy, submissionId, examId]
+    )
+    if (!update.rows.length) throw httpError(404, 'Submission not found')
+
+    await client.query(
+      `INSERT INTO results (course_id, batch_id, student_id, result_type, score, status, published, uploaded_by)
+       SELECT e.course_id, e.batch_id, s.student_id, 'Exam', $1,
+              (CASE WHEN $1 >= 50 THEN 'Pass' ELSE 'Fail' END), FALSE, $2
+       FROM exams e, exam_submissions s
+       WHERE e.id = $3 AND s.id = $4
+       ON CONFLICT (course_id, student_id, result_type)
+       DO UPDATE SET score = EXCLUDED.score, status = EXCLUDED.status,
+                     published = FALSE, uploaded_by = EXCLUDED.uploaded_by`,
+      [numericScore, gradedBy, examId, submissionId]
+    )
+
+    await client.query('COMMIT')
+    res.json(update.rows[0])
+  } catch (error) {
+    await client.query('ROLLBACK')
+    next(error)
+  } finally {
+    client.release()
+  }
+}
+
+export const publishExamResults = async (req, res, next) => {
+  try {
+    const examId = Number(req.params.id)
+    if (!examId) throw httpError(400, 'Valid examId is required')
+
+    const result = await query(
+      `UPDATE results
+       SET published = TRUE, published_at = NOW()
+       WHERE course_id = (SELECT course_id FROM exams WHERE id = $1)
+         AND result_type = 'Exam'`,
+      [examId]
+    )
+
+    res.json({ published: true, updated: result.rowCount })
   } catch (error) {
     next(error)
   }

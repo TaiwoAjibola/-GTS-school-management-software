@@ -20,6 +20,7 @@ import credentialRoutes from './credentialRoutes.js'
 import reportRoutes from './reportRoutes.js'
 import bookMinistryRoutes from './bookMinistryRoutes.js'
 import graduatingSetRoutes from './graduatingSetRoutes.js'
+import studentPortalRoutes from './studentPortalRoutes.js'
 
 const router = Router()
 
@@ -60,5 +61,6 @@ router.use('/credentials', credentialRoutes)
 router.use('/reports', reportRoutes)
 router.use('/book-ministry', bookMinistryRoutes)
 router.use('/graduation-sets', graduatingSetRoutes)
+router.use('/student', studentPortalRoutes)
 
 export default router

@@ -12,6 +12,9 @@ import {
   submitPublicQuiz,
   listExamSubmissions,
   sendExamResults,
+  submitStudentExam,
+  markSubmission,
+  publishExamResults,
 } from '../controllers/examController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
@@ -32,5 +35,8 @@ router.post('/:examId/send-results', authorize('lecturer', 'admin'), sendExamRes
 router.post('/', authorize('lecturer', 'admin'), createExam)
 router.post('/:examId/send', authorize('lecturer', 'admin'), sendExam)
 router.delete('/:examId', authorize('lecturer', 'admin'), deleteExam)
+router.post('/:examId/student-submit', authenticate, authorize('student'), submitStudentExam)
+router.patch('/:id/submissions/:submissionId/mark', authorize('lecturer', 'admin'), markSubmission)
+router.post('/:id/publish-results', authorize('lecturer', 'admin'), publishExamResults)
 
 export default router

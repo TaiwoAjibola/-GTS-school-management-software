@@ -18,6 +18,7 @@ const allowedOrigins = new Set([
   'https://gts-backend-pskw.onrender.com',
   'https://admin.gtslagos.com',
   'https://api.gtslagos.com',
+  'https://lms.gtslagos.com',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5189',
