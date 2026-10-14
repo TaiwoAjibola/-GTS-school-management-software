@@ -116,7 +116,7 @@ export const getStudentResults = async (req, res, next) => {
     }
 
     const result = await query(
-      `SELECT r.id, r.score, r.status, c.title AS course_title
+      `SELECT r.id, r.score, r.status, c.course_code, c.title AS course_title
         FROM results r
         JOIN courses c ON c.id = r.course_id
         WHERE r.student_id = $1
