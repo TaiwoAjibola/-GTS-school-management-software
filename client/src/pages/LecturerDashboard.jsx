@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer, Trash2 } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer, Trash2, KeyRound } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -7,6 +7,8 @@ import Badge from '../components/ui/Badge'
 import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
 import { useAuth } from '../context/AuthContext'
+
+const DEFAULT_STUDENT_PASSWORD = 'Student123!'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
@@ -95,6 +97,7 @@ const LecturerDashboard = () => {
     comments: '',
     status: 'Prospective',
     cohortId: '',
+    password: '',
   })
   const [studentUploadFile, setStudentUploadFile] = useState(null)
   const [courseUploadFile, setCourseUploadFile] = useState(null)
@@ -951,6 +954,7 @@ const LecturerDashboard = () => {
         comments: studentForm.comments,
         status: studentForm.status,
         cohortId: studentForm.cohortId ? Number(studentForm.cohortId) : undefined,
+        ...(studentForm.password ? { password: studentForm.password } : {}),
       })
 
       setStudentForm({
@@ -961,6 +965,7 @@ const LecturerDashboard = () => {
         comments: '',
         status: 'Prospective',
         cohortId: '',
+        password: '',
       })
       await Promise.all([loadAllStudents(), loadGraduationMatrix()])
       notify('Student created successfully')
@@ -3353,6 +3358,33 @@ const LecturerDashboard = () => {
                     <option value="Graduated">Graduated</option>
                     <option value="Alumni">Alumni</option>
                   </select>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5">
+                      <KeyRound size={12} className="text-indigo-600" /> Password (optional)
+                    </label>
+                    <input
+                      className="w-full border rounded-lg px-3 py-2"
+                      type="text"
+                      placeholder={`Default: ${DEFAULT_STUDENT_PASSWORD}`}
+                      value={studentForm.password}
+                      onChange={(event) => setStudentForm((prev) => ({ ...prev, password: event.target.value }))}
+                    />
+                    <div className="mt-1.5 flex items-center justify-between gap-2 rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2">
+                      <p className="text-xs text-indigo-700 flex items-center gap-1.5">
+                        <KeyRound size={11} />
+                        Default sign-in password:
+                        <code className="font-mono font-semibold">{DEFAULT_STUDENT_PASSWORD}</code>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(DEFAULT_STUDENT_PASSWORD)}
+                        className="shrink-0 rounded-md p-1 text-indigo-600 hover:bg-white"
+                        title="Copy default password"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                  </div>
                   <select
                     className="w-full border rounded-lg px-3 py-2"
                     value={studentForm.cohortId || ''}

@@ -18,7 +18,12 @@ import {
   ArrowUpRight,
   Layers,
   Database,
+  Copy,
+  Check,
+  KeyRound,
 } from 'lucide-react'
+
+const DEFAULT_STUDENT_PASSWORD = 'Student123!'
 import { useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -41,7 +46,7 @@ const AdminDashboard = () => {
   const [students, setStudents] = useState([])
   const [courses, setCourses] = useState([])
   const [analytics, setAnalytics] = useState(null)
-  const [form, setForm] = useState({ fullName: '', email: '', phone: '', status: 'Active' })
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', status: 'Active', password: '' })
 
   const load = async () => {
     const [studentRes, courseRes, analyticsRes] = await Promise.all([
@@ -60,8 +65,10 @@ const AdminDashboard = () => {
 
   const createStudent = async (event) => {
     event.preventDefault()
-    await apiClient.post('/students', form)
-    setForm({ fullName: '', email: '', phone: '', status: 'Active' })
+    const payload = { ...form }
+    if (!payload.password) delete payload.password
+    await apiClient.post('/students', payload)
+    setForm({ fullName: '', email: '', phone: '', status: 'Active', password: '' })
     await load()
   }
 
@@ -281,6 +288,35 @@ const AdminDashboard = () => {
                       Alumni & Graduating map to indigo · sky tones
                     </p>
                   </div>
+                  <div>
+                    <label className="field-label flex items-center gap-1.5">
+                      <KeyRound size={12} className="text-[#4F46E5]" />
+                      Password (optional)
+                    </label>
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder={`Default: ${DEFAULT_STUDENT_PASSWORD}`}
+                      value={form.password}
+                      onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                    />
+                    <div className="mt-1.5 flex items-center justify-between gap-2 rounded-lg bg-[#EEF2FF] border border-[#E0E7FF] px-3 py-2">
+                      <p className="text-xs text-[#4338CA] flex items-center gap-1.5">
+                        <KeyRound size={11} />
+                        Default sign-in password:
+                        <code className="font-mono font-semibold">{DEFAULT_STUDENT_PASSWORD}</code>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(DEFAULT_STUDENT_PASSWORD)}
+                        className="shrink-0 rounded-md p-1 text-[#4F46E5] hover:bg-white"
+                        title="Copy default password"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                  </div>
+
                   <button type="submit" className="btn btn-primary btn-sm lift mt-1 w-full justify-center">
                     <UserPlus size={16} />
                     Create Student
