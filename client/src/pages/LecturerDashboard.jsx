@@ -11,6 +11,7 @@ import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
 import SettingsBookMinistryPanel from '../components/SettingsBookMinistryPanel'
+import LmsIntegrationPanel from '../components/LmsIntegrationPanel'
 
 const CLASS_DAY_INDEX = {
   Sunday: 0,
@@ -6293,6 +6294,7 @@ const LecturerDashboard = () => {
                   <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit mt-4">
                     {[
                       { key: 'book-ministry', label: 'Book Ministry' },
+                      { key: 'lms', label: 'Student LMS' },
                       { key: 'website', label: 'Website / Forms Embed' },
                     ].map(({ key, label }) => (
                       <button key={key} type="button" onClick={() => setIntegrationsSubTab(key)} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${integrationsSubTab === key ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -6312,6 +6314,8 @@ const LecturerDashboard = () => {
                       <SettingsBookMinistryPanel notify={notify} />
                     </div>
                   </div>
+                ) : integrationsSubTab === 'lms' ? (
+                  <LmsIntegrationPanel notify={notify} />
                 ) : (
                   <div className="space-y-4">
                     <div className="card card-hover rounded-[24px] border border-slate-200 shadow-sm p-5 bg-white">

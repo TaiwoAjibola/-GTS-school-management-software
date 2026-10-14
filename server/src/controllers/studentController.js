@@ -726,8 +726,8 @@ export const getStudent = async (req, res, next) => {
     if (!studentId) throw httpError(400, 'Invalid studentId')
 
     const result = await query(
-      `SELECT s.id, s.matric_no, s.student_number, s.phone, s.status, s.comments, s.profile_image_url,
-              s.cohort_id, u.full_name, u.email,
+      `SELECT s.id, s.user_id, s.matric_no, s.student_number, s.phone, s.status, s.comments, s.profile_image_url,
+              s.cohort_id, u.full_name, u.email, u.is_active,
               co.name AS cohort_name,
               COALESCE(json_agg(json_build_object('id', ss.id, 'statusName', ss.status_name)) FILTER (WHERE ss.id IS NOT NULL), '[]'::json) AS statuses
        FROM students s
@@ -735,7 +735,7 @@ export const getStudent = async (req, res, next) => {
        LEFT JOIN student_statuses ss ON ss.student_id = s.id
        LEFT JOIN cohorts co ON co.id = s.cohort_id
        WHERE s.id = $1
-       GROUP BY s.id, u.full_name, u.email, co.name`,
+       GROUP BY s.id, s.user_id, u.full_name, u.email, u.is_active, co.name`,
       [studentId]
     )
 

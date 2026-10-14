@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, X, Mail, Phone, GraduationCap, BookOpen, Award, Layers, Clock, Activity, History as HistoryIcon, Sparkles, Hash, Building2 } from 'lucide-react'
+import { ArrowLeft, User, X, Mail, Phone, GraduationCap, BookOpen, Award, Layers, Clock, Activity, History as HistoryIcon, Sparkles, Hash, Building2, KeyRound, Send, ShieldCheck } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
@@ -75,6 +75,41 @@ export default function StudentProfilePage() {
   const navigate = useNavigate()
 
   const [student, setStudent] = useState(null)
+  const [toast, setToast] = useState('')
+  const notify = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2800) }
+  const [sendingReset, setSendingReset] = useState(false)
+  const [settingPw, setSettingPw] = useState(false)
+  const [showPwForm, setShowPwForm] = useState(false)
+  const [newPw, setNewPw] = useState('')
+
+  const sendPasswordReset = async () => {
+    if (!student?.email) return
+    setSendingReset(true)
+    try {
+      await apiClient.post('/auth/forgot-password', { email: student.email })
+      notify(`Password reset email sent to ${student.email}`)
+    } catch (e) {
+      notify(e?.response?.data?.message || e.message || 'Failed to send reset email')
+    } finally {
+      setSendingReset(false)
+    }
+  }
+
+  const setStudentPassword = async () => {
+    if (newPw.length < 6) { notify('Password must be at least 6 characters'); return }
+    if (!student?.user_id) { notify('Missing user reference'); return }
+    setSettingPw(true)
+    try {
+      await apiClient.patch(`/credentials/${student.user_id}/password`, { password: newPw })
+      notify('Student password updated')
+      setNewPw('')
+      setShowPwForm(false)
+    } catch (e) {
+      notify(e?.response?.data?.message || e.message || 'Failed to set password')
+    } finally {
+      setSettingPw(false)
+    }
+  }
   const [history, setHistory] = useState({ enrollments: [], activities: [] })
   const [allCourses, setAllCourses] = useState([])
   const [cohorts, setCohorts] = useState([])
@@ -430,6 +465,70 @@ export default function StudentProfilePage() {
               <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
                 <GraduationCap size={13} className="text-[#6366f1]" />
                 <span>{allCourses.length} total modules in catalogue</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-[24px] !bg-white card-hover !p-0 overflow-hidden isolate border-slate-200">
+            <div className="p-5">
+              <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-slate-500 mb-3">Sign-in &amp; Access</p>
+              <div className="flex items-center gap-2 text-sm text-slate-700 mb-1.5">
+                <Mail size={14} className="text-[#6366f1]" />
+                <span className="font-medium break-all">{student?.email}</span>
+              </div>
+              <div className="mb-3">
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${student?.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  <ShieldCheck size={11} /> {student?.is_active ? 'Account active' : 'Account disabled'}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={sendPasswordReset}
+                  disabled={sendingReset}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#EEF2FF] text-[#4338ca] border border-[#c7d2fe] px-3 py-2 text-sm font-semibold hover:bg-[#e0e7ff] disabled:opacity-60 transition-colors"
+                >
+                  <Send size={14} /> {sendingReset ? 'Sending…' : 'Send password reset'}
+                </button>
+                {showPwForm ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="text"
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                      placeholder="New password (min 6 chars)"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#6366f1] outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={setStudentPassword}
+                        disabled={settingPw}
+                        className="flex-1 rounded-xl bg-[#4F46E5] text-white px-3 py-2 text-sm font-semibold hover:bg-[#4338ca] disabled:opacity-60"
+                      >
+                        {settingPw ? 'Saving…' : 'Set password'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowPwForm(false); setNewPw('') }}
+                        className="rounded-xl bg-slate-100 text-slate-600 px-3 py-2 text-sm font-medium hover:bg-slate-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowPwForm(true)}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 text-slate-600 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+                  >
+                    <KeyRound size={14} /> Set new password
+                  </button>
+                )}
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  Passwords are stored hashed — admins can send a reset or set a new one, but cannot view the current password.
+                </p>
               </div>
             </div>
           </Card>
@@ -885,6 +984,12 @@ export default function StudentProfilePage() {
       ) : null}
       </div>
       </div>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
+          {toast}
+        </div>
+      )}
     </AppShell>
   )
 }
