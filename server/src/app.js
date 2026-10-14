@@ -27,9 +27,14 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5050',
 ])
 
+// Allow exact matches plus any Vercel preview deployment (for LMS testing
+// before the lms.gtslagos.com custom domain DNS has propagated).
+const isAllowedOrigin = (origin) =>
+  !origin || allowedOrigins.has(origin) || origin.endsWith('.vercel.app')
+
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true)
     } else {
       callback(null, false)
@@ -43,7 +48,7 @@ const corsOptions = {
 // during Render cold-starts when the process is still initialising.
 app.use((req, res, next) => {
   const origin = req.headers.origin
-  if (origin && allowedOrigins.has(origin)) {
+  if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)
     res.setHeader('Vary', 'Origin')
     res.setHeader('Access-Control-Allow-Credentials', 'true')
