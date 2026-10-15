@@ -660,7 +660,7 @@ export const exportSubmissions = async (req, res, next) => {
     const form = formResult.rows[0]
 
     const fieldsResult = await query(
-      `SELECT id, label, field_type, "order" FROM form_fields WHERE form_id = $1 ORDER BY "order"`,
+      `SELECT id, label, field_type, order_index FROM form_fields WHERE form_id = $1 ORDER BY order_index`,
       [formId]
     )
     const fields = fieldsResult.rows
