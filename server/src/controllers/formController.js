@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import * as XLSX from 'xlsx'
 import { pool, query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
+import { sendRawEmail } from '../services/emailService.js'
 
 const STUDENT_COLUMNS = ['full_name', 'email', 'phone', 'comments']
 
@@ -714,3 +715,111 @@ export const exportSubmissions = async (req, res, next) => {
     next(error)
   }
 }
+
+// Replace {{ variable }} tokens, matching against the provided map (case-insensitive
+// on the variable name). Unknown tokens are replaced with an empty string.
+const substitute = (template, vars) => {
+  if (!template) return ''
+  return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, key) => {
+    const k = String(key).trim().toLowerCase()
+    const matchKey = Object.keys(vars).find((vk) => vk.toLowerCase() === k)
+    if (!matchKey) return ''
+    const val = vars[matchKey]
+    return val == null ? '' : String(val)
+  })
+}
+
+// Resolve a recipient email for a submission: prefer the logged-in submitter's
+// email, otherwise the value entered in a 'email' type field. Returns null if none.
+const resolveSubmissionEmail = (sub, fields) => {
+  if (sub.submitter_email) return sub.submitter_email
+  const emailField = fields.find((f) => f.field_type === 'email')
+  if (!emailField) return null
+  const v = sub.data?.[emailField.id]
+  if (Array.isArray(v)) return v[0] || null
+  return v || null
+}
+
+// Build the variable map used for {{ Field }} substitution.
+const buildSubmissionVars = (sub, fields) => {
+  const vars = {
+    submitter_name: sub.submitter_name || '',
+    submitter_email: sub.submitter_email || '',
+  }
+  for (const f of fields) {
+    let v = sub.data?.[f.id]
+    if (Array.isArray(v)) v = v.join(', ')
+    else if (v != null && typeof v === 'object') v = JSON.stringify(v)
+    vars[f.label] = v == null ? '' : String(v)
+  }
+  return vars
+}
+
+export const emailSubmissions = async (req, res, next) => {
+  try {
+    const { formId } = req.params
+    const { submissionIds, subject, body } = req.body
+
+    if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
+      throw httpError(400, 'submissionIds is required')
+    }
+    if (!subject || !body) {
+      throw httpError(400, 'subject and body are required')
+    }
+
+    const formCheck = await query('SELECT id FROM forms WHERE id = $1', [formId])
+    if (!formCheck.rows.length) throw httpError(404, 'Form not found')
+
+    const fieldsResult = await query(
+      `SELECT id, label, field_type FROM form_fields WHERE form_id = $1 ORDER BY order_index`,
+      [formId]
+    )
+    const fields = fieldsResult.rows
+
+    const subsResult = await query(
+      `SELECT fs.*, u.full_name AS submitter_name, u.email AS submitter_email
+       FROM form_submissions fs
+       LEFT JOIN users u ON u.id = fs.submitter_id
+       WHERE fs.form_id = $1 AND fs.id = ANY($2::int[])`,
+      [formId, submissionIds]
+    )
+    const subs = subsResult.rows
+
+    const sentIds = []
+    const skippedIds = []
+    const failedIds = []
+
+    for (const sub of subs) {
+      // IMPORTANT: this endpoint only reads submissions and sends mail.
+      // It never mutates form_submissions rows.
+      const email = resolveSubmissionEmail(sub, fields)
+      if (!email) {
+        skippedIds.push(sub.id)
+        continue
+      }
+
+      const vars = buildSubmissionVars(sub, fields)
+      const subj = substitute(subject, vars)
+      const html = substitute(body, vars).replace(/\n/g, '<br>')
+
+      try {
+        await sendRawEmail({ to: email, subject: subj, html })
+        sentIds.push(sub.id)
+      } catch {
+        failedIds.push(sub.id)
+      }
+    }
+
+    res.json({
+      sent: sentIds.length,
+      skipped: skippedIds.length,
+      failed: failedIds.length,
+      total: subs.length,
+      skippedIds,
+      failedIds,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+

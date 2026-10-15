@@ -14,6 +14,7 @@ import { fmtDate, fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
 import SettingsBookMinistryPanel from '../components/SettingsBookMinistryPanel'
 import LmsIntegrationPanel from '../components/LmsIntegrationPanel'
+import EmailComposeModal from '../components/EmailComposeModal'
 
 const CLASS_DAY_INDEX = {
   Sunday: 0,
@@ -238,6 +239,9 @@ const LecturerDashboard = () => {
   const [submissionsLoading, setSubmissionsLoading] = useState(false)
   const [selectedFormForSubmissions, setSelectedFormForSubmissions] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [emailSelection, setEmailSelection] = useState(() => new Set())
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailModalSubs, setEmailModalSubs] = useState([])
   const [validNextStatuses, setValidNextStatuses] = useState([])
   const [statusHistory, setStatusHistory] = useState([])
   const [statusTransitionReason, setStatusTransitionReason] = useState('')
@@ -297,6 +301,22 @@ const LecturerDashboard = () => {
   )?.fields || []
   const labelFor = (id) =>
     selectedFormFields.find((f) => String(f.id) === String(id))?.label || id
+
+  const toggleEmailSelect = (id) => {
+    setEmailSelection((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const openEmailFor = (ids) => {
+    const list = formSubmissions.filter((s) => ids.includes(s.id))
+    if (!list.length) return
+    setEmailModalSubs(list)
+    setEmailModalOpen(true)
+  }
 
   const loadProspectiveStudents = async () => {
     setProspectiveStudentsLoading(true)
@@ -6879,6 +6899,32 @@ const LecturerDashboard = () => {
                   <h3 className="font-semibold text-slate-900">Submissions {formSubmissions.length > 0 && <span className="text-sm font-normal text-slate-500">({formSubmissions.length})</span>}</h3>
                   <div className="flex items-center gap-2">
                     {formSubmissions.length > 0 && (
+                      <>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={emailSelection.size > 0 && emailSelection.size === formSubmissions.length}
+                            onChange={(e) =>
+                              setEmailSelection(
+                                e.target.checked
+                                  ? new Set(formSubmissions.map((s) => s.id))
+                                  : new Set()
+                              )
+                            }
+                          />
+                          Select all
+                        </label>
+                        <button
+                          type="button"
+                          disabled={emailSelection.size === 0}
+                          onClick={() => openEmailFor([...emailSelection])}
+                          className="btn btn-sm btn-ghost lift text-indigo-600 hover:bg-indigo-50 gap-1 disabled:opacity-40"
+                        >
+                          <Mail size={14} /> Email selected ({emailSelection.size})
+                        </button>
+                      </>
+                    )}
+                    {formSubmissions.length > 0 && (
                       <button
                         type="button"
                         onClick={async () => {
@@ -6915,9 +6961,16 @@ const LecturerDashboard = () => {
                       {formSubmissions.map((sub) => (
                         <div key={sub.id} className="border border-slate-200 rounded-xl p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <div>
-                              {sub.submitter_name && <p className="font-medium text-slate-900">{sub.submitter_name}</p>}
-                              {sub.submitter_email && <p className="text-xs text-slate-500">{sub.submitter_email}</p>}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={emailSelection.has(sub.id)}
+                                onChange={() => toggleEmailSelect(sub.id)}
+                              />
+                              <div>
+                                {sub.submitter_name && <p className="font-medium text-slate-900">{sub.submitter_name}</p>}
+                                {sub.submitter_email && <p className="text-xs text-slate-500">{sub.submitter_email}</p>}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -6929,6 +6982,13 @@ const LecturerDashboard = () => {
                                 {sub.status}
                               </span>
                               <span className="text-xs text-slate-400">{new Date(sub.created_at).toLocaleDateString()}</span>
+                              <button
+                                type="button"
+                                onClick={() => openEmailFor([sub.id])}
+                                className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline pl-1"
+                              >
+                                Email
+                              </button>
                               {confirmDeleteId === sub.id ? (
                                 <span className="flex items-center gap-1.5 pl-1 border-l border-slate-200">
                                   <span className="text-xs text-red-600">Delete?</span>
@@ -7000,6 +7060,22 @@ const LecturerDashboard = () => {
               </div>
             </div>
           )}
+
+          <EmailComposeModal
+            open={emailModalOpen}
+            onClose={() => setEmailModalOpen(false)}
+            formId={selectedFormForSubmissions}
+            submissions={emailModalSubs}
+            fields={selectedFormFields}
+            onSent={(res) => {
+              setEmailModalOpen(false)
+              setEmailSelection(new Set())
+              notify(
+                `Emailed ${res.sent}, skipped ${res.skipped}` +
+                  (res.failed ? `, ${res.failed} failed` : '')
+              )
+            }}
+          />
 
           {/* Form Builder Drawer */}
           {formBuilderOpen && (
