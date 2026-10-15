@@ -6883,17 +6883,17 @@ const LecturerDashboard = () => {
                         type="button"
                         onClick={async () => {
                           try {
-                            const token = localStorage.getItem('token')
-                            const res = await fetch(`${api}/forms/${selectedFormForSubmissions}/submissions/export`, {
-                              headers: { Authorization: `Bearer ${token}` }
-                            })
-                            if (!res.ok) throw new Error('Export failed')
-                            const blob = await res.blob()
-                            const url = URL.createObjectURL(blob)
+                            const response = await apiClient.get(
+                              `/forms/${selectedFormForSubmissions}/submissions/export`,
+                              { responseType: 'blob' }
+                            )
+                            const url = URL.createObjectURL(response.data)
                             const a = document.createElement('a')
                             a.href = url
                             a.download = `${selectedFormForSubmissions}-submissions.xlsx`
+                            document.body.appendChild(a)
                             a.click()
+                            a.remove()
                             URL.revokeObjectURL(url)
                           } catch (err) { console.error(err) }
                         }}
