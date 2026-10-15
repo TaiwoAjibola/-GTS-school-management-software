@@ -97,7 +97,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
         subject,
         body,
       })
-      onSent?.(res)
+      onSent?.(res.data)
     } catch (e) {
       setError(e?.message || 'Failed to send emails')
       setSending(false)
