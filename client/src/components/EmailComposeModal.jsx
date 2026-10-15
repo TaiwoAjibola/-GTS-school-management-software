@@ -57,6 +57,12 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     return buildVars(emailable[0], fields)
   }, [emailable, fields])
 
+  // Variables available for THIS form: reserved ones + every form-field label.
+  const variables = useMemo(
+    () => ['submitter_name', 'submitter_email', ...fields.map((f) => f.label)],
+    [fields]
+  )
+
   useEffect(() => {
     if (!open) return
     setError('')
@@ -83,12 +89,6 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
   const previewSubject = substitute(subject, previewVars)
   const previewBody = substitute(body, previewVars)
-
-  // Variables available for THIS form: reserved ones + every form-field label.
-  const variables = useMemo(
-    () => ['submitter_name', 'submitter_email', ...fields.map((f) => f.label)],
-    [fields]
-  )
 
   const insertToken = (label) => {
     const token = `{{${label}}}`
