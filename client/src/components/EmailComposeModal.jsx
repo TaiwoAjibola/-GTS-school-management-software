@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { X, Send, Mail, FileText, Loader2 } from 'lucide-react'
 import apiClient from '../api/client'
 
@@ -42,6 +42,10 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
+  const subjectRef = useRef(null)
+  const bodyRef = useRef(null)
+  const activeRef = useRef('subject')
+
   const emailable = useMemo(
     () => submissions.filter((s) => resolveEmail(s, fields)),
     [submissions, fields]
@@ -79,6 +83,29 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
   const previewSubject = substitute(subject, previewVars)
   const previewBody = substitute(body, previewVars)
+
+  // Variables available for THIS form: reserved ones + every form-field label.
+  const variables = useMemo(
+    () => ['submitter_name', 'submitter_email', ...fields.map((f) => f.label)],
+    [fields]
+  )
+
+  const insertToken = (label) => {
+    const token = `{{${label}}}`
+    const isBody = activeRef.current === 'body'
+    const ref = isBody ? bodyRef.current : subjectRef.current
+    if (!ref) return
+    const start = ref.selectionStart ?? ref.value.length
+    const end = ref.selectionEnd ?? ref.value.length
+    const next = ref.value.slice(0, start) + token + ref.value.slice(end)
+    if (isBody) setBody(next)
+    else setSubject(next)
+    requestAnimationFrame(() => {
+      ref.focus()
+      const pos = start + token.length
+      ref.setSelectionRange(pos, pos)
+    })
+  }
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {
@@ -147,29 +174,47 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1">Subject</label>
-            <input
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. Thank you for your submission"
-            />
+              <input
+                ref={subjectRef}
+                onFocus={() => (activeRef.current = 'subject')}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="e.g. Thank you for your submission"
+              />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1">
               Message
             </label>
-            <textarea
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              rows={6}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Use {{Field Label}} to personalize, e.g. Dear {{Full Name}}"
-            />
-            <p className="text-[11px] text-slate-400 mt-1">
-              Available tokens: <code className="font-mono">{'{{submitter_name}}'}</code>,{' '}
-              <code className="font-mono">{'{{submitter_email}}'}</code>, and any form field label.
-            </p>
+              <textarea
+                ref={bodyRef}
+                onFocus={() => (activeRef.current = 'body')}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                rows={6}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Use {{Field Label}} to personalize, e.g. Dear {{Full Name}}"
+              />
+              <div className="mt-2">
+                <p className="text-[11px] text-slate-400 mb-1.5">
+                  Click a variable to insert it{activeRef.current === 'body' ? ' into the message' : ' into the subject'}:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {variables.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => insertToken(v)}
+                      className="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 text-xs font-medium hover:bg-indigo-100"
+                      title={`Insert {{${v}}}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
           </div>
 
           {emailable.length > 0 && (
