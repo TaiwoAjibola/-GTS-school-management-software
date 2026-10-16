@@ -758,7 +758,7 @@ const buildSubmissionVars = (sub, fields) => {
 export const emailSubmissions = async (req, res, next) => {
   try {
     const { formId } = req.params
-    const { submissionIds, subject, body } = req.body
+    const { submissionIds, subject, body, formatHtml } = req.body
 
     if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
       throw httpError(400, 'submissionIds is required')
@@ -800,7 +800,10 @@ export const emailSubmissions = async (req, res, next) => {
 
       const vars = buildSubmissionVars(sub, fields)
       const subj = substitute(subject, vars)
-      const html = substitute(body, vars).replace(/\n/g, '<br>')
+      const messageHtml = substitute(body, vars).replace(/\n/g, '<br>')
+      const html = formatHtml && formatHtml.trim()
+        ? substitute(formatHtml, { ...vars, message: messageHtml })
+        : messageHtml
 
       try {
         await sendRawEmail({ to: email, subject: subj, html })

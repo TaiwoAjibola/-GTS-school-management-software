@@ -37,6 +37,9 @@ function substitute(template, vars) {
 export default function EmailComposeModal({ open, onClose, formId, submissions, fields, onSent }) {
   const [templates, setTemplates] = useState([])
   const [templateId, setTemplateId] = useState('')
+  const [formats, setFormats] = useState([])
+  const [formatId, setFormatId] = useState('')
+  const [design, setDesign] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
@@ -44,6 +47,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
   const subjectRef = useRef(null)
   const bodyRef = useRef(null)
+  const formatRef = useRef(null)
   const activeRef = useRef('subject')
 
   const emailable = useMemo(
@@ -68,12 +72,14 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     setError('')
     setSending(false)
     setTemplateId('')
+    setFormatId('')
+    setDesign('')
     setSubject('')
     setBody('')
-    apiClient
-      .get('/email-processes')
-      .then((data) => setTemplates(Array.isArray(data) ? data : []))
-      .catch(() => setTemplates([]))
+    Promise.all([
+      apiClient.get('/email-processes').then((data) => setTemplates(Array.isArray(data) ? data : [])).catch(() => setTemplates([])),
+      apiClient.get('/email-formats').then((data) => setFormats(Array.isArray(data) ? data : [])).catch(() => setFormats([])),
+    ])
   }, [open])
 
   if (!open) return null
@@ -87,18 +93,72 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     }
   }
 
+  const loadFormat = (id) => {
+    setFormatId(id)
+    if (!id) {
+      setDesign('')
+      return
+    }
+    const f = formats.find((x) => String(x.id) === String(id))
+    if (f) setDesign(f.html || '')
+  }
+
+  const selectedFormat = formats.find((x) => String(x.id) === String(formatId))
+  const isDefaultFormat = !!selectedFormat?.is_default
+
+  const saveFormat = async () => {
+    const name = window.prompt('Name this email format (design):')
+    if (!name) return
+    try {
+      const res = await apiClient.post('/email-formats', { name, html: design })
+      setFormats((prev) => [res.data, ...prev])
+      setFormatId(String(res.data.id))
+    } catch (e) {
+      setError(e?.message || 'Failed to save format')
+    }
+  }
+
+  const updateFormat = async () => {
+    if (!selectedFormat || isDefaultFormat) return
+    try {
+      const res = await apiClient.patch(`/email-formats/${selectedFormat.id}`, { html: design })
+      setFormats((prev) => prev.map((f) => (String(f.id) === String(res.data.id) ? res.data : f)))
+    } catch (e) {
+      setError(e?.message || 'Failed to update format')
+    }
+  }
+
+  const removeFormat = async () => {
+    if (!selectedFormat || isDefaultFormat) return
+    if (!window.confirm(`Delete format "${selectedFormat.name}"?`)) return
+    try {
+      await apiClient.delete(`/email-formats/${selectedFormat.id}`)
+      setFormats((prev) => prev.filter((f) => String(f.id) !== String(selectedFormat.id)))
+      setFormatId('')
+      setDesign('')
+    } catch (e) {
+      setError(e?.message || 'Failed to delete format')
+    }
+  }
+
+  const previewMessageHtml = substitute(body, previewVars).replace(/\n/g, '<br>')
+  const previewHtml = design
+    ? substitute(design, { ...previewVars, message: previewMessageHtml })
+    : previewMessageHtml
+
   const previewSubject = substitute(subject, previewVars)
-  const previewBody = substitute(body, previewVars)
 
   const insertToken = (label) => {
     const token = `{{${label}}}`
-    const isBody = activeRef.current === 'body'
-    const ref = isBody ? bodyRef.current : subjectRef.current
+    const target = activeRef.current
+    const ref =
+      target === 'format' ? formatRef.current : target === 'body' ? bodyRef.current : subjectRef.current
     if (!ref) return
     const start = ref.selectionStart ?? ref.value.length
     const end = ref.selectionEnd ?? ref.value.length
     const next = ref.value.slice(0, start) + token + ref.value.slice(end)
-    if (isBody) setBody(next)
+    if (target === 'format') setDesign(next)
+    else if (target === 'body') setBody(next)
     else setSubject(next)
     requestAnimationFrame(() => {
       ref.focus()
@@ -123,6 +183,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
         submissionIds: emailable.map((s) => s.id),
         subject,
         body,
+        formatHtml: design || null,
       })
       onSent?.(res.data)
     } catch (e) {
@@ -157,7 +218,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Use saved template (optional)</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Quick text template (optional)</label>
             <select
               className="w-full border rounded-lg px-3 py-2 text-sm"
               value={templateId}
@@ -170,6 +231,73 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Email format (design)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="flex-1 min-w-[180px] border rounded-lg px-3 py-2 text-sm bg-white"
+                  value={formatId}
+                  onChange={(e) => loadFormat(e.target.value)}
+                >
+                  <option value="">— No design (plain text) —</option>
+                  {formats.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}{f.is_default ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={saveFormat}
+                  disabled={!design.trim()}
+                  className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                  title="Save the current HTML design as a new reusable format"
+                >
+                  + Save as format
+                </button>
+                {selectedFormat && !isDefaultFormat && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={updateFormat}
+                      className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                    >
+                      Update
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeFormat}
+                      className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                Pick a design, then edit its HTML below. Use <code className="font-mono">{'{{message}}'}</code> where your message goes and <code className="font-mono">{'{{submitter_name}}'}</code> / <code className="font-mono">{'{{Field}}'}</code> for personalization.
+              </p>
+            </div>
+
+            {design && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Design HTML <span className="font-normal text-slate-400">(click variables to insert)</span>
+                </label>
+                <textarea
+                  ref={formatRef}
+                  onFocus={() => (activeRef.current = 'format')}
+                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono text-xs"
+                  rows={8}
+                  value={design}
+                  onChange={(e) => setDesign(e.target.value)}
+                  placeholder="<div>...</div>"
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -199,7 +327,13 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
               />
               <div className="mt-2">
                 <p className="text-[11px] text-slate-400 mb-1.5">
-                  Click a variable to insert it{activeRef.current === 'body' ? ' into the message' : ' into the subject'}:
+                  Click a variable to insert it
+                  {activeRef.current === 'format'
+                    ? ' into the design HTML'
+                    : activeRef.current === 'body'
+                    ? ' into the message'
+                    : ' into the subject'}
+                  :
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {variables.map((v) => (
@@ -224,8 +358,8 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
               </div>
               <div className="text-sm font-medium text-slate-800">{previewSubject || <span className="text-slate-400">—</span>}</div>
               <div
-                className="text-sm text-slate-600 mt-1 whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: previewBody.replace(/\n/g, '<br>') || '<span class="text-slate-400">—</span>' }}
+                className="mt-1 overflow-x-auto"
+                dangerouslySetInnerHTML={{ __html: previewHtml || '<span class="text-slate-400">—</span>' }}
               />
             </div>
           )}
