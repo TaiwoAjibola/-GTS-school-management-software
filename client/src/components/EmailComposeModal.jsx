@@ -81,10 +81,10 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     setSubject('')
     setBody('')
     Promise.all([
-      apiClient.get('/email-processes').then((data) => setTemplates(Array.isArray(data) ? data : [])).catch(() => setTemplates([])),
+      apiClient.get('/email-processes').then((res) => setTemplates(Array.isArray(res.data) ? res.data : [])).catch(() => setTemplates([])),
       apiClient
         .get('/email-formats')
-        .then((data) => setFormats(Array.isArray(data) ? data : []))
+        .then((res) => setFormats(Array.isArray(res.data) ? res.data : []))
         .catch((e) => {
           setFormats([])
           const status = e?.response?.status
