@@ -16,6 +16,8 @@ import lecturerRoutes from './lecturerRoutes.js'
 import settingsRoutes from './settingsRoutes.js'
 import formRoutes from './formRoutes.js'
 import emailProcessRoutes from './emailProcessRoutes.js'
+import emailFormatRoutes from './emailFormatRoutes.js'
+import imageRoutes from './imageRoutes.js'
 import credentialRoutes from './credentialRoutes.js'
 import reportRoutes from './reportRoutes.js'
 import bookMinistryRoutes from './bookMinistryRoutes.js'
@@ -58,6 +60,7 @@ router.use('/settings', settingsRoutes)
 router.use('/forms', formRoutes)
 router.use('/email-processes', emailProcessRoutes)
 router.use('/email-formats', emailFormatRoutes)
+router.use('/images', imageRoutes)
 router.use('/credentials', credentialRoutes)
 router.use('/reports', reportRoutes)
 router.use('/book-ministry', bookMinistryRoutes)
