@@ -12,6 +12,7 @@ const DEFAULT_STUDENT_PASSWORD = 'Student123!'
 import { lecturerNavGroups } from '../constants/lecturerNav'
 import { fmtDate, fmtDateRange } from '../utils/formatDate'
 import EmailProcesses from '../components/EmailProcesses'
+import EmailFormats from '../components/EmailFormats'
 import SettingsBookMinistryPanel from '../components/SettingsBookMinistryPanel'
 import LmsIntegrationPanel from '../components/LmsIntegrationPanel'
 import EmailComposeModal from '../components/EmailComposeModal'
@@ -2028,6 +2029,7 @@ const LecturerDashboard = () => {
     assignments: 'Exams',
     lecturers: 'Lecturers',
     'email-process': 'Email Process',
+    'email-formats': 'Email Formats',
     forms: 'Forms',
     reports: 'Reports',
     'book-ministry': 'Book Ministry',
@@ -6175,6 +6177,14 @@ const LecturerDashboard = () => {
         <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
           <div className="flex-1 min-h-0 overflow-auto">
             <EmailProcesses notify={notify} />
+          </div>
+        </div>
+      ) : null}
+
+      {section === 'email-formats' ? (
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-auto">
+            <EmailFormats notify={notify} />
           </div>
         </div>
       ) : null}

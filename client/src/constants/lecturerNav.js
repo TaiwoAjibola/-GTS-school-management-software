@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, UserPlus, Users, Layers, UserCog, Settings, FileText, BarChart3, Mail, Library } from 'lucide-react'
+import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, UserPlus, Users, Layers, UserCog, Settings, FileText, BarChart3, Mail, Library, LayoutTemplate } from 'lucide-react'
 
 export const lecturerNavItems = [
   { to: '/lecturer/courses', label: 'Courses', icon: BookOpen },
@@ -13,6 +13,7 @@ export const lecturerNavItems = [
   { to: '/lecturer/reports', label: 'Reports', icon: BarChart3 },
   { to: '/lecturer/book-ministry', label: 'Book Ministry', icon: Library },
   { to: '/lecturer/email-process', label: 'Email Process', icon: Mail },
+  { to: '/lecturer/email-formats', label: 'Email Formats', icon: LayoutTemplate },
   { to: '/lecturer/lecturers', label: 'Lecturers', icon: UserCog },
   { to: '/lecturer/settings', label: 'Settings', icon: Settings },
 ]
@@ -53,6 +54,7 @@ export const lecturerNavGroups = [
     label: 'System',
     items: [
       { to: '/lecturer/email-process', label: 'Email Process', icon: Mail },
+      { to: '/lecturer/email-formats', label: 'Email Formats', icon: LayoutTemplate },
       { to: '/lecturer/lecturers', label: 'Lecturers', icon: UserCog },
       { to: '/lecturer/settings', label: 'Settings', icon: Settings },
     ],

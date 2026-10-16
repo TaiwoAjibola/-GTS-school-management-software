@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { X, Send, Mail, FileText, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, Send, Mail, FileText, Loader2, ExternalLink } from 'lucide-react'
 import apiClient from '../api/client'
+import WysiwygEditor from './WysiwygEditor'
 
 function resolveEmail(sub, fields) {
   if (sub.submitter_email) return sub.submitter_email
@@ -47,8 +49,8 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
   const subjectRef = useRef(null)
   const bodyRef = useRef(null)
-  const formatRef = useRef(null)
   const activeRef = useRef('subject')
+  const navigate = useNavigate()
 
   const emailable = useMemo(
     () => submissions.filter((s) => resolveEmail(s, fields)),
@@ -151,14 +153,12 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   const insertToken = (label) => {
     const token = `{{${label}}}`
     const target = activeRef.current
-    const ref =
-      target === 'format' ? formatRef.current : target === 'body' ? bodyRef.current : subjectRef.current
+    const ref = target === 'body' ? bodyRef.current : subjectRef.current
     if (!ref) return
     const start = ref.selectionStart ?? ref.value.length
     const end = ref.selectionEnd ?? ref.value.length
     const next = ref.value.slice(0, start) + token + ref.value.slice(end)
-    if (target === 'format') setDesign(next)
-    else if (target === 'body') setBody(next)
+    if (target === 'body') setBody(next)
     else setSubject(next)
     requestAnimationFrame(() => {
       ref.focus()
@@ -235,7 +235,16 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
           <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Email format (design)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-500">Email format (design)</label>
+                <button
+                  type="button"
+                  onClick={() => navigate('/lecturer/email-formats')}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
+                >
+                  Manage formats <ExternalLink size={12} />
+                </button>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   className="flex-1 min-w-[180px] border rounded-lg px-3 py-2 text-sm bg-white"
@@ -254,7 +263,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
                   onClick={saveFormat}
                   disabled={!design.trim()}
                   className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-                  title="Save the current HTML design as a new reusable format"
+                  title="Save the current design as a new reusable format"
                 >
                   + Save as format
                 </button>
@@ -278,23 +287,21 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-1.5">
-                Pick a design, then edit its HTML below. Use <code className="font-mono">{'{{message}}'}</code> where your message goes and <code className="font-mono">{'{{submitter_name}}'}</code> / <code className="font-mono">{'{{Field}}'}</code> for personalization.
+                Pick a design, then edit it with the toolbar below. Use <code className="font-mono">{'{{message}}'}</code> where your message goes and <code className="font-mono">{'{{submitter_name}}'}</code> / <code className="font-mono">{'{{Field}}'}</code> for personalization.
               </p>
             </div>
 
             {design && (
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">
-                  Design HTML <span className="font-normal text-slate-400">(click variables to insert)</span>
-                </label>
-                <textarea
-                  ref={formatRef}
-                  onFocus={() => (activeRef.current = 'format')}
-                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono text-xs"
-                  rows={8}
+                <WysiwygEditor
+                  key={formatId || 'scratch'}
                   value={design}
-                  onChange={(e) => setDesign(e.target.value)}
-                  placeholder="<div>...</div>"
+                  onChange={(html) => setDesign(html)}
+                  tokens={[
+                    { token: '{{message}}', label: 'Message' },
+                    { token: '{{submitter_name}}', label: 'Submitter Name' },
+                    { token: '{{submitter_email}}', label: 'Submitter Email' },
+                  ]}
                 />
               </div>
             )}
@@ -327,13 +334,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
               />
               <div className="mt-2">
                 <p className="text-[11px] text-slate-400 mb-1.5">
-                  Click a variable to insert it
-                  {activeRef.current === 'format'
-                    ? ' into the design HTML'
-                    : activeRef.current === 'body'
-                    ? ' into the message'
-                    : ' into the subject'}
-                  :
+                  Click a variable to insert it {activeRef.current === 'body' ? ' into the message' : ' into the subject'}:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {variables.map((v) => (

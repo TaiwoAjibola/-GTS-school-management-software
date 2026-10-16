@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen } from 'lucide-react'
+import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen, LayoutTemplate } from 'lucide-react'
 import apiClient from '../api/client'
+import WysiwygEditor from './WysiwygEditor'
 
 const EXAM_FALLBACK_VARIABLES = [
   { id: 'fb_exam_title', variable_key: 'exam_title', display_label: 'Exam Title', category: 'exam', example_value: 'Midterm Exam' },
@@ -14,9 +15,11 @@ export default function EmailProcesses({ notify }) {
   const pollRef = useRef(null)
   useEffect(() => () => clearTimeout(pollRef.current), [])
   const [templates, setTemplates] = useState([])
+  const [formats, setFormats] = useState([])
+  const [formatId, setFormatId] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState(null)
-  const [form, setForm] = useState({ name: '', subject_template: '', body_template: '' })
+  const [form, setForm] = useState({ name: '', subject_template: '', body_template: '', rich_body: '' })
   const [isNew, setIsNew] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -116,22 +119,42 @@ export default function EmailProcesses({ notify }) {
     }
   }
 
-  useEffect(() => { loadTemplates(); loadVariables() }, [])
+  useEffect(() => { loadTemplates(); loadVariables(); loadFormats() }, [])
+
+  const loadFormats = async () => {
+    try {
+      const res = await apiClient.get('/email-formats')
+      setFormats(res.data || [])
+    } catch { /* formats optional */ }
+  }
 
   const selectTemplate = (t) => {
     setSelectedId(t.id)
     setIsNew(false)
+    setFormatId('')
     setForm({
       name: t.name || '',
       subject_template: t.subject_template || '',
       body_template: t.body_template || '',
+      rich_body: t.rich_body || '',
     })
   }
 
   const newTemplate = () => {
     setSelectedId(null)
     setIsNew(true)
-    setForm({ name: '', subject_template: '', body_template: '' })
+    setFormatId('')
+    setForm({ name: '', subject_template: '', body_template: '', rich_body: '' })
+  }
+
+  const loadFormatDesign = (id) => {
+    setFormatId(id)
+    if (!id) {
+      setForm((prev) => ({ ...prev, rich_body: '' }))
+      return
+    }
+    const f = formats.find((x) => String(x.id) === String(id))
+    if (f) setForm((prev) => ({ ...prev, rich_body: f.html || '' }))
   }
 
   const handleSave = async () => {
@@ -157,7 +180,7 @@ export default function EmailProcesses({ notify }) {
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return
     try {
       await apiClient.delete(`/email-processes/${id}`)
-      if (selectedId === id) { setSelectedId(null); setIsNew(false); setForm({ name: '', subject_template: '', body_template: '' }) }
+      if (selectedId === id) { setSelectedId(null); setIsNew(false); setFormatId(''); setForm({ name: '', subject_template: '', body_template: '', rich_body: '' }) }
       notify('Template deleted')
       await loadTemplates()
     } catch { notify('Delete failed') }
@@ -602,6 +625,45 @@ export default function EmailProcesses({ notify }) {
                   onChange={(e) => setForm((prev) => ({ ...prev, body_template: e.target.value }))}
                 />
               </label>
+
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibibold text-slate-500 mb-1">Email design (optional saved format)</label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="flex-1 min-w-[180px] border rounded-lg px-3 py-2 text-sm bg-white"
+                      value={formatId}
+                      onChange={(e) => loadFormatDesign(e.target.value)}
+                    >
+                      <option value="">— No design (use plain body above) —</option>
+                      {formats.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}{f.is_default ? ' (default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    Pick a saved design, then write your message in the body above — it fills the design&apos;s{' '}
+                    <code className="font-mono">{'{{message}}'}</code> slot. Edit the design with the toolbar.
+                  </p>
+                </div>
+
+                {form.rich_body && (
+                  <div>
+                    <WysiwygEditor
+                      key={formatId || 'scratch'}
+                      value={form.rich_body}
+                      onChange={(html) => setForm((prev) => ({ ...prev, rich_body: html }))}
+                      tokens={[
+                        { token: '{{message}}', label: 'Message' },
+                        { token: '{{student_name}}', label: 'Student Name' },
+                        { token: '{{course_name}}', label: 'Course' },
+                      ]}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
               <button type="button" onClick={() => { setSelectedId(null); setIsNew(false) }}

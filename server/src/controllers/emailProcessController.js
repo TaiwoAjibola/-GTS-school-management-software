@@ -280,6 +280,7 @@ export const previewProcess = async (req, res, next) => {
     const subject = render(process.subject_template)
     let body
     if (process.rich_body) {
+      sampleValues.message = toHtml(render(process.body_template))
       body = render(process.rich_body)
     } else {
       const rendered = render(process.body_template)
@@ -436,6 +437,7 @@ export const previewWithStudent = async (req, res, next) => {
     let body
     let richBody = null
     if (process.rich_body) {
+      values.message = toHtml(render(process.body_template))
       body = render(process.rich_body)
       richBody = body
     } else {
@@ -589,6 +591,7 @@ export const sendTemplate = async (req, res, next) => {
       const subject = render(process.subject_template)
       let body
       if (process.rich_body) {
+        values.message = toHtml(render(process.body_template))
         body = render(process.rich_body)
       } else {
         const rendered = render(process.body_template)
