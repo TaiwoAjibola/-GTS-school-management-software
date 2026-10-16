@@ -40,6 +40,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   const [templates, setTemplates] = useState([])
   const [templateId, setTemplateId] = useState('')
   const [formats, setFormats] = useState([])
+  const [formatsError, setFormatsError] = useState('')
   const [formatId, setFormatId] = useState('')
   const [design, setDesign] = useState('')
   const [subject, setSubject] = useState('')
@@ -73,6 +74,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     if (!open) return
     setError('')
     setSending(false)
+    setFormatsError('')
     setTemplateId('')
     setFormatId('')
     setDesign('')
@@ -80,7 +82,18 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     setBody('')
     Promise.all([
       apiClient.get('/email-processes').then((data) => setTemplates(Array.isArray(data) ? data : [])).catch(() => setTemplates([])),
-      apiClient.get('/email-formats').then((data) => setFormats(Array.isArray(data) ? data : [])).catch(() => setFormats([])),
+      apiClient
+        .get('/email-formats')
+        .then((data) => setFormats(Array.isArray(data) ? data : []))
+        .catch((e) => {
+          setFormats([])
+          const status = e?.response?.status
+          setFormatsError(
+            status
+              ? `Could not load formats (HTTP ${status}). You may be signed out — try refreshing.`
+              : e?.message || 'Could not load formats'
+          )
+        }),
     ])
   }, [open])
 
@@ -287,7 +300,9 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-1.5">
-                {formats.length === 0
+                {formatsError
+                  ? <span className="text-red-500">{formatsError}</span>
+                  : formats.length === 0
                   ? 'No formats saved yet — create one in Email Formats (or use the quick text template above).'
                   : 'Pick a design, then edit it with the toolbar below. Use '}
                 {formats.length > 0 && (
