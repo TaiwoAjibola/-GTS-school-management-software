@@ -287,7 +287,15 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-1.5">
-                Pick a design, then edit it with the toolbar below. Use <code className="font-mono">{'{{message}}'}</code> where your message goes and <code className="font-mono">{'{{submitter_name}}'}</code> / <code className="font-mono">{'{{Field}}'}</code> for personalization.
+                {formats.length === 0
+                  ? 'No formats saved yet — create one in Email Formats (or use the quick text template above).'
+                  : 'Pick a design, then edit it with the toolbar below. Use '}
+                {formats.length > 0 && (
+                  <>
+                    <code className="font-mono">{'{{message}}'}</code> where your message goes and{' '}
+                    <code className="font-mono">{'{{submitter_name}}'}</code> / <code className="font-mono">{'{{Field}}'}</code> for personalization.
+                  </>
+                )}
               </p>
             </div>
 

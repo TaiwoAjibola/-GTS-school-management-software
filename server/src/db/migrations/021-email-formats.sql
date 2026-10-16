@@ -42,7 +42,7 @@ BEGIN
     (
       'Card',
       'Modern card-style layout with a soft background and rounded content card.',
-      '<div style="margin:0;padding:0;background:#eef2ff;font-family:''Segoe UI'',Arial,sans-serif;">
+      '<div style="margin:0;padding:0;background:#eef2ff;font-family:"Segoe UI",Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 0;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;">
