@@ -126,6 +126,7 @@ const LecturerDashboard = () => {
     dueDate: '',
     examType: 'essay',
     planId: '',
+    durationMinutes: '',
     questions: [{ text: '', options: [{ key: 'A', label: '' }, { key: 'B', label: '' }], correctAnswer: 'A' }],
   })
   const [examEligible, setExamEligible] = useState([])
@@ -1860,6 +1861,8 @@ const LecturerDashboard = () => {
         notify('Each MCQ must have a correct answer matching one of its options')
         return
       }
+    } else if (examForm.examType === 'paper') {
+      questions = [] // paper exams have no preset questions
     } else {
       questions = examForm.questions.filter((q) => (q.text || '').trim()).map((q) => ({ text: q.text.trim() }))
       if (!questions.length) {
@@ -1876,6 +1879,9 @@ const LecturerDashboard = () => {
         description: examForm.description.trim(),
         dueDate: examForm.dueDate || null,
         examType: examForm.examType,
+        durationMinutes: examForm.examType === 'mcq' && Number(examForm.durationMinutes) > 0
+          ? Number(examForm.durationMinutes)
+          : null,
         questions,
       })
       setExamForm({
@@ -1884,6 +1890,7 @@ const LecturerDashboard = () => {
         dueDate: '',
         examType: 'essay',
         planId: '',
+        durationMinutes: '',
         questions: [{ text: '', options: [{ key: 'A', label: '' }, { key: 'B', label: '' }], correctAnswer: 'A' }],
       })
       await loadExams(selectedCourseId)
@@ -5466,10 +5473,11 @@ const LecturerDashboard = () => {
 
                   <div>
                     <p className="text-sm font-medium text-slate-700 mb-1.5">Exam Type</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { key: 'essay', label: 'Essay', hint: 'Questions emailed to students' },
                         { key: 'mcq', label: 'MCQ', hint: 'In-system quiz + access ID' },
+                        { key: 'paper', label: 'Paper', hint: 'One formatted paper written in the LMS' },
                       ].map((t) => (
                         <button
                           key={t.key}
@@ -5479,7 +5487,7 @@ const LecturerDashboard = () => {
                             examType: t.key,
                             questions: t.key === 'mcq'
                               ? (prev.examType === 'mcq' ? prev.questions : [blankMcqQuestion()])
-                              : (prev.examType === 'essay' ? prev.questions : [{ text: '' }]),
+                              : (prev.examType !== 'mcq' ? prev.questions : [{ text: '' }]),
                           }))}
                           className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
                             examForm.examType === t.key ? 'border-sky-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'
@@ -5492,10 +5500,30 @@ const LecturerDashboard = () => {
                     </div>
                   </div>
 
-                  <input className="w-full border rounded-lg px-3 py-2.5 text-sm" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input className="w-full border rounded-lg px-3 py-2.5 text-sm" placeholder="Exam title (e.g. 2026 Plan — Final Exam)" value={examForm.title} onChange={(event) => setExamForm((prev) => ({ ...prev, title: event.target.value }))} required />
+                    {examForm.examType === 'mcq' && (
+                      <label className="text-sm text-slate-600">
+                        Timer (minutes — optional)
+                        <input
+                          type="number"
+                          min="1"
+                          max="600"
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                          placeholder="e.g. 60 — blank = untimed"
+                          value={examForm.durationMinutes}
+                          onChange={(event) => setExamForm((prev) => ({ ...prev, durationMinutes: event.target.value }))}
+                        />
+                      </label>
+                    )}
+                  </div>
                   <textarea className="w-full min-h-20 border rounded-lg px-3 py-2 text-sm" placeholder="Instructions / description" value={examForm.description} onChange={(event) => setExamForm((prev) => ({ ...prev, description: event.target.value }))} />
 
-                  {examForm.examType === 'mcq' ? (
+                  {examForm.examType === 'paper' ? (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Paper exams are not timed and have no preset questions — students write and format a single paper (headings, bold, lists, images) in the LMS and submit it here. You will score it and leave feedback in the Marking section.
+                    </div>
+                  ) : examForm.examType === 'mcq' ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-slate-700">MCQ Questions</p>
@@ -5661,7 +5689,7 @@ const LecturerDashboard = () => {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-slate-900">Student preview</h3>
                     <span className={`text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ${examForm.examType === 'mcq' ? 'bg-sky-100 text-indigo-700' : 'bg-indigo-50 text-indigo-600'}`}>
-                      {examForm.examType === 'mcq' ? 'MCQ' : 'Essay'}
+                      {examForm.examType === 'mcq' ? 'MCQ' : examForm.examType === 'paper' ? 'Paper' : 'Essay'}
                     </span>
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -5764,7 +5792,7 @@ const LecturerDashboard = () => {
                         <p className="font-semibold text-slate-900">
                           {exam.title}
                           <span className={`ml-2 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 align-middle ${exam.exam_type === 'mcq' ? 'bg-sky-100 text-indigo-700' : 'bg-indigo-50 text-indigo-600'}`}>
-                            {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
+                            {exam.exam_type === 'mcq' ? 'MCQ' : exam.exam_type === 'paper' ? 'Paper' : 'Essay'}
                           </span>
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5">

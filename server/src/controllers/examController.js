@@ -72,7 +72,7 @@ export const createExam = async (req, res, next) => {
       throw httpError(400, 'courseId and title are required')
     }
 
-    const type = examType === 'mcq' ? 'mcq' : 'essay'
+    const type = ['mcq', 'paper'].includes(examType) ? examType : 'essay'
     const qs = Array.isArray(questions) ? questions : []
 
     if (type === 'mcq') {
@@ -85,9 +85,17 @@ export const createExam = async (req, res, next) => {
       if (!valid.length) {
         throw httpError(400, 'MCQ exams need at least one question with 2+ options and a correct answer')
       }
-    } else if (!qs.some((q) => String(q?.text || q?.questionText || '').trim())) {
+    } else if (type === 'essay' && !qs.some((q) => String(q?.text || q?.questionText || '').trim())) {
       throw httpError(400, 'Add at least one exam question for essay exams')
     }
+    // 'paper' exams need no pre-set questions — students write one formatted paper in the LMS
+
+    // Timer: MCQ exams can specify a duration in minutes (paper/essay never time-limited)
+    const parsedDuration = Number(req.body.durationMinutes)
+    const durationMinutes =
+      type === 'mcq' && Number.isFinite(parsedDuration) && parsedDuration > 0
+        ? Math.min(600, Math.round(parsedDuration))
+        : null
 
     const courseResult = await client.query('SELECT id FROM courses WHERE id = $1', [courseId])
     if (!courseResult.rows.length) throw httpError(404, 'Course not found')
@@ -97,8 +105,8 @@ export const createExam = async (req, res, next) => {
     const publicToken = type === 'mcq' ? generatePublicToken() : null
 
     const examResult = await client.query(
-      `INSERT INTO exams (course_id, batch_id, plan_id, title, description, due_date, exam_type, quiz_url, public_token, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO exams (course_id, batch_id, plan_id, title, description, due_date, exam_type, duration_minutes, quiz_url, public_token, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         courseId,
@@ -108,6 +116,7 @@ export const createExam = async (req, res, next) => {
         description || null,
         dueDate || null,
         type,
+        durationMinutes,
         null,
         publicToken,
         req.user.userId,
@@ -315,6 +324,7 @@ export const getStudentExams = async (req, res, next) => {
               ex.description,
               ex.due_date,
               ex.exam_type,
+              ex.duration_minutes,
               ex.public_token,
               c.title AS course_title,
               es.id AS submission_id,
@@ -371,7 +381,7 @@ export const getPublicQuiz = async (req, res, next) => {
     if (!token) throw httpError(400, 'Quiz token is required')
 
     const examResult = await query(
-      `SELECT ex.id, ex.title, ex.description, ex.due_date, ex.exam_type, ex.public_token,
+      `SELECT ex.id, ex.title, ex.description, ex.due_date, ex.exam_type, ex.public_token, ex.duration_minutes,
               c.title AS course_title
        FROM exams ex
        JOIN courses c ON c.id = ex.course_id
@@ -387,6 +397,7 @@ export const getPublicQuiz = async (req, res, next) => {
       title: exam.title,
       description: exam.description,
       due_date: exam.due_date,
+      duration_minutes: exam.duration_minutes,
       course_title: exam.course_title,
       locked: true,
     })
@@ -402,7 +413,7 @@ export const unlockPublicQuiz = async (req, res, next) => {
     if (!token || !accessCode) throw httpError(400, 'Access code is required')
 
     const examResult = await query(
-      `SELECT ex.id, ex.title, ex.description, ex.due_date, ex.exam_type, ex.public_token,
+      `SELECT ex.id, ex.title, ex.description, ex.due_date, ex.exam_type, ex.public_token, ex.duration_minutes,
               c.title AS course_title
        FROM exams ex
        JOIN courses c ON c.id = ex.course_id
@@ -421,7 +432,7 @@ export const unlockPublicQuiz = async (req, res, next) => {
     }
 
     const deliveryResult = await query(
-      `SELECT d.id AS delivery_id, d.student_id, d.access_code,
+      `SELECT d.id AS delivery_id, d.student_id, d.access_code, d.unlocked_at,
               u.full_name AS student_name, u.email AS student_email
        FROM exam_deliveries d
        JOIN students s ON s.id = d.student_id
@@ -431,6 +442,26 @@ export const unlockPublicQuiz = async (req, res, next) => {
     )
     if (!deliveryResult.rows.length) throw httpError(403, 'Invalid access code')
     const delivery = deliveryResult.rows[0]
+
+    // Anchor the timer on first unlock — every later unlock resumes the same countdown
+    let unlockedAt = delivery.unlocked_at
+    if (!unlockedAt) {
+      const started = await query(
+        `UPDATE exam_deliveries SET unlocked_at = NOW() WHERE id = $1 RETURNING unlocked_at`,
+        [delivery.delivery_id]
+      )
+      unlockedAt = started.rows[0].unlocked_at
+    }
+
+    // Server-computed remaining time (authoritative; duration_minutes = null → untimed)
+    let remainingSeconds = null
+    if (exam.duration_minutes && exam.duration_minutes > 0) {
+      const elapsed = Math.max(0, Math.floor((now - new Date(unlockedAt)) / 1000))
+      remainingSeconds = exam.duration_minutes * 60 - elapsed
+      if (remainingSeconds <= 0) {
+        throw httpError(403, 'Exam time has expired. Contact your lecturer to reset your access.')
+      }
+    }
 
     const existing = await query(
       `SELECT id, score, total_questions, correct_count, submitted_at
@@ -457,6 +488,8 @@ export const unlockPublicQuiz = async (req, res, next) => {
       title: exam.title,
       description: exam.description,
       due_date: exam.due_date,
+      duration_minutes: exam.duration_minutes,
+      remaining_seconds: remainingSeconds,
       course_title: exam.course_title,
       student_name: delivery.student_name,
       delivery_id: delivery.delivery_id,
@@ -480,7 +513,7 @@ export const submitPublicQuiz = async (req, res, next) => {
     if (!answers || typeof answers !== 'object') throw httpError(400, 'Answers are required')
 
     const examResult = await client.query(
-      `SELECT ex.id, ex.title, ex.due_date, ex.exam_type
+      `SELECT ex.id, ex.title, ex.due_date, ex.exam_type, ex.duration_minutes
        FROM exams ex
        WHERE ex.public_token = $1 AND ex.exam_type = 'mcq'`,
       [token]
@@ -497,13 +530,22 @@ export const submitPublicQuiz = async (req, res, next) => {
     }
 
     const deliveryResult = await client.query(
-      `SELECT d.id AS delivery_id, d.student_id
+      `SELECT d.id AS delivery_id, d.student_id, d.unlocked_at
        FROM exam_deliveries d
        WHERE d.exam_id = $1 AND UPPER(d.access_code) = $2`,
       [exam.id, accessCode]
     )
     if (!deliveryResult.rows.length) throw httpError(403, 'Invalid access code')
     const delivery = deliveryResult.rows[0]
+
+    // Enforce the timer server-side (30s grace for upload latency).
+    // No unlocked_at / no duration → untimed, always allow.
+    if (exam.duration_minutes > 0 && delivery.unlocked_at) {
+      const elapsed = (now - new Date(delivery.unlocked_at)) / 1000
+      if (elapsed > exam.duration_minutes * 60 + 30) {
+        throw httpError(403, 'Exam time has expired — your submission was not accepted. Contact your lecturer.')
+      }
+    }
 
     const existing = await client.query(
       `SELECT id FROM exam_submissions WHERE exam_id = $1 AND student_id = $2`,
@@ -664,8 +706,8 @@ export const submitStudentExam = async (req, res, next) => {
     if (!examId) throw httpError(400, 'Valid examId is required')
 
     const { answers, type } = req.body || {}
-    if (!type || !['essay', 'assignment'].includes(type)) {
-      throw httpError(400, 'type must be essay or assignment')
+    if (!type || !['essay', 'assignment', 'paper'].includes(type)) {
+      throw httpError(400, 'type must be essay, paper or assignment')
     }
 
     const studentResult = await client.query(

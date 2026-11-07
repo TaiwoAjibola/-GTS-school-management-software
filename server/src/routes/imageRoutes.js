@@ -7,6 +7,6 @@ const router = Router()
 
 router.use(authenticate)
 
-router.post('/upload', authorize('admin', 'lecturer'), upload.single('file'), uploadImage)
+router.post('/upload', authorize('admin', 'lecturer', 'student'), upload.single('file'), uploadImage)
 
 export default router

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import gtsLogo from '../assets/logo/gts logo.svg'
@@ -14,6 +14,11 @@ export default function PublicQuizPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(null)
+  // Server says how many seconds remain — we just count down and auto-submit at 0
+  const [secondsLeft, setSecondsLeft] = useState(null)
+  const [timedOut, setTimedOut] = useState(false)
+  const hasTimer = quiz?.duration_minutes != null && quiz?.duration_minutes > 0
+  const autoSubmittedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -31,17 +36,67 @@ export default function PublicQuizPage() {
     return () => { cancelled = true }
   }, [token])
 
+  // Countdown — starts the moment the quiz is unlocked
+  useEffect(() => {
+    if (!quiz || !hasTimer) return
+    setSecondsLeft(quiz.remaining_seconds ?? quiz.duration_minutes * 60)
+    const iv = setInterval(() => {
+      setSecondsLeft((s) => (s == null ? s : Math.max(0, s - 1)))
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [quiz, hasTimer])
+
+  const answersRef = useRef(answers)
+  useEffect(() => { answersRef.current = answers }, [answers])
+
+  const doSubmit = useCallback(async (force = false) => {
+    if (!quiz?.questions?.length) return
+    const unanswered = quiz.questions.filter((q) => !answersRef.current[q.id])
+    if (unanswered.length && !force) {
+      setError(`Please answer all questions (${unanswered.length} remaining)`)
+      return
+    }
+    if (autoSubmittedRef.current) return
+    autoSubmittedRef.current = true
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await apiClient.post(`/exams/public/${token}/submit`, {
+        accessCode: accessCode.trim(),
+        answers: answersRef.current,
+      })
+      setDone(res.data)
+      setQuiz(null)
+    } catch (err) {
+      autoSubmittedRef.current = false
+      setTimedOut(err?.response?.status === 403 && /expired|time/i.test(err?.response?.data?.message || ''))
+      setError(err?.response?.data?.message || 'Failed to submit quiz')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [quiz, token, accessCode])
+
+  // Auto-submit the moment time runs out (server keeps a 30s upload grace)
+  useEffect(() => {
+    if (hasTimer && quiz && secondsLeft === 0 && !done && !timedOut) {
+      doSubmit(true)
+    }
+  }, [secondsLeft, hasTimer, quiz, done, timedOut, doSubmit])
+
   const unlock = async (e) => {
     e.preventDefault()
     if (!accessCode.trim()) return
     setUnlocking(true)
     setError('')
+    setTimedOut(false)
+    autoSubmittedRef.current = false
     try {
       const res = await apiClient.post(`/exams/public/${token}/unlock`, { accessCode: accessCode.trim() })
-      setQuiz(res.data)
       if (res.data.already_submitted) {
         setDone({ message: 'You have already submitted this quiz. Your result will be emailed when the lecturer releases it.' })
+        return
       }
+      setQuiz(res.data)
     } catch (err) {
       setError(err?.response?.data?.message || 'Invalid access code')
     } finally {
@@ -49,27 +104,10 @@ export default function PublicQuizPage() {
     }
   }
 
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!quiz?.questions?.length) return
-    const unanswered = quiz.questions.filter((q) => !answers[q.id])
-    if (unanswered.length) {
-      setError(`Please answer all questions (${unanswered.length} remaining)`)
-      return
-    }
-    setSubmitting(true)
-    setError('')
-    try {
-      const res = await apiClient.post(`/exams/public/${token}/submit`, {
-        accessCode: accessCode.trim(),
-        answers,
-      })
-      setDone(res.data)
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to submit quiz')
-    } finally {
-      setSubmitting(false)
-    }
+  const fmtTime = (total) => {
+    const m = Math.floor(total / 60)
+    const s = total % 60
+    return `${m}:${String(s).padStart(2, '0')}`
   }
 
   if (loading) {
@@ -111,6 +149,11 @@ export default function PublicQuizPage() {
             {(meta?.due_date || quiz?.due_date) ? (
               <p className="text-xs text-slate-400 mt-1">Due {meta?.due_date || quiz?.due_date}</p>
             ) : null}
+            {(meta?.duration_minutes ?? quiz?.duration_minutes) != null ? (
+              <p className="text-xs font-medium text-indigo-700 bg-indigo-50 inline-block rounded-full px-2.5 py-0.5 mt-2">
+                Timed: {meta?.duration_minutes ?? quiz?.duration_minutes} minutes
+              </p>
+            ) : null}
           </div>
 
           {done ? (
@@ -124,6 +167,11 @@ export default function PublicQuizPage() {
             <form onSubmit={unlock} className="space-y-4">
               <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
                 Enter the Access ID from your exam email to unlock the questions.
+                {meta?.duration_minutes != null ? (
+                  <span className="block mt-1 font-medium">
+                    This exam is timed ({meta.duration_minutes} minutes) — the countdown starts the moment you unlock it.
+                  </span>
+                ) : null}
               </div>
               <label className="block text-sm text-slate-700">
                 Access ID
@@ -146,7 +194,29 @@ export default function PublicQuizPage() {
               </button>
             </form>
           ) : (
-            <form onSubmit={submit} className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); doSubmit(false) }} className="space-y-6">
+              {hasTimer ? (
+                <div className="sticky top-0 z-10 rounded-xl border px-4 py-3 flex items-center justify-between bg-white">
+                  <div className="text-sm font-medium text-slate-600">
+                    Time remaining
+                    {hasTimer && secondsLeft != null && secondsLeft <= 60 && (
+                      <span className="ml-2 text-rose-600 font-semibold">— finishing auto-submit at 0</span>
+                    )}
+                  </div>
+                  <span
+                    className={`font-mono text-2xl font-bold tracking-widest ${
+                      secondsLeft != null && secondsLeft <= 60
+                        ? 'text-rose-600 animate-pulse'
+                        : secondsLeft != null && secondsLeft <= 300
+                          ? 'text-amber-600'
+                          : 'text-slate-900'
+                    }`}
+                  >
+                    {secondsLeft != null ? fmtTime(secondsLeft) : '—'}   <span className="text-sm font-sans text-slate-400 font-medium">/ {quiz.duration_minutes}:00</span>
+                  </span>
+                </div>
+              ) : null}
+
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                 Signed in as <strong className="text-slate-900">{quiz.student_name}</strong>
                 <span className="text-slate-400"> · {quiz.questions?.length || 0} questions</span>
@@ -189,12 +259,16 @@ export default function PublicQuizPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (hasTimer && secondsLeft === 0) || timedOut}
                 className="w-full bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50"
               >
-                {submitting ? 'Submitting…' : 'Submit Quiz'}
+                {timedOut ? 'Time is up' : submitting ? 'Submitting…' : 'Submit Quiz'}
               </button>
-              <p className="text-xs text-center text-slate-400">You can only submit once. Score is stored and emailed later.</p>
+              <p className="text-xs text-center text-slate-400">
+                {hasTimer
+                  ? 'You can only submit once — the quiz auto-submits when time runs out.'
+                  : 'You can only submit once. Score is stored and emailed later.'}
+              </p>
             </form>
           )}
         </div>
