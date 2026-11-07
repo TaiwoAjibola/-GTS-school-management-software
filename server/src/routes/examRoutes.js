@@ -15,6 +15,8 @@ import {
   submitStudentExam,
   markSubmission,
   publishExamResults,
+  listMarkingExams,
+  setExamResultsRelease,
 } from '../controllers/examController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
@@ -30,6 +32,7 @@ router.get('/eligible/:courseId', authorize('lecturer', 'admin'), getExamEligibl
 router.get('/eligible/batch/:batchId', authorize('lecturer', 'admin'), getExamEligibleStudentsByBatch)
 router.get('/course/:courseId', authorize('lecturer', 'admin'), listExamsByCourse)
 router.get('/my', authorize('student'), getStudentExams)
+router.get('/marking', authorize('lecturer', 'admin'), listMarkingExams)
 router.get('/:examId/submissions', authorize('lecturer', 'admin'), listExamSubmissions)
 router.post('/:examId/send-results', authorize('lecturer', 'admin'), sendExamResults)
 router.post('/', authorize('lecturer', 'admin'), createExam)
@@ -37,6 +40,7 @@ router.post('/:examId/send', authorize('lecturer', 'admin'), sendExam)
 router.delete('/:examId', authorize('lecturer', 'admin'), deleteExam)
 router.post('/:examId/student-submit', authenticate, authorize('student'), submitStudentExam)
 router.patch('/:id/submissions/:submissionId/mark', authorize('lecturer', 'admin'), markSubmission)
+router.patch('/:examId/results-release', authorize('lecturer', 'admin'), setExamResultsRelease)
 router.post('/:id/publish-results', authorize('lecturer', 'admin'), publishExamResults)
 
 export default router

@@ -127,6 +127,7 @@ const LecturerDashboard = () => {
     examType: 'essay',
     planId: '',
     durationMinutes: '',
+    resultsReleaseAt: '',
     questions: [{ text: '', options: [{ key: 'A', label: '' }, { key: 'B', label: '' }], correctAnswer: 'A' }],
   })
   const [examEligible, setExamEligible] = useState([])
@@ -139,6 +140,17 @@ const LecturerDashboard = () => {
   const [examSubmissionsLoading, setExamSubmissionsLoading] = useState(false)
   const [examResultsSending, setExamResultsSending] = useState(false)
   const [examSavedListOpen, setExamSavedListOpen] = useState(false)
+  const [markingExams, setMarkingExams] = useState([])
+  const [markingLoading, setMarkingLoading] = useState(false)
+  const [markingDetail, setMarkingDetail] = useState(null)
+  const [markingDetailLoading, setMarkingDetailLoading] = useState(false)
+  const [markingSubmissions, setMarkingSubmissions] = useState([])
+  const [markingQuestions, setMarkingQuestions] = useState([])
+  const [markRow, setMarkRow] = useState(null)
+  const [markScore, setMarkScore] = useState('')
+  const [markFeedback, setMarkFeedback] = useState('')
+  const [markSaving, setMarkSaving] = useState(false)
+  const [releaseEdits, setReleaseEdits] = useState({})
 
   const [attendanceForm, setAttendanceForm] = useState({ date: '', startTime: '', endTime: '', secondaryLecturerId: '', lecturerNotes: '' })
   const [editingSession, setEditingSession] = useState(null) // { session, roster }
@@ -931,6 +943,14 @@ const LecturerDashboard = () => {
     if (section === 'settings') {
       loadSchoolInfo()
       loadForms()
+    }
+    if (section === 'marking') {
+      setMarkingLoading(true)
+      setMarkingDetail(null)
+      apiClient.get('/exams/marking')
+        .then((res) => setMarkingExams(res.data || []))
+        .catch(() => setMarkingExams([]))
+        .finally(() => setMarkingLoading(false))
     }
   }, [section, user?.role, reportFilters])
 
@@ -1882,6 +1902,7 @@ const LecturerDashboard = () => {
         durationMinutes: examForm.examType === 'mcq' && Number(examForm.durationMinutes) > 0
           ? Number(examForm.durationMinutes)
           : null,
+        resultsReleaseAt: examForm.resultsReleaseAt || null,
         questions,
       })
       setExamForm({
@@ -1891,6 +1912,7 @@ const LecturerDashboard = () => {
         examType: 'essay',
         planId: '',
         durationMinutes: '',
+        resultsReleaseAt: '',
         questions: [{ text: '', options: [{ key: 'A', label: '' }, { key: 'B', label: '' }], correctAnswer: 'A' }],
       })
       await loadExams(selectedCourseId)
@@ -1971,6 +1993,71 @@ const LecturerDashboard = () => {
     }
   }
 
+  // ── Marking portal ──────────────────────────────────────────────────
+  const openMarkingExam = async (exam) => {
+    setMarkingDetail(exam)
+    setMarkingSubmissions([])
+    setMarkingDetailLoading(true)
+    try {
+      const res = await apiClient.get(`/exams/${exam.id}/submissions`)
+      setMarkingSubmissions(res.data.submissions || [])
+      setMarkingQuestions(res.data.questions || [])
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to load submissions')
+    } finally {
+      setMarkingDetailLoading(false)
+    }
+  }
+
+  const openMarkModal = (sub, examType) => {
+    setMarkRow({ ...sub, examType })
+    setMarkScore(sub.score != null ? String(sub.score) : '')
+    setMarkFeedback(sub.feedback_text || '')
+  }
+
+  const saveMark = async () => {
+    if (!markRow) return
+    const numeric = Number(markScore)
+    if (markScore === '' || Number.isNaN(numeric) || numeric < 0 || numeric > 100) {
+      notify('Enter a score between 0 and 100')
+      return
+    }
+    setMarkSaving(true)
+    try {
+      const res = await apiClient.patch(`/exams/${markingDetail.id}/submissions/${markRow.id}/mark`, {
+        score: numeric,
+        feedback: markFeedback.trim() || null,
+      })
+      setMarkingSubmissions((prev) => prev.map((s) => (s.id === markRow.id ? { ...s, ...res.data } : s)))
+      setMarkRow(null)
+      notify('Marked — result published to the student')
+      setMarkingExams((prev) => prev.map((e) => (e.id === markingDetail.id
+        ? {
+            ...e,
+            marked_count: e.marked_count + 1,
+            pending_marking_count: Math.max(0, e.pending_marking_count - 1),
+          }
+        : e)))
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to save mark')
+    } finally {
+      setMarkSaving(false)
+    }
+  }
+
+  const saveReleaseDate = async (exam) => {
+    const value = releaseEdits[exam.id]
+    try {
+      const res = await apiClient.patch(`/exams/${exam.id}/results-release`, {
+        releaseAt: value ? new Date(value).toISOString() : null,
+      })
+      setMarkingExams((prev) => prev.map((e) => (e.id === exam.id ? { ...e, results_release_at: res.data.results_release_at } : e)))
+      notify(value ? 'Results release date saved' : 'Release date cleared — results are visible immediately')
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to save release date')
+    }
+  }
+
   const saveEnrollmentNote = async (enrollmentId) => {
     await apiClient.patch(`/enrollments/${enrollmentId}/notes`, {
       notes: enrollmentNotesEdits[enrollmentId] || '',
@@ -2034,6 +2121,7 @@ const LecturerDashboard = () => {
     results: 'Results',
     graduation: 'Graduation',
     assignments: 'Exams',
+    marking: 'Marking',
     lecturers: 'Lecturers',
     'email-process': 'Email Process',
     'email-formats': 'Email Formats',
@@ -2050,6 +2138,214 @@ const LecturerDashboard = () => {
         <div className="fixed top-4 right-4 z-[60] max-w-sm bg-slate-900 text-white rounded-xl px-4 py-3 shadow-xl text-sm border border-white/10 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="flex-1">{notice}</span>
+        </div>
+      ) : null}
+
+      {section === 'marking' ? (
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {!markingDetail ? (
+            <div className="flex flex-col gap-4 min-h-0">
+              <div className="card rounded-[24px] px-5 py-4">
+                <h3 className="font-semibold text-slate-900 text-base">Exams awaiting marking</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {user?.role === 'lecturer'
+                    ? 'Only exams in your assigned courses are shown here.'
+                    : 'All exams — essay and paper submissions need a score and feedback.'}
+                </p>
+              </div>
+              {markingLoading ? (
+                <div className="flex-1 flex items-center justify-center"><Spinner className="h-8 w-8 text-indigo-600" /></div>
+              ) : markingExams.length === 0 ? (
+                <div className="card rounded-[24px] flex-1 flex items-center justify-center">
+                  <p className="text-sm text-slate-400">No exams yet. Create one in the Exams tab.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 overflow-y-auto pb-2 min-h-0">
+                  {markingExams.map((exam) => {
+                    const isMcq = exam.exam_type === 'mcq'
+                    const isPaper = exam.exam_type === 'paper'
+                    return (
+                      <div key={exam.id} className="card card-hover rounded-[24px] p-4 flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">{exam.title}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{exam.course_title}</p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 ${
+                            isMcq ? 'bg-sky-100 text-sky-700' : isPaper ? 'bg-amber-100 text-amber-700' : 'bg-indigo-50 text-indigo-600'
+                          }`}>
+                            {isMcq ? 'MCQ' : isPaper ? 'Paper' : 'Essay'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full bg-slate-100 text-slate-600 px-2 py-0.5">{exam.submitted_count} submitted</span>
+                          {isMcq ? (
+                            <span className={`rounded-full px-2 py-0.5 ${exam.results_pending_release > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                              {exam.results_pending_release > 0 ? `${exam.results_pending_release} results pending release` : 'results released'}
+                            </span>
+                          ) : (
+                            <span className={`rounded-full px-2 py-0.5 ${exam.pending_marking_count > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                              {exam.pending_marking_count > 0 ? `${exam.pending_marking_count} to mark` : 'all marked'}
+                            </span>
+                          )}
+                          {exam.marked_count > 0 && (
+                            <span className="rounded-full bg-slate-50 text-slate-500 px-2 py-0.5">{exam.marked_count} marked</span>
+                          )}
+                        </div>
+                        {isMcq && (
+                          <div className="flex items-end gap-2 border-t border-slate-100 pt-3">
+                            <label className="flex-1 text-xs text-slate-500">
+                              Results release date (optional)
+                              <input
+                                type="datetime-local"
+                                className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                value={
+                                  releaseEdits[exam.id] !== undefined
+                                    ? releaseEdits[exam.id]
+                                    : exam.results_release_at
+                                      ? new Date(new Date(exam.results_release_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+                                      : ''
+                                }
+                                onChange={(e) => setReleaseEdits((prev) => ({ ...prev, [exam.id]: e.target.value }))}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => saveReleaseDate(exam)}
+                              className="rounded-lg bg-slate-900 text-white px-3 py-2 text-xs font-medium hover:bg-slate-700"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openMarkingExam(exam)}
+                          className="self-start rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700"
+                        >
+                          {isMcq ? 'View submissions' : 'Mark submissions'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ) : markingDetailLoading ? (
+            <div className="flex-1 flex items-center justify-center"><Spinner className="h-8 w-8 text-indigo-600" /></div>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col gap-4">
+              <div className="card rounded-[24px] px-5 py-4 flex items-center justify-between gap-3 shrink-0">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-slate-900 text-base truncate">{markingDetail.title}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{markingDetail.course_title} · {markingSubmissions.length} submission(s)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMarkingDetail(null)}
+                  className="rounded-lg bg-slate-100 text-slate-700 px-3 py-1.5 text-sm font-medium hover:bg-slate-200 shrink-0"
+                >
+                  ← Back
+                </button>
+              </div>
+              {markingSubmissions.length === 0 ? (
+                <div className="card rounded-[24px] flex-1 flex items-center justify-center">
+                  <p className="text-sm text-slate-400">No submissions yet.</p>
+                </div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
+                  {markingSubmissions.map((sub) => {
+                    const isMcq = markingDetail.exam_type === 'mcq'
+                    const isPaper = markingDetail.exam_type === 'paper'
+                    const answers = sub.answers || {}
+                    const questionText = (id) => {
+                      const q = (markingQuestions || []).find((x) => String(x.id) === String(id))
+                      return q ? q.question_text : ''
+                    }
+                    return (
+                      <div key={sub.id} className="card rounded-[24px] p-4 space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-900">{sub.student_name}</p>
+                            <p className="text-xs text-slate-400">{sub.student_email} · {sub.matric_number || 'No matric'} · {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : '—'}</p>
+                          </div>
+                          {sub.status === 'marked' ? (
+                            <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs font-medium">Marked · {sub.score}%</span>
+                          ) : (
+                            <span className="rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-xs font-medium">To mark</span>
+                          )}
+                        </div>
+
+                        {isMcq ? (
+                          <p className="text-sm text-slate-600 border-t border-slate-100 pt-3">
+                            Auto-marked at submission — {sub.correct_count}/{sub.total_questions} correct ({sub.score}%).
+                            {sub.result_sent_at ? ' Result released.' : ' Result awaiting release.'}
+                          </p>
+                        ) : markingDetail.exam_type === 'essay' && (
+                          <div className="border-t border-slate-100 pt-3 space-y-2">
+                            {Object.keys(answers).length === 0 ? (
+                              <p className="text-sm text-slate-400">No answers recorded.</p>
+                            ) : Object.entries(answers).map(([questionId, text]) => (
+                              <div key={questionId} className="rounded-xl bg-slate-50 p-3">
+                                <p className="text-[11px] font-semibold text-slate-400 mb-1">{questionText(questionId) || `Question #${questionId}`}</p>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap">{String(text)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {isPaper && (
+                          <div className="border-t border-slate-100 pt-3">
+                            <p className="text-[11px] font-semibold text-slate-400 mb-1">Submitted paper</p>
+                            <div
+                              className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 max-w-none overflow-y-auto max-h-[360px]"
+                              dangerouslySetInnerHTML={{ __html: answers.paper || '<p class="text-slate-400">Empty submission.</p>' }}
+                            />
+                          </div>
+                        )}
+
+                        {!isMcq && (
+                          <div className="flex flex-col sm:flex-row items-end gap-2 border-t border-slate-100 pt-3">
+                            <label className="w-28 text-xs text-slate-500 shrink-0">
+                              Score (0–100)
+                              <input
+                                type="number" min="0" max="100"
+                                className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                value={markRow?.id === sub.id ? markScore : (sub.score != null ? String(sub.score) : '')}
+                                readOnly={markRow?.id !== sub.id}
+                                disabled={markRow?.id !== sub.id}
+                                onChange={(e) => setMarkScore(e.target.value)}
+                              />
+                            </label>
+                            <label className="flex-1 text-xs text-slate-500">
+                              Feedback (shown to the student)
+                              <textarea
+                                rows={2}
+                                className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm"
+                                placeholder="Comments on the paper…"
+                                readOnly={markRow?.id !== sub.id}
+                                disabled={markRow?.id !== sub.id}
+                                value={markRow?.id === sub.id ? markFeedback : (sub.feedback_text || '')}
+                                onChange={(e) => setMarkFeedback(e.target.value)}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={markSaving}
+                              onClick={() => (markRow?.id === sub.id ? saveMark() : openMarkModal(sub, markingDetail.exam_type))}
+                              className="rounded-lg bg-indigo-600 text-white px-3 py-2 text-xs font-medium hover:bg-indigo-700 disabled:opacity-60 shrink-0"
+                            >
+                              {markRow?.id === sub.id ? (markSaving ? 'Saving…' : 'Save mark') : 'Mark'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -5473,7 +5769,7 @@ const LecturerDashboard = () => {
 
                   <div>
                     <p className="text-sm font-medium text-slate-700 mb-1.5">Exam Type</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { key: 'essay', label: 'Essay', hint: 'Questions emailed to students' },
                         { key: 'mcq', label: 'MCQ', hint: 'In-system quiz + access ID' },
@@ -5513,6 +5809,17 @@ const LecturerDashboard = () => {
                           placeholder="e.g. 60 — blank = untimed"
                           value={examForm.durationMinutes}
                           onChange={(event) => setExamForm((prev) => ({ ...prev, durationMinutes: event.target.value }))}
+                        />
+                      </label>
+                    )}
+                    {examForm.examType === 'mcq' && (
+                      <label className="text-sm text-slate-600">
+                        Results release date (optional)
+                        <input
+                          type="datetime-local"
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                          value={examForm.resultsReleaseAt || ''}
+                          onChange={(event) => setExamForm((prev) => ({ ...prev, resultsReleaseAt: event.target.value }))}
                         />
                       </label>
                     )}

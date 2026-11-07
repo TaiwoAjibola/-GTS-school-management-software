@@ -97,6 +97,13 @@ export const createExam = async (req, res, next) => {
         ? Math.min(600, Math.round(parsedDuration))
         : null
 
+    // Optional date when MCQ results become visible to students
+    let resultsReleaseAt = null
+    if (req.body.resultsReleaseAt) {
+      const d = new Date(req.body.resultsReleaseAt)
+      if (!Number.isNaN(d.getTime())) resultsReleaseAt = d.toISOString()
+    }
+
     const courseResult = await client.query('SELECT id FROM courses WHERE id = $1', [courseId])
     if (!courseResult.rows.length) throw httpError(404, 'Course not found')
 
@@ -105,8 +112,8 @@ export const createExam = async (req, res, next) => {
     const publicToken = type === 'mcq' ? generatePublicToken() : null
 
     const examResult = await client.query(
-      `INSERT INTO exams (course_id, batch_id, plan_id, title, description, due_date, exam_type, duration_minutes, quiz_url, public_token, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO exams (course_id, batch_id, plan_id, title, description, due_date, exam_type, duration_minutes, results_release_at, quiz_url, public_token, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         courseId,
@@ -117,6 +124,7 @@ export const createExam = async (req, res, next) => {
         dueDate || null,
         type,
         durationMinutes,
+        resultsReleaseAt,
         null,
         publicToken,
         req.user.userId,
@@ -326,6 +334,7 @@ export const getStudentExams = async (req, res, next) => {
               ex.exam_type,
               ex.duration_minutes,
               ex.public_token,
+              ex.results_release_at,
               c.title AS course_title,
               es.id AS submission_id,
               es.score AS submission_score,
@@ -349,10 +358,17 @@ export const getStudentExams = async (req, res, next) => {
       [student.id]
     )
 
-    const rows = result.rows.map((row) => ({
-      ...row,
-      quiz_url: row.exam_type === 'mcq' && row.public_token ? quizTakeUrl(row.public_token) : null,
-    }))
+    const now = new Date()
+    const rows = result.rows.map((row) => {
+      // MCQ scores stay hidden on the exam card until the release date (if any) passes
+      const released = !row.results_release_at || new Date(row.results_release_at) <= now
+      return {
+        ...row,
+        submission_score:
+          row.exam_type === 'mcq' && !released ? null : row.submission_score,
+        quiz_url: row.exam_type === 'mcq' && row.public_token ? quizTakeUrl(row.public_token) : null,
+      }
+    })
 
     res.json(rows)
   } catch (error) {
@@ -513,7 +529,8 @@ export const submitPublicQuiz = async (req, res, next) => {
     if (!answers || typeof answers !== 'object') throw httpError(400, 'Answers are required')
 
     const examResult = await client.query(
-      `SELECT ex.id, ex.title, ex.due_date, ex.exam_type, ex.duration_minutes
+      `SELECT ex.id, ex.title, ex.due_date, ex.exam_type, ex.duration_minutes,
+              ex.course_id, ex.batch_id, ex.results_release_at
        FROM exams ex
        WHERE ex.public_token = $1 AND ex.exam_type = 'mcq'`,
       [token]
@@ -529,15 +546,6 @@ export const submitPublicQuiz = async (req, res, next) => {
       throw httpError(403, 'This exam is now closed')
     }
 
-    const deliveryResult = await client.query(
-      `SELECT d.id AS delivery_id, d.student_id, d.unlocked_at
-       FROM exam_deliveries d
-       WHERE d.exam_id = $1 AND UPPER(d.access_code) = $2`,
-      [exam.id, accessCode]
-    )
-    if (!deliveryResult.rows.length) throw httpError(403, 'Invalid access code')
-    const delivery = deliveryResult.rows[0]
-
     // Enforce the timer server-side (30s grace for upload latency).
     // No unlocked_at / no duration → untimed, always allow.
     if (exam.duration_minutes > 0 && delivery.unlocked_at) {
@@ -545,6 +553,24 @@ export const submitPublicQuiz = async (req, res, next) => {
       if (elapsed > exam.duration_minutes * 60 + 30) {
         throw httpError(403, 'Exam time has expired — your submission was not accepted. Contact your lecturer.')
       }
+    }
+
+    // Record the course result immediately, gated by the optional release date.
+    // If no release date is set, the result publishes at submission time.
+    const mcqReleased = !exam.results_release_at || new Date(exam.results_release_at) <= now
+    try {
+      await client.query(
+        `INSERT INTO results (course_id, batch_id, student_id, result_type, score, status, published, uploaded_by, exam_id)
+         SELECT e.course_id, e.batch_id, $2, 'Exam', $3, (CASE WHEN $3 >= 50 THEN 'Pass' ELSE 'Fail' END), $4, e.created_by, e.id
+         FROM exams e WHERE e.id = $1
+         ON CONFLICT (course_id, student_id, result_type)
+         DO UPDATE SET score = EXCLUDED.score, status = EXCLUDED.status,
+                       published = EXCLUDED.published, exam_id = EXCLUDED.exam_id`,
+        [exam.id, delivery.student_id, score, mcqReleased]
+      )
+    } catch (resultErr) {
+      // Result recording must never block the quiz submission itself
+      console.error('MCQ result upsert failed:', resultErr.message)
     }
 
     const existing = await client.query(
@@ -607,6 +633,21 @@ export const listExamSubmissions = async (req, res, next) => {
     const examResult = await query('SELECT id, title, exam_type FROM exams WHERE id = $1', [examId])
     if (!examResult.rows.length) throw httpError(404, 'Exam not found')
 
+    const questionsResult = await query(
+      'SELECT id, question_text, order_index FROM exam_questions WHERE exam_id = $1 ORDER BY order_index ASC',
+      [examId]
+    )
+
+    // Lecturers may only see submissions for exams in their assigned courses
+    if (req.user.role === 'lecturer') {
+      const owned = await query(
+        `SELECT 1 FROM exams ex JOIN courses c ON c.id = ex.course_id
+         WHERE ex.id = $1 AND (c.lecturer_id = $2 OR c.secondary_lecturer_id = $2)`,
+        [examId, req.user.userId]
+      )
+      if (!owned.rows.length) throw httpError(403, 'This exam is not in your assigned courses')
+    }
+
     const result = await query(
       `SELECT es.*,
               u.full_name AS student_name,
@@ -620,7 +661,11 @@ export const listExamSubmissions = async (req, res, next) => {
       [examId]
     )
 
-    res.json({ exam: examResult.rows[0], submissions: result.rows })
+    res.json({
+      exam: examResult.rows[0],
+      questions: questionsResult.rows,
+      submissions: result.rows,
+    })
   } catch (error) {
     next(error)
   }
@@ -796,6 +841,16 @@ export const markSubmission = async (req, res, next) => {
       throw httpError(400, 'score must be between 0 and 100')
     }
 
+    // Lecturers may only mark exams in their assigned courses
+    if (req.user.role === 'lecturer') {
+      const owned = await client.query(
+        `SELECT 1 FROM exams ex JOIN courses c ON c.id = ex.course_id
+         WHERE ex.id = $1 AND (c.lecturer_id = $2 OR c.secondary_lecturer_id = $2)`,
+        [examId, gradedBy]
+      )
+      if (!owned.rows.length) throw httpError(403, 'This exam is not in your assigned courses')
+    }
+
     await client.query('BEGIN')
 
     const update = await client.query(
@@ -807,16 +862,19 @@ export const markSubmission = async (req, res, next) => {
     )
     if (!update.rows.length) throw httpError(404, 'Submission not found')
 
+    // Marks publish immediately — students see the result in the LMS Results page
+    // and their student details, along with the lecturer's feedback.
     await client.query(
-      `INSERT INTO results (course_id, batch_id, student_id, result_type, score, status, published, uploaded_by)
+      `INSERT INTO results (course_id, batch_id, student_id, result_type, score, status, published, published_at, feedback_text, uploaded_by, exam_id)
        SELECT e.course_id, e.batch_id, s.student_id, 'Exam', $1,
-              (CASE WHEN $1 >= 50 THEN 'Pass' ELSE 'Fail' END), FALSE, $2
+              (CASE WHEN $1 >= 50 THEN 'Pass' ELSE 'Fail' END), TRUE, NOW(), $2, $3, e.id
        FROM exams e, exam_submissions s
-       WHERE e.id = $3 AND s.id = $4
+       WHERE e.id = $4 AND s.id = $5
        ON CONFLICT (course_id, student_id, result_type)
        DO UPDATE SET score = EXCLUDED.score, status = EXCLUDED.status,
-                     published = FALSE, uploaded_by = EXCLUDED.uploaded_by`,
-      [numericScore, gradedBy, examId, submissionId]
+                     published = TRUE, published_at = NOW(), feedback_text = EXCLUDED.feedback_text,
+                     uploaded_by = EXCLUDED.uploaded_by, exam_id = EXCLUDED.exam_id`,
+      [numericScore, feedback || null, gradedBy, examId, submissionId]
     )
 
     await client.query('COMMIT')
@@ -843,6 +901,70 @@ export const publishExamResults = async (req, res, next) => {
     )
 
     res.json({ published: true, updated: result.rowCount })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ── Lecturer marking portal ─────────────────────────────────────────
+// Exams a lecturer can mark: courses they own or co-own. Admins see everything.
+export const listMarkingExams = async (req, res, next) => {
+  try {
+    const isLecturer = req.user.role === 'lecturer'
+    const scope = isLecturer
+      ? 'AND (c.lecturer_id = $1 OR c.secondary_lecturer_id = $1)'
+      : ''
+
+    const result = await query(
+      `SELECT ex.id, ex.title, ex.description, ex.exam_type, ex.due_date,
+              ex.duration_minutes, ex.results_release_at,
+              c.id AS course_id, c.title AS course_title,
+              (SELECT COUNT(*)::int FROM exam_deliveries d WHERE d.exam_id = ex.id) AS delivered_count,
+              (SELECT COUNT(*)::int FROM exam_submissions es WHERE es.exam_id = ex.id) AS submitted_count,
+              (SELECT COUNT(*)::int FROM exam_submissions es WHERE es.exam_id = ex.id AND es.status = 'pending_marking') AS pending_marking_count,
+              (SELECT COUNT(*)::int FROM exam_submissions es WHERE es.exam_id = ex.id AND es.status = 'marked') AS marked_count,
+              (SELECT COUNT(*)::int FROM exam_submissions es WHERE es.exam_id = ex.id AND es.result_sent_at IS NULL) AS results_pending_release
+       FROM exams ex
+       JOIN courses c ON c.id = ex.course_id
+       WHERE 1 = 1 ${scope}
+       ORDER BY ex.due_date DESC NULLS LAST, ex.id DESC`,
+      isLecturer ? [req.user.userId] : []
+    )
+
+    res.json(result.rows)
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Set / update the date when MCQ results become visible to students
+export const setExamResultsRelease = async (req, res, next) => {
+  try {
+    const examId = Number(req.params.examId)
+    if (!examId) throw httpError(400, 'Valid examId is required')
+
+    if (req.user.role === 'lecturer') {
+      const owned = await query(
+        `SELECT 1 FROM exams ex JOIN courses c ON c.id = ex.course_id
+         WHERE ex.id = $1 AND (c.lecturer_id = $2 OR c.secondary_lecturer_id = $2)`,
+        [examId, req.user.userId]
+      )
+      if (!owned.rows.length) throw httpError(403, 'This exam is not in your assigned courses')
+    }
+
+    let releaseAt = null
+    if (req.body?.releaseAt) {
+      const d = new Date(req.body.releaseAt)
+      if (Number.isNaN(d.getTime())) throw httpError(400, 'releaseAt must be a valid date')
+      releaseAt = d.toISOString()
+    }
+
+    const updated = await query(
+      `UPDATE exams SET results_release_at = $1 WHERE id = $2 RETURNING id, results_release_at`,
+      [releaseAt, examId]
+    )
+    if (!updated.rows.length) throw httpError(404, 'Exam not found')
+    res.json(updated.rows[0])
   } catch (error) {
     next(error)
   }
