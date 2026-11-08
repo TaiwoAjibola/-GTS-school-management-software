@@ -2629,7 +2629,7 @@ const LecturerDashboard = () => {
              {/* Left: create + list */}
              <div className="space-y-4">
                 {/* Create plan form — single-viewport inline */}
-                <form onSubmit={createPlan} className="card card-hover flex flex-col overflow-hidden max-h-[60vh]">
+                <form onSubmit={createPlan} className="card card-hover flex flex-col overflow-hidden md:max-h-[60vh]">
                   <div className="shrink-0 px-5 py-4 border-b border-slate-100 bg-white">
                     <h3 className="font-semibold text-slate-900">New Plan</h3>
                   </div>
@@ -2777,7 +2777,7 @@ const LecturerDashboard = () => {
                   )}
 
                   {/* Add course to plan — scrollable inline */}
-                  <form onSubmit={addItem} className="border border-slate-200 rounded-xl flex flex-col overflow-hidden max-h-[50vh]">
+                  <form onSubmit={addItem} className="border border-slate-200 rounded-xl flex flex-col overflow-hidden md:max-h-[50vh]">
                     <div className="shrink-0 px-4 py-3 border-b border-slate-100 bg-white">
                       <p className="text-sm font-medium text-slate-700">Add Course to Plan</p>
                     </div>
@@ -3223,7 +3223,7 @@ const LecturerDashboard = () => {
             </div>
 
           {selectedStudent && studentEditForm ? (
-            <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col overflow-hidden isolate">
+            <div className="fixed right-0 top-0 h-full w-96 max-w-full bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col overflow-hidden isolate">
               <div className="shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900">Student Profile</h3>
                 <button type="button" onClick={closeStudentPanel} className="rounded-lg p-1 hover:bg-slate-100">
@@ -3231,7 +3231,7 @@ const LecturerDashboard = () => {
                 </button>
               </div>
 
-              <form onSubmit={saveStudentEdit} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              <form onSubmit={saveStudentEdit} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
                 {/* Profile Image */}
                 <div className="flex items-center gap-4 mb-4">
                   <div
