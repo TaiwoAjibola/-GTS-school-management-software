@@ -15,6 +15,7 @@ export default function WysiwygEditor({
   tokens = [],
   className = '',
   placeholder = 'Write your content here…',
+  innerRef,
 }) {
   const ref = useRef(null)
   const fileRef = useRef(null)
@@ -170,7 +171,10 @@ export default function WysiwygEditor({
         )}
       </div>
       <div
-        ref={ref}
+        ref={(el) => {
+          ref.current = el
+          if (innerRef) innerRef.current = el
+        }}
         contentEditable
         suppressContentEditableWarning
         onInput={emit}

@@ -800,7 +800,12 @@ export const emailSubmissions = async (req, res, next) => {
 
       const vars = buildSubmissionVars(sub, fields)
       const subj = substitute(subject, vars)
-      const messageHtml = substitute(body, vars).replace(/\n/g, '<br>')
+      const rawMessage = substitute(body, vars)
+      // WYSIWYG bodies arrive as HTML — pass them through untouched.
+      // Legacy plain-text bodies get newline → <br> conversion.
+      const messageHtml = /<\/?[a-z][^>]*>/i.test(rawMessage)
+        ? rawMessage
+        : rawMessage.replace(/\n/g, '<br>')
       const html = formatHtml && formatHtml.trim()
         ? substitute(formatHtml, { ...vars, message: messageHtml })
         : messageHtml

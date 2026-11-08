@@ -49,7 +49,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   const [error, setError] = useState('')
 
   const subjectRef = useRef(null)
-  const bodyRef = useRef(null)
+  const bodyEditorRef = useRef(null)
   const activeRef = useRef('subject')
   const navigate = useNavigate()
 
@@ -104,7 +104,9 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     const t = templates.find((x) => String(x.id) === String(id))
     if (t) {
       setSubject(t.subject_template || '')
-      setBody(t.body_template || '')
+      // Saved templates may be plain text — convert to HTML for the WYSIWYG editor.
+      const rawBody = t.body_template || ''
+      setBody(/<\/?[a-z][^>]*>/i.test(rawBody) ? rawBody : rawBody.replace(/\n/g, '<br>'))
     }
   }
 
@@ -156,7 +158,10 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
     }
   }
 
-  const previewMessageHtml = substitute(body, previewVars).replace(/\n/g, '<br>')
+  const rawMessagePreview = substitute(body, previewVars)
+  const previewMessageHtml = /<\/?[a-z][^>]*>/i.test(rawMessagePreview)
+    ? rawMessagePreview
+    : rawMessagePreview.replace(/\n/g, '<br>')
   const previewHtml = design
     ? substitute(design, { ...previewVars, message: previewMessageHtml })
     : previewMessageHtml
@@ -165,14 +170,19 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
   const insertToken = (label) => {
     const token = `{{${label}}}`
-    const target = activeRef.current
-    const ref = target === 'body' ? bodyRef.current : subjectRef.current
+    if (activeRef.current === 'body' && bodyEditorRef.current) {
+      const el = bodyEditorRef.current
+      el.focus()
+      document.execCommand('insertText', false, token)
+      setBody(el.innerHTML)
+      return
+    }
+    const ref = subjectRef.current
     if (!ref) return
     const start = ref.selectionStart ?? ref.value.length
     const end = ref.selectionEnd ?? ref.value.length
     const next = ref.value.slice(0, start) + token + ref.value.slice(end)
-    if (target === 'body') setBody(next)
-    else setSubject(next)
+    setSubject(next)
     requestAnimationFrame(() => {
       ref.focus()
       const pos = start + token.length
@@ -181,7 +191,12 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   }
 
   const handleSend = async () => {
-    if (!subject.trim() || !body.trim()) {
+    const bodyText = (body || '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;|&#160;/g, ' ')
+      .trim()
+    if (!subject.trim() || !bodyText) {
       setError('Subject and body are required')
       return
     }
@@ -342,37 +357,38 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
               />
           </div>
 
-          <div>
+          <div
+            onFocusCapture={() => (activeRef.current = 'body')}
+          >
             <label className="block text-xs font-semibold text-slate-500 mb-1">
-              Message
+              Message <span className="font-normal text-slate-400">(rich text — bold, headings, lists, images)</span>
             </label>
-              <textarea
-                ref={bodyRef}
-                onFocus={() => (activeRef.current = 'body')}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                rows={6}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Use {{Field Label}} to personalize, e.g. Dear {{Full Name}}"
-              />
-              <div className="mt-2">
-                <p className="text-[11px] text-slate-400 mb-1.5">
-                  Click a variable to insert it {activeRef.current === 'body' ? ' into the message' : ' into the subject'}:
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {variables.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => insertToken(v)}
-                      className="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 text-xs font-medium hover:bg-indigo-100"
-                      title={`Insert {{${v}}}`}
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
+            <WysiwygEditor
+              key="compose-message"
+              value={body}
+              onChange={(html) => setBody(html)}
+              tokens={variables.map((v) => ({ token: `{{${v}}}`, label: v }))}
+              placeholder="Write your message. Use {{Field Label}} to personalize, e.g. Dear {{Full Name}}"
+            />
+            <div className="mt-2 mb-3">
+              <p className="text-[11px] text-slate-400 mb-1.5">
+                Click a variable to insert it {activeRef.current === 'body' ? ' into the message' : ' into the subject'}:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {variables.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => insertToken(v)}
+                    className="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 text-xs font-medium hover:bg-indigo-100"
+                    title={`Insert {{${v}}}`}
+                  >
+                    {v}
+                  </button>
+                ))}
               </div>
+            </div>
           </div>
 
           {emailable.length > 0 && (
