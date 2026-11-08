@@ -358,3 +358,26 @@ table.data-table .truncate-cell { max-width: 16rem; overflow: hidden; text-overf
   }
   .report-print table { width: 100% !important; }
 }
+
+/* — Mobile wave 1: data tables + touch ergonomics — */
+/* Wide raw tables inside clipped cards scroll horizontally on phones
+   instead of being cut off (covers table.data-table without a wrapper). */
+@media (max-width: 767px) {
+  div:has(> table.data-table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Comfortable momentum scrolling in every internal scroll region */
+  .overflow-auto, .overflow-y-auto, .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inputs and selects get at least ~44px tap height on phones */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Buttons built on the .btn system keep stable minimum height */
+  .btn { min-height: 40px; }
+}
