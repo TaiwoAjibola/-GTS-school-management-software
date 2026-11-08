@@ -63,8 +63,12 @@ export const enrollStudentToBatch = async (req, res, next) => {
     }
 
     const result = await client.query(
-      `INSERT INTO enrollments (course_id, batch_id, student_id, status)
-       VALUES ($1, $2, $3, 'active')
+      `INSERT INTO enrollments (course_id, batch_id, student_id, status, course_plan_item_id)
+       VALUES ($1, $2, $3, 'active',
+         (SELECT cpi.id FROM course_plan_items cpi
+          JOIN course_plans p ON p.id = cpi.plan_id
+          WHERE cpi.course_id = $1 AND p.is_active = TRUE
+          ORDER BY cpi.sort_order ASC LIMIT 1))
        RETURNING *`,
       [batch.course_id, batchId, studentId]
     )
@@ -379,8 +383,12 @@ export const enrollStudentToCourse = async (req, res, next) => {
     }
 
     const result = await client.query(
-      `INSERT INTO enrollments (course_id, batch_id, student_id, status)
-       VALUES ($1, NULL, $2, 'active')
+      `INSERT INTO enrollments (course_id, batch_id, student_id, status, course_plan_item_id)
+       VALUES ($1, NULL, $2, 'active',
+         (SELECT cpi.id FROM course_plan_items cpi
+          JOIN course_plans p ON p.id = cpi.plan_id
+          WHERE cpi.course_id = $1 AND p.is_active = TRUE
+          ORDER BY cpi.sort_order ASC LIMIT 1))
        RETURNING *`,
       [courseId, studentId]
     )
@@ -427,7 +435,12 @@ export const bulkEnrollStudents = async (req, res, next) => {
       if (existing.rows.length) { skipped++; continue }
 
       await client.query(
-        `INSERT INTO enrollments (course_id, batch_id, student_id, status) VALUES ($1, NULL, $2, 'active')`,
+        `INSERT INTO enrollments (course_id, batch_id, student_id, status, course_plan_item_id)
+         VALUES ($1, NULL, $2, 'active',
+           (SELECT cpi.id FROM course_plan_items cpi
+            JOIN course_plans p ON p.id = cpi.plan_id
+            WHERE cpi.course_id = $1 AND p.is_active = TRUE
+            ORDER BY cpi.sort_order ASC LIMIT 1))`,
         [courseId, studentId]
       )
       await client.query(
@@ -607,8 +620,12 @@ export const copyEnrollmentsFromCourse = async (req, res, next) => {
 
       try {
         await client.query(
-          `INSERT INTO enrollments (course_id, batch_id, student_id, status)
-           VALUES ($1, NULL, $2, 'active')`,
+          `INSERT INTO enrollments (course_id, batch_id, student_id, status, course_plan_item_id)
+           VALUES ($1, NULL, $2, 'active',
+             (SELECT cpi.id FROM course_plan_items cpi
+              JOIN course_plans p ON p.id = cpi.plan_id
+              WHERE cpi.course_id = $1 AND p.is_active = TRUE
+              ORDER BY cpi.sort_order ASC LIMIT 1))`,
           [targetCourseId, student_id]
         )
         await client.query(
@@ -633,5 +650,48 @@ export const copyEnrollmentsFromCourse = async (req, res, next) => {
     next(error)
   } finally {
     client.release()
+  }
+}
+
+// ── Enrollments grouped under their course plan ─────────────────────
+// Returns every enrollment with its plan/year context, ordered plan-first.
+export const getEnrollmentsByPlan = async (req, res, next) => {
+  try {
+    const planId = Number(req.query.planId || 0)
+    const result = await query(
+      `SELECT p.id AS plan_id, p.name AS plan_name, p.year, p.is_active,
+              e.id AS enrollment_id, e.status, e.enrolled_at, e.completed_at,
+              c.id AS course_id, c.title AS course_title, c.course_code,
+              s.id AS student_id, u.full_name AS student_name, s.matric_number
+       FROM enrollments e
+       JOIN courses c ON c.id = e.course_id
+       JOIN students s ON s.id = e.student_id
+       JOIN users u ON u.id = s.user_id
+       LEFT JOIN course_plan_items cpi ON cpi.id = e.course_plan_item_id
+       LEFT JOIN course_plans p ON p.id = cpi.plan_id
+       WHERE ($1 = 0 OR p.id = $1)
+       ORDER BY p.year DESC NULLS LAST, cpi.sort_order ASC NULLS LAST, u.full_name ASC`,
+      [planId]
+    )
+    res.json(result.rows)
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Plans (name/year/active + enrollment counts) for the plan filter
+export const listPlansForEnrollment = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT p.id, p.name, p.year, p.is_active,
+              (SELECT COUNT(*)::int FROM enrollments e
+                JOIN course_plan_items cpi ON cpi.id = e.course_plan_item_id
+                WHERE cpi.plan_id = p.id) AS enrollment_count
+       FROM course_plans p
+       ORDER BY p.year DESC, p.id DESC`
+    )
+    res.json(result.rows)
+  } catch (error) {
+    next(error)
   }
 }

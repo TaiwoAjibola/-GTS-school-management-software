@@ -60,36 +60,70 @@ export const getEnrollments = async (req, res, next) => {
 }
 
 // Available / upcoming / completed / outstanding course aggregator.
+// Anchored to the plan the student's enrollments live under (or the active plan).
 export const getCourseAvailability = async (req, res, next) => {
   try {
     const studentId = await getStudentId(req.user.userId)
-    const plan = await query(
-      'SELECT id FROM course_plans WHERE is_active = true ORDER BY id DESC LIMIT 1'
+    const planRes = await query(
+      `SELECT p.id, p.name, p.year
+       FROM course_plans p
+       WHERE p.id = COALESCE(
+         (SELECT cpi.plan_id FROM enrollments e
+           JOIN course_plan_items cpi ON cpi.id = e.course_plan_item_id
+           WHERE e.student_id = $1 ORDER BY e.enrolled_at DESC LIMIT 1),
+         (SELECT id FROM course_plans WHERE is_active = true ORDER BY id DESC LIMIT 1)
+       )`,
+      [studentId]
     )
-    if (!plan.rows.length) return res.json({ items: [] })
+    if (!planRes.rows.length) {
+      return res.json({ plan: null, items: [], next: null, progress: { completed: 0, total: 0 } })
+    }
+    const plan = planRes.rows[0]
 
     const items = await query(
-      `SELECT cpi.course_id, cpi.start_date, cpi.end_date, cpi.sort_order, cpi.notes,
-              c.title, c.course_code, c.description, c.meet_link
+      `SELECT cpi.id AS plan_item_id, cpi.course_id, cpi.start_date, cpi.end_date, cpi.sort_order, cpi.notes,
+              c.title, c.course_code, c.description, c.meet_link,
+              e.status AS enrollment_status
        FROM course_plan_items cpi
        JOIN courses c ON c.id = cpi.course_id
-       WHERE cpi.plan_id = $1
+       LEFT JOIN enrollments e
+              ON e.course_id = c.id AND e.student_id = $1 AND e.course_plan_item_id = cpi.id
+       WHERE cpi.plan_id = $2
        ORDER BY cpi.sort_order ASC`,
-      [plan.rows[0].id]
+      [studentId, plan.id]
     )
 
-    const enrollments = await query(
+    // Slot state per course for THIS student — via any active enrollment if not
+    // anchored to the plan item, then the plan order.
+    const enrollRes = await query(
       "SELECT course_id, status FROM enrollments WHERE student_id = $1 AND status IN ('active','completed','failed')",
       [studentId]
     )
     const byCourse = {}
-    for (const e of enrollments.rows) byCourse[e.course_id] = e.status
+    for (const e of enrollRes.rows) if (!byCourse[e.course_id]) byCourse[e.course_id] = e.status
 
     const mapped = items.rows.map((it) => ({
       ...it,
-      state: byCourse[it.course_id] || 'available',
+      state: it.enrollment_status || byCourse[it.course_id] || 'available',
     }))
-    res.json({ items: mapped })
+
+    // "Next up": the active course, else the first available item with a start
+    // date inside the coming three weeks, else the first available item.
+    const completed = mapped.filter((it) => it.state === 'completed').length
+    const nextItem = mapped.find((it) => it.state === 'active')
+      || mapped.find((it) => it.state === 'available'
+        && (!it.start_date || new Date(it.start_date) <= new Date(Date.now() + 1000 * 60 * 60 * 24 * 21)))
+      || mapped.find((it) => it.state === 'available')
+      || null
+
+    res.json({
+      plan: { id: plan.id, name: plan.name, year: plan.year },
+      items: mapped,
+      next: nextItem
+        ? { course_id: nextItem.course_id, title: nextItem.title, start_date: nextItem.start_date }
+        : null,
+      progress: { completed, total: mapped.length },
+    })
   } catch (error) {
     next(error)
   }

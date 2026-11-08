@@ -13,6 +13,8 @@ import {
   listEnrollmentsByCourse,
   updateEnrollmentNotes,
   withdrawEnrollment,
+  getEnrollmentsByPlan,
+  listPlansForEnrollment,
 } from '../controllers/enrollmentController.js'
 import { authenticate, authorize } from '../middleware/auth.js'
 
@@ -23,6 +25,8 @@ router.post('/', authorize('admin', 'lecturer'), enrollStudentToBatch)
 router.post('/enroll', authorize('admin', 'lecturer'), enrollStudentToCourse)
 router.post('/enroll-bulk', authorize('admin', 'lecturer'), bulkEnrollStudents)
 router.post('/copy-from-course', authorize('admin', 'lecturer'), copyEnrollmentsFromCourse)
+router.get('/by-plan', authorize('admin', 'lecturer'), getEnrollmentsByPlan)
+router.get('/plans', authorize('admin', 'lecturer'), listPlansForEnrollment)
 router.get('/candidates', authorize('admin', 'lecturer'), listEnrollmentCandidates)
 router.get('/course/:courseId', authorize('admin', 'lecturer'), listEnrollmentsByCourse)
 router.get('/batch/:batchId', authorize('admin', 'lecturer'), listEnrollmentsByBatch)

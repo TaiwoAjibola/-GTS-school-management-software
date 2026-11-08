@@ -42,9 +42,37 @@ export default function EnrollmentPage() {
   const [enrollSearch, setEnrollSearch] = useState('')
   const [notice, setNotice] = useState('')
 
+  // "By Plan" view — enrollments grouped under their course plan
+  const [enrollView, setEnrollView] = useState('course')
+  const [planList, setPlanList] = useState([])
+  const [planRows, setPlanRows] = useState([])
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planFilter, setPlanFilter] = useState(0)
+
   const notify = (msg) => {
     setNotice(msg)
     setTimeout(() => setNotice(''), 3000)
+  }
+
+  const loadPlanView = async (planId = 0) => {
+    setPlanLoading(true)
+    try {
+      const [plansRes, rowsRes] = await Promise.all([
+        apiClient.get('/enrollments/plans').catch(() => ({ data: [] })),
+        apiClient.get(`/enrollments/by-plan${planId ? `?planId=${planId}` : ''}`),
+      ])
+      setPlanList(plansRes.data || [])
+      setPlanRows(rowsRes.data || [])
+    } catch {
+      setPlanRows([])
+    } finally {
+      setPlanLoading(false)
+    }
+  }
+
+  const switchEnrollView = (view) => {
+    setEnrollView(view)
+    if (view === 'plan') loadPlanView(planFilter)
   }
 
   const getReasonCounts = (list) => {
@@ -197,11 +225,151 @@ export default function EnrollmentPage() {
         <div className="shrink-0 flex items-center justify-between">
           <div className="min-w-0">
             <h1 className="font-display text-2xl md:text-[30px] font-extrabold tracking-[-0.04em] text-slate-900 leading-none">Enrollment</h1>
-            <p className="text-[13px] text-slate-500 mt-1 font-sans">Manage course enrollments by batch</p>
+            <p className="text-[13px] text-slate-500 mt-1 font-sans">{enrollView === 'plan' ? 'Enrollments grouped under their course plan' : 'Manage course enrollments by batch'}</p>
+          </div>
+          <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => switchEnrollView('course')}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${enrollView === 'course' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              By Course
+            </button>
+            <button
+              type="button"
+              onClick={() => switchEnrollView('plan')}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${enrollView === 'plan' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              By Plan
+            </button>
           </div>
         </div>
         <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-4 pr-1 pb-2 [scrollbar-width:thin]">
-          {selectedCourse ? (
+          {enrollView === 'plan' ? (
+            <>
+              {/* Plan filter chips */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setPlanFilter(0); loadPlanView(0) }}
+                  className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition ${planFilter === 0 ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
+                >
+                  All plans
+                </button>
+                {planList.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setPlanFilter(p.id); loadPlanView(p.id) }}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold border transition ${planFilter === p.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
+                  >
+                    {p.name} · {p.year}
+                    {p.is_active ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Active plan" /> : null}
+                    <span className="text-slate-400 font-medium">{p.enrollment_count}</span>
+                  </button>
+                ))}
+              </div>
+
+              {planLoading ? (
+                <Card className="!rounded-[24px] text-center py-12">
+                  <p className="text-sm text-slate-400">Loading plan enrollments…</p>
+                </Card>
+              ) : planRows.length === 0 ? (
+                <Card className="!rounded-[24px] text-center py-12">
+                  <div className="mx-auto h-12 w-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-3">
+                    <Layers size={20} />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">No plan-anchored enrollments</p>
+                  <p className="text-sm text-slate-500 mt-1">New enrollments are automatically anchored to the active course plan.</p>
+                </Card>
+              ) : (
+                (() => {
+                  // Group rows: anchored by plan/year, unanchored into its own bucket
+                  const planGroups = []
+                  const unanchored = []
+                  const byPlan = new Map()
+                  for (const row of planRows) {
+                    if (!row.plan_id) { unanchored.push(row); continue }
+                    if (!byPlan.has(row.plan_id)) {
+                      byPlan.set(row.plan_id, {
+                        plan_id: row.plan_id,
+                        plan_name: row.plan_name,
+                        year: row.year,
+                        is_active: row.is_active,
+                        courses: new Map(),
+                      })
+                      planGroups.push(byPlan.get(row.plan_id))
+                    }
+                    const group = byPlan.get(row.plan_id)
+                    if (!group.courses.has(row.course_id)) {
+                      group.courses.set(row.course_id, { course_id: row.course_id, course_title: row.course_title, course_code: row.course_code, students: [] })
+                    }
+                    group.courses.get(row.course_id).students.push(row)
+                  }
+
+                  const renderStudentRow = (row) => (
+                    <div key={row.enrollment_id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl hover:bg-slate-50">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{row.student_name}</p>
+                        <p className="text-xs text-slate-400">{row.matric_number || '—'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge tone={row.status === 'active' ? 'emerald' : row.status === 'completed' ? 'sky' : 'slate'} dot>{row.status}</Badge>
+                        <span className="text-xs text-slate-400 hidden sm:inline">{row.enrolled_at ? fmtDate(row.enrolled_at) : ''}</span>
+                      </div>
+                    </div>
+                  )
+
+                  return (
+                    <>
+                      {planGroups.map((group) => (
+                        <div key={group.plan_id} className="card card-hover p-5 flex flex-col gap-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <h2 className="font-display text-lg font-bold text-slate-900">{group.plan_name}</h2>
+                              <p className="text-xs text-slate-500 mt-0.5">{group.year} · {group.courses.size} course(s)</p>
+                            </div>
+                            {group.is_active ? <Badge tone="emerald" dot>Active plan</Badge> : <Badge tone="slate" dot>Inactive</Badge>}
+                          </div>
+                          <div className="flex flex-col gap-3">
+                            {[...group.courses.values()].map((courseGroup) => (
+                              <div key={courseGroup.course_id} className="rounded-2xl border border-slate-100 overflow-hidden">
+                                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50/70">
+                                  <p className="text-sm font-semibold text-slate-700">
+                                    {courseGroup.course_code ? `${courseGroup.course_code} — ` : ''}{courseGroup.course_title}
+                                  </p>
+                                  <span className="text-xs font-medium text-slate-400">{courseGroup.students.length}</span>
+                                </div>
+                                <div className="p-1.5">
+                                  {courseGroup.students
+                                    .slice()
+                                    .sort((a, b) => (a.student_name || '').localeCompare(b.student_name || ''))
+                                    .map(renderStudentRow)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {unanchored.length > 0 && (
+                        <div className="card card-hover p-5 flex flex-col gap-3">
+                          <div>
+                            <h2 className="font-display text-lg font-bold text-slate-900">Unanchored</h2>
+                            <p className="text-xs text-slate-500 mt-0.5">Older enrollments created before plan anchoring</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                            <div className="p-1.5 grid grid-cols-1 md:grid-cols-2 gap-1">
+                              {unanchored.slice().sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '')).map(renderStudentRow)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()
+              )}
+            </>
+          ) : selectedCourse ? (
             <>
               {/* Compact course selector — clean filter bar */}
               <div className="card card-hover p-5 flex flex-wrap items-center justify-between gap-3">
