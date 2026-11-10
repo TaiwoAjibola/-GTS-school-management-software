@@ -113,6 +113,9 @@ const LecturerDashboard = () => {
   const [studentTimeline, setStudentTimeline] = useState([])
   const [enrollmentNotesEdits, setEnrollmentNotesEdits] = useState({})
   const [loadingStudentHistory, setLoadingStudentHistory] = useState(false)
+  const [coursesLoading, setCoursesLoading] = useState(false)
+  const [allStudentsLoading, setAllStudentsLoading] = useState(false)
+  const [graduationMatrixLoading, setGraduationMatrixLoading] = useState(false)
   const [newStatusInput, setNewStatusInput] = useState('')
   const [profileImageFile, setProfileImageFile] = useState(null)
   const [profileImageUploading, setProfileImageUploading] = useState(false)
@@ -521,16 +524,23 @@ const LecturerDashboard = () => {
   }
 
   const loadCourses = async () => {
-    const response = await apiClient.get('/courses')
-    const ownCourses = user?.role === 'admin'
-      ? response.data
-      : response.data.filter(
-          (course) => Number(course.lecturer_id) === Number(user?.id) || Number(course.created_by) === Number(user?.id)
-        )
-    setCourses(ownCourses)
-    if (!selectedCourseId && ownCourses.length) {
-      const currentCourse = ownCourses.find((course) => Boolean(course.is_current))
-      setSelectedCourseId(String(currentCourse?.id || ownCourses[0].id))
+    setCoursesLoading(true)
+    try {
+      const response = await apiClient.get('/courses')
+      const ownCourses = user?.role === 'admin'
+        ? response.data
+        : response.data.filter(
+            (course) => Number(course.lecturer_id) === Number(user?.id) || Number(course.created_by) === Number(user?.id)
+          )
+      setCourses(ownCourses)
+      if (!selectedCourseId && ownCourses.length) {
+        const currentCourse = ownCourses.find((course) => Boolean(course.is_current))
+        setSelectedCourseId(String(currentCourse?.id || ownCourses[0].id))
+      }
+    } catch (err) {
+      if (courses.length === 0) notify('Failed to load courses')
+    } finally {
+      setCoursesLoading(false)
     }
   }
 
@@ -542,9 +552,14 @@ const LecturerDashboard = () => {
   }, [courses])
 
   const loadAllStudents = async () => {
-    const response = await apiClient.get('/students')
-    setAllStudents(response.data)
-    return response.data
+    setAllStudentsLoading(true)
+    try {
+      const response = await apiClient.get('/students')
+      setAllStudents(response.data)
+      return response.data
+    } finally {
+      setAllStudentsLoading(false)
+    }
   }
 
   const loadCohorts = async () => {
@@ -553,8 +568,13 @@ const LecturerDashboard = () => {
   }
 
   const loadGraduationMatrix = async () => {
-    const response = await apiClient.get('/students/graduation-matrix')
-    setGraduationMatrix(response.data)
+    setGraduationMatrixLoading(true)
+    try {
+      const response = await apiClient.get('/students/graduation-matrix')
+      setGraduationMatrix(response.data)
+    } finally {
+      setGraduationMatrixLoading(false)
+    }
   }
 
   const loadGraduationSets = async () => {
@@ -2425,6 +2445,7 @@ const LecturerDashboard = () => {
             <div className="flex-1 min-h-0 overflow-auto">
             <DataTable
               data={courses}
+              loading={coursesLoading}
               rowKey="id"
               initialPageSize={25}
               emptyMessage="No courses yet. Create one using the form."
@@ -3044,7 +3065,7 @@ const LecturerDashboard = () => {
                 <p className="text-sm text-slate-500 mt-1">Students created from approved form submissions.</p>
               </div>
               {prospectiveStudentsLoading ? (
-                <p className="text-sm text-slate-500">Loading...</p>
+                <p className="text-sm text-slate-400 animate-pulse">Loading prospective students…</p>
               ) : (
                 <div>
                     <DataTable
@@ -3134,6 +3155,7 @@ const LecturerDashboard = () => {
               <div className="flex-1 min-h-0 overflow-auto">
             <DataTable
               data={filteredStudents}
+              loading={allStudentsLoading}
               rowKey="id"
               initialPageSize={25}
               fillHeight
@@ -5431,6 +5453,7 @@ const LecturerDashboard = () => {
             <div className="flex-1 min-h-0 overflow-auto">
               <DataTable
               data={filteredGraduationStudents}
+              loading={allStudentsLoading || graduationMatrixLoading}
               rowKey="id"
               initialPageSize={25}
               fillHeight
