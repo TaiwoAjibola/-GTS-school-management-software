@@ -4,6 +4,14 @@ import apiClient from '../api/client'
 import WysiwygEditor from './WysiwygEditor'
 import { useDialog } from './useDialog'
 
+// Legacy templates were saved as plain text — upgrade them to HTML for the
+// WYSIWYG editor (existing HTML passes through untouched).
+const toEditorHtml = (text) => {
+  const raw = text || ''
+  if (/<\/?[a-z][^>]*>/i.test(raw)) return raw
+  return raw.replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+}
+
 const EXAM_FALLBACK_VARIABLES = [
   { id: 'fb_exam_title', variable_key: 'exam_title', display_label: 'Exam Title', category: 'exam', example_value: 'Midterm Exam' },
   { id: 'fb_exam_link', variable_key: 'exam_link', display_label: 'Exam Link', category: 'exam', example_value: 'https://example.com/exam/123' },
@@ -30,6 +38,7 @@ export default function EmailProcesses({ notify }) {
   const [varSearch, setVarSearch] = useState('')
   const [varCategoryFilter, setVarCategoryFilter] = useState('')
   const [focusedField, setFocusedField] = useState('body')
+
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewData, setPreviewData] = useState(null)
@@ -60,6 +69,7 @@ export default function EmailProcesses({ notify }) {
   const [sendResult, setSendResult] = useState(null)
 
   const bodyRef = useRef(null)
+  const bodyEditorRef = useRef(null)
   const subjectRef = useRef(null)
 
   // ── Detect which variable categories are used in current template ──
@@ -137,7 +147,7 @@ export default function EmailProcesses({ notify }) {
     setForm({
       name: t.name || '',
       subject_template: t.subject_template || '',
-      body_template: t.body_template || '',
+      body_template: toEditorHtml(t.body_template),
       rich_body: t.rich_body || '',
     })
   }
@@ -208,16 +218,28 @@ export default function EmailProcesses({ notify }) {
 
   // ── Variable insertion at cursor position ──
   const insertVariable = (key) => {
+    const tmpl = `{{${key}}}`
+    // Body is a WYSIWYG contentEditable — insert at its caret when focused.
+    if (focusedField === 'body') {
+      const el = bodyEditorRef.current
+      if (el) {
+        el.focus()
+        document.execCommand('insertText', false, tmpl)
+        setForm((prev) => ({ ...prev, body_template: el.innerHTML }))
+        return
+      }
+      setForm((prev) => ({ ...prev, body_template: (prev.body_template || '') + tmpl }))
+      return
+    }
     const ref = focusedField === 'subject' ? subjectRef : bodyRef
     const field = focusedField === 'subject' ? 'subject_template' : 'body_template'
     if (!ref.current) {
-      setForm((prev) => ({ ...prev, [field]: (prev[field] || '') + `{{${key}}}` }))
+      setForm((prev) => ({ ...prev, [field]: (prev[field] || '') + tmpl }))
       return
     }
     const start = ref.current.selectionStart
     const end = ref.current.selectionEnd
     const val = ref.current.value
-    const tmpl = `{{${key}}}`
     const newVal = val.substring(0, start) + tmpl + val.substring(end)
     setForm((prev) => ({ ...prev, [field]: newVal }))
     requestAnimationFrame(() => {
@@ -237,6 +259,14 @@ export default function EmailProcesses({ notify }) {
     e.preventDefault()
     const key = e.dataTransfer.getData('text/plain')
     setFocusedField(field)
+    if (field === 'body' && bodyEditorRef.current) {
+      // WYSIWYG body: insert the token at the editor's caret
+      const el = bodyEditorRef.current
+      el.focus()
+      document.execCommand('insertText', false, `{{${key}}}`)
+      setForm((prev) => ({ ...prev, body_template: el.innerHTML }))
+      return
+    }
     // Small delay so the focused field ref is correct
     setTimeout(() => insertVariable(key), 0)
   }
@@ -279,7 +309,7 @@ export default function EmailProcesses({ notify }) {
         setForm({
           name: t.name || '',
           subject_template: t.subject_template || '',
-          body_template: t.body_template || '',
+          body_template: toEditorHtml(t.body_template),
         })
       }
       setSendOpen(true)
@@ -617,16 +647,26 @@ export default function EmailProcesses({ notify }) {
               </label>
               <label className="text-sm text-slate-600 block flex-1 flex flex-col">
                 Email Body
-                <textarea
-                  ref={bodyRef}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm font-mono leading-relaxed flex-1 min-h-[280px]"
-                  placeholder="Write your email body here. Use {{variable_name}} to personalize."
-                  value={form.body_template}
-                  onFocus={() => setFocusedField('body')}
+                <div
+                  className="mt-1 flex-1 min-h-[280px] flex flex-col rounded-lg border border-slate-300 focus-within:border-sky-500 transition-colors"
+                  onFocusCapture={() => setFocusedField('body')}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, 'body')}
-                  onChange={(e) => setForm((prev) => ({ ...prev, body_template: e.target.value }))}
-                />
+                >
+                  <WysiwygEditor
+                    key="proc-body"
+                    innerRef={bodyEditorRef}
+                    className="min-h-[260px]"
+                    placeholder="Write your email body here. Use the Insert buttons to personalize, or drag variables in."
+                    value={form.body_template}
+                    onChange={(html) => setForm((prev) => ({ ...prev, body_template: html }))}
+                    tokens={[
+                      { token: '{{message}}', label: 'Message' },
+                      { token: '{{student_name}}', label: 'Student Name' },
+                      { token: '{{course_name}}', label: 'Course' },
+                    ]}
+                  />
+                </div>
               </label>
 
               <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-3">

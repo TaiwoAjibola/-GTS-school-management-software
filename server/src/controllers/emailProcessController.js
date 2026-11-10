@@ -273,7 +273,10 @@ export const previewProcess = async (req, res, next) => {
     }
 
     const toHtml = (text) => {
-      const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      const raw = text || ''
+      // WYSIWYG bodies already contain HTML — pass through untouched.
+      if (/<\/?[a-z][^>]*>/i.test(raw)) return raw
+      const withBreaks = raw.replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
       return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
     }
 
@@ -429,7 +432,10 @@ export const previewWithStudent = async (req, res, next) => {
     }
 
     const toHtml = (text) => {
-      const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      const raw = text || ''
+      // WYSIWYG bodies already contain HTML — pass through untouched.
+      if (/<\/?[a-z][^>]*>/i.test(raw)) return raw
+      const withBreaks = raw.replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
       return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
     }
 
@@ -527,7 +533,10 @@ export const sendTemplate = async (req, res, next) => {
     } catch {}
 
     const toHtml = (text) => {
-      const withBreaks = (text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      const raw = text || ''
+      // WYSIWYG bodies already contain HTML — pass through untouched.
+      if (/<\/?[a-z][^>]*>/i.test(raw)) return raw
+      const withBreaks = raw.replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
       return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
     }
 
