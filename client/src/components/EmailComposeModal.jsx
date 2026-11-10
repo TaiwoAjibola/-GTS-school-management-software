@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X, Send, Mail, FileText, Loader2, ExternalLink } from 'lucide-react'
 import apiClient from '../api/client'
 import WysiwygEditor from './WysiwygEditor'
+import { useDialog } from './useDialog'
 
 function resolveEmail(sub, fields) {
   if (sub.submitter_email) return sub.submitter_email
@@ -47,6 +48,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const { confirm: dialogConfirm, prompt: dialogPrompt, host: dialogHost } = useDialog()
 
   const subjectRef = useRef(null)
   const bodyEditorRef = useRef(null)
@@ -124,7 +126,11 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   const isDefaultFormat = !!selectedFormat?.is_default
 
   const saveFormat = async () => {
-    const name = window.prompt('Name this email format (design):')
+    const name = await dialogPrompt('Name this email format (design).', {
+      title: 'Save as format',
+      confirmLabel: 'Save',
+      placeholder: 'e.g. Welcome letter',
+    })
     if (!name) return
     try {
       const res = await apiClient.post('/email-formats', { name, html: design })
@@ -147,7 +153,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
 
   const removeFormat = async () => {
     if (!selectedFormat || isDefaultFormat) return
-    if (!window.confirm(`Delete format "${selectedFormat.name}"?`)) return
+    if (!(await dialogConfirm(`"${selectedFormat.name}" will be permanently deleted.`, { title: 'Delete format', confirmLabel: 'Delete' }))) return
     try {
       await apiClient.delete(`/email-formats/${selectedFormat.id}`)
       setFormats((prev) => prev.filter((f) => String(f.id) !== String(selectedFormat.id)))
@@ -223,6 +229,7 @@ export default function EmailComposeModal({ open, onClose, formId, submissions, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        {dialogHost}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h3 className="font-semibold text-slate-900 flex items-center gap-2">
             <Mail size={18} className="text-indigo-600" /> Email Submissions

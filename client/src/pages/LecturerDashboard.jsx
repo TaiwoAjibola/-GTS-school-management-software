@@ -6,6 +6,7 @@ import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import DataTable from '../components/ui/DataTable'
 import apiClient from '../api/client'
+import { useDialog } from '../components/useDialog'
 import { useAuth } from '../context/AuthContext'
 
 const DEFAULT_STUDENT_PASSWORD = 'Student123!'
@@ -66,6 +67,7 @@ const STATUS_COLORS = {
 
 const LecturerDashboard = () => {
   const { user } = useAuth()
+  const { confirm: dialogConfirm, prompt: dialogPrompt, host: dialogHost } = useDialog()
   const location = useLocation()
   const section = location.pathname.split('/')[2] || 'courses'
 
@@ -405,7 +407,7 @@ const LecturerDashboard = () => {
   }
 
   const deleteForm = async (formId) => {
-    if (!window.confirm('Delete this form and all its submissions?')) return
+    if (!(await dialogConfirm('This form and all its submissions will be permanently deleted.', { title: 'Delete form', confirmLabel: 'Delete' }))) return
     try {
       await apiClient.delete(`/forms/${formId}`)
       notify('Form deleted')
@@ -1087,7 +1089,10 @@ const LecturerDashboard = () => {
   }
 
   const deleteCohortSafely = async (cohort) => {
-    const confirmed = window.confirm(`Delete batch "${cohort.name}"?`)
+    const confirmed = await dialogConfirm(
+      `This batch can't be deleted while students remain in it. Continuing will remove "${cohort.name}" and unassign its students.`,
+      { title: `Delete batch "${cohort.name}"?`, confirmLabel: 'Delete' }
+    )
     if (!confirmed) return
 
     try {
@@ -1099,8 +1104,9 @@ const LecturerDashboard = () => {
       notify('Batch deleted')
     } catch (error) {
       if (error?.response?.status === 409) {
-        const forceConfirmed = window.confirm(
-          'This batch has students assigned. Remove students from this batch and delete anyway?'
+        const forceConfirmed = await dialogConfirm(
+          'The batch still has students assigned. Remove students from this batch and delete anyway?',
+          { title: `Delete batch "${cohort.name}"?`, confirmLabel: 'Delete anyway' }
         )
         if (!forceConfirmed) return
         await apiClient.delete(`/cohorts/${cohort.id}?force=true`)
@@ -1122,7 +1128,10 @@ const LecturerDashboard = () => {
   }
 
   const deleteCourse = async (courseId, courseTitle) => {
-    if (!window.confirm(`Delete "${courseTitle}"? This will also remove all enrollments, attendance and results for this course.`)) return
+    if (!(await dialogConfirm(
+      `Deleting "${courseTitle}" also removes all its enrollments, attendance and results. This cannot be undone.`,
+      { title: 'Delete course', confirmLabel: 'Delete' }
+    ))) return
     try {
       await apiClient.delete(`/courses/${courseId}`)
       await loadCourses()
@@ -1419,7 +1428,10 @@ const LecturerDashboard = () => {
   }
 
   const completeSet = async (row) => {
-    if (!window.confirm(`Mark "${row.name}" as completed? Students who passed every set course will be graduated.`)) return
+    if (!(await dialogConfirm(
+      `Students who passed every set course will be graduated.`,
+      { title: `Mark "${row.name}" as completed?`, confirmLabel: 'Mark completed', tone: 'primary' }
+    ))) return
     try {
       const response = await apiClient.post(`/graduation-sets/${row.id}/complete`)
       const graduated = response.data?.graduated?.length || 0
@@ -1432,7 +1444,7 @@ const LecturerDashboard = () => {
   }
 
   const deleteSet = async (row) => {
-    if (!window.confirm(`Delete "${row.name}"? This cannot be undone.`)) return
+    if (!(await dialogConfirm(`"${row.name}" will be permanently deleted.`, { title: 'Delete graduating set', confirmLabel: 'Delete' }))) return
     try {
       await apiClient.delete(`/graduation-sets/${row.id}`)
       notify('Graduating set deleted')
@@ -1983,7 +1995,7 @@ const LecturerDashboard = () => {
   }
 
   const deleteExamItem = async (examId) => {
-    if (!window.confirm('Delete this exam and its delivery records?')) return
+    if (!(await dialogConfirm('The exam and its delivery records will be removed. Submissions are kept.', { title: 'Delete exam', confirmLabel: 'Delete' }))) return
     try {
       await apiClient.delete(`/exams/${examId}`)
       await loadExams(selectedCourseId)
@@ -2595,7 +2607,7 @@ const LecturerDashboard = () => {
           notify('Active plan updated')
         }
         const deletePlan = async (planId) => {
-          if (!window.confirm('Delete this plan?')) return
+          if (!(await dialogConfirm('Planned courses in this plan will be detached from the plan (not deleted).', { title: 'Delete this plan?', confirmLabel: 'Delete' }))) return
           await apiClient.delete(`/course-plans/${planId}`)
           if (selectedPlan?.id === planId) { setSelectedPlan(null); setEligibleStudents([]) }
           const updated = await apiClient.get('/course-plans')
@@ -3205,7 +3217,7 @@ const LecturerDashboard = () => {
                         type="button"
                         className="btn btn-danger btn-sm lift"
                         onClick={async () => {
-                          if (!window.confirm(`Delete ${student.full_name}? This cannot be undone.`)) return
+                          if (!(await dialogConfirm(`${student.full_name}'s profile, results and attendance will be permanently removed.`, { title: `Delete ${student.full_name}?`, confirmLabel: 'Delete' }))) return
                           try {
                             await apiClient.delete(`/students/${student.id}`)
                             setAllStudents((prev) => prev.filter((s) => s.id !== student.id))
@@ -3467,7 +3479,7 @@ const LecturerDashboard = () => {
                     type="button"
                     className="w-full btn btn-danger border border-red-200 rounded-lg py-2 text-sm font-medium hover:bg-red-100"
                     onClick={async () => {
-                      if (!window.confirm(`Delete ${selectedStudent.full_name}? This cannot be undone.`)) return
+                      if (!(await dialogConfirm(`${selectedStudent.full_name}'s profile, results and attendance will be permanently removed.`, { title: `Delete ${selectedStudent.full_name}?`, confirmLabel: 'Delete' }))) return
                       await apiClient.delete(`/students/${selectedStudent.id}`)
                       setAllStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id))
                       closeStudentPanel()
@@ -6484,7 +6496,7 @@ const LecturerDashboard = () => {
                                   type="button"
                                   className="btn btn-danger btn-sm lift"
                                   onClick={async () => {
-                                    if (!window.confirm(`Delete lecturer "${l.name}"?`)) return
+                                    if (!(await dialogConfirm(`"${l.name}" will be removed from the lecturer list.`, { title: `Delete lecturer "${l.name}"?`, confirmLabel: 'Delete' }))) return
                                     try {
                                       await apiClient.delete(`/lecturers/${l.id}`)
                                       await loadLecturers()
@@ -7799,6 +7811,7 @@ const LecturerDashboard = () => {
         </div>
       ) : null}
        </div>
+      {dialogHost}
      </AppShell>
    )
  }

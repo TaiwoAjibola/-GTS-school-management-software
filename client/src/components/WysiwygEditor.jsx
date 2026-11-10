@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bold, Italic, Underline, Strikethrough, List, ListOrdered, Link2, Heading2, Image as ImageIcon, Upload } from 'lucide-react'
 import apiClient from '../api/client'
+import { useDialog } from './useDialog'
 
 /**
  * Lightweight, dependency-free WYSIWYG editor.
@@ -19,8 +20,10 @@ export default function WysiwygEditor({
 }) {
   const ref = useRef(null)
   const fileRef = useRef(null)
+  const { prompt: dialogPrompt, host: dialogHost } = useDialog()
   const [imgOpen, setImgOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [imgError, setImgError] = useState('')
   const logoUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/logo.svg`
 
   useEffect(() => {
@@ -47,8 +50,12 @@ export default function WysiwygEditor({
     emit()
   }
 
-  const addLink = () => {
-    const url = window.prompt('Link URL (https://…)')
+  const addLink = async () => {
+    const url = await dialogPrompt('Link URL (https://…)', {
+      title: 'Insert link',
+      confirmLabel: 'Insert',
+      placeholder: 'https://example.com',
+    })
     if (!url) return
     ref.current?.focus()
     document.execCommand('createLink', false, url)
@@ -69,6 +76,7 @@ export default function WysiwygEditor({
   const onFileSelected = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setImgError('')
     setUploading(true)
     try {
       const fd = new FormData()
@@ -79,15 +87,20 @@ export default function WysiwygEditor({
       insertHtml(`<img src="${res.data.url}" alt="${file.name}" style="max-width:100%;height:auto;display:inline-block;" />`)
       setImgOpen(false)
     } catch (err) {
-      window.alert(err?.response?.data?.message || 'Image upload failed')
+      setImgError(err?.response?.data?.message || 'Image upload failed')
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
     }
   }
 
-  const insertByUrl = () => {
-    const url = window.prompt('Image URL (https://…)')
+  const insertByUrl = async () => {
+    const url = await dialogPrompt('Image URL (https://…)', {
+      title: 'Insert image',
+      confirmLabel: 'Insert',
+      placeholder: 'https://example.com/photo.jpg',
+      hint: 'Tip: use “Upload from device” for hosted images.',
+    })
     if (!url) return
     insertHtml(`<img src="${url}" alt="" style="max-width:100%;height:auto;display:inline-block;" />`)
     setImgOpen(false)
@@ -109,6 +122,7 @@ export default function WysiwygEditor({
 
   return (
     <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+      {dialogHost}
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-slate-100 bg-slate-50 relative">
         <Btn title="Bold" onClick={() => exec('bold')}><Bold size={15} /></Btn>
         <Btn title="Italic" onClick={() => exec('italic')}><Italic size={15} /></Btn>
@@ -122,13 +136,14 @@ export default function WysiwygEditor({
         <span className="w-px h-5 bg-slate-200 mx-1" />
         <Btn title="Insert app logo" onClick={insertLogo}><span className="text-[10px] font-bold">LOGO</span></Btn>
         <div className="relative">
-          <Btn title="Insert image" onClick={() => setImgOpen((v) => !v)} active={imgOpen}><ImageIcon size={15} /></Btn>
+          <Btn title="Insert image" onClick={() => { setImgError(''); setImgOpen((v) => !v) }} active={imgOpen}><ImageIcon size={15} /></Btn>
           {imgOpen && (
             <div
               className="absolute left-0 top-9 z-20 w-56 rounded-xl border border-slate-200 bg-white shadow-lg p-3 space-y-2"
               onMouseDown={(e) => e.stopPropagation()}
             >
               <p className="text-[11px] font-semibold text-slate-500">Insert an image</p>
+              {imgError ? <p className="text-[11px] text-red-600">{imgError}</p> : null}
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}

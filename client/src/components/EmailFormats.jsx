@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { X, Eye, Trash2, Plus, Pen, LayoutTemplate, Sparkles, Palette } from 'lucide-react'
 import apiClient from '../api/client'
 import WysiwygEditor from './WysiwygEditor'
+import { useDialog } from './useDialog'
 
 // Core tokens every format understands. (Form-field tokens like {{Full Name}}
 // and student-comm tokens like {{student_name}} also resolve in their context.)
@@ -28,6 +29,7 @@ export default function EmailFormats({ notify }) {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', html: '' })
   const [previewOpen, setPreviewOpen] = useState(false)
+  const { confirm: dialogConfirm, host: dialogHost } = useDialog()
 
   const load = async () => {
     try {
@@ -82,7 +84,7 @@ export default function EmailFormats({ notify }) {
 
   const remove = async (id, name, isDefault) => {
     if (isDefault) { notify?.('Default formats cannot be deleted'); return }
-    if (!window.confirm(`Delete format "${name}"? This cannot be undone.`)) return
+    if (!(await dialogConfirm(`"${name}" will be permanently deleted.`, { title: 'Delete format', confirmLabel: 'Delete' }))) return
     try {
       await apiClient.delete(`/email-formats/${id}`)
       if (selectedId === id) { setSelectedId(null); setIsNew(false); setForm({ name: '', description: '', html: '' }) }
@@ -100,9 +102,10 @@ export default function EmailFormats({ notify }) {
   if (loading) return <p className="text-sm text-slate-500 py-12 text-center">Loading email formats…</p>
 
   return (
-    <div className="h-full flex gap-4 overflow-hidden">
-      {/* Left: list */}
-      <div className="w-80 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col md:flex-row gap-4 overflow-y-auto md:overflow-hidden">
+      {dialogHost}
+      {/* Left: list — collapses on mobile once an editor is open */}
+      <div className={`${(selectedId || isNew) ? 'hidden md:flex' : 'flex'} w-full md:w-80 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex-col overflow-hidden md:max-h-none max-h-[45vh]`}>
         <div className="shrink-0 p-3 border-b border-slate-100 bg-white flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
             <LayoutTemplate size={15} /> Email Formats
@@ -150,14 +153,22 @@ export default function EmailFormats({ notify }) {
       </div>
 
       {/* Right: editor */}
-      <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+      <div className={`${(selectedId || isNew) ? 'flex' : 'hidden md:flex'} flex-1 min-w-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex-col overflow-hidden`}>
         {selectedId || isNew ? (
           <div className="flex flex-col h-full overflow-hidden">
-            <div className="shrink-0 p-4 border-b border-slate-100 bg-white flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">
-                {isNew ? 'New Email Format' : selectedId ? 'Edit Format' : 'Email Format'}
-              </h3>
-              <div className="flex items-center gap-2">
+            <div className="shrink-0 p-4 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <button type="button" onClick={() => { if (isNew) { setIsNew(false); setForm({ name: '', description: '', html: '' }) } else setSelectedId(null) }}
+                  className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 shrink-0"
+                  aria-label="Back to formats"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                </button>
+                <h3 className="text-sm font-semibold text-slate-900 truncate">
+                  {isNew ? 'New Email Format' : selectedId ? 'Edit Format' : 'Email Format'}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <button type="button" onClick={() => setPreviewOpen(true)}
                   className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-100">
                   <Eye size={14} /> Preview

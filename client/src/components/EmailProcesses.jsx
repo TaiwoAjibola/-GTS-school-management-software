@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen, LayoutTemplate } from 'lucide-react'
 import apiClient from '../api/client'
 import WysiwygEditor from './WysiwygEditor'
+import { useDialog } from './useDialog'
 
 const EXAM_FALLBACK_VARIABLES = [
   { id: 'fb_exam_title', variable_key: 'exam_title', display_label: 'Exam Title', category: 'exam', example_value: 'Midterm Exam' },
@@ -19,6 +20,7 @@ export default function EmailProcesses({ notify }) {
   const [formatId, setFormatId] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState(null)
+  const { confirm: dialogConfirm, host: dialogHost } = useDialog()
   const [form, setForm] = useState({ name: '', subject_template: '', body_template: '', rich_body: '' })
   const [isNew, setIsNew] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -177,7 +179,7 @@ export default function EmailProcesses({ notify }) {
   }
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return
+    if (!(await dialogConfirm(`"${name}" will be permanently deleted.`, { title: 'Delete template', confirmLabel: 'Delete' }))) return
     try {
       await apiClient.delete(`/email-processes/${id}`)
       if (selectedId === id) { setSelectedId(null); setIsNew(false); setFormatId(''); setForm({ name: '', subject_template: '', body_template: '', rich_body: '' }) }
@@ -491,6 +493,7 @@ export default function EmailProcesses({ notify }) {
 
   return (
     <div className="h-full flex gap-4 overflow-hidden">
+      {dialogHost}
       {/* ── Left Panel: Variable Library ── */}
       <div className="w-72 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden isolate">
         <div className="shrink-0 p-3 border-b border-slate-100 bg-white">
