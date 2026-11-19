@@ -409,14 +409,28 @@ export const getCourseAttendanceStatus = async (req, res, next) => {
 
     let lmsPresentCount = 0
     if (liveStatus) {
-      const lmsPresentResult = await query(
-        `SELECT COUNT(DISTINCT student_id)::int AS count
-         FROM attendance_records
-         WHERE session_id = $1 AND marked_by = 'lms_join'
-           AND marked_at >= (NOW() - INTERVAL '15 minutes')`,
-        [liveStatus.sessionId]
-      )
-      lmsPresentCount = Number(lmsPresentResult.rows[0].count)
+      try {
+        const lmsPresentResult = await query(
+          `SELECT COUNT(DISTINCT student_id)::int AS count
+           FROM attendance_records
+           WHERE session_id = $1 AND marked_by = 'lms_join'
+             AND marked_at >= (NOW() - INTERVAL '15 minutes')`,
+          [liveStatus.sessionId]
+        )
+        lmsPresentCount = Number(lmsPresentResult.rows[0].count)
+      } catch {
+        try {
+          const fallback = await query(
+            `SELECT COUNT(DISTINCT student_id)::int AS count
+             FROM attendance_records
+             WHERE session_id = $1`,
+            [liveStatus.sessionId]
+          )
+          lmsPresentCount = Number(fallback.rows[0].count)
+        } catch {
+          lmsPresentCount = 0
+        }
+      }
     }
 
     res.json({
@@ -562,27 +576,44 @@ export const getCourseAttendanceHistory = async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId)
 
-    const result = await query(
-      `SELECT s.id,
-              s.class_number,
-              s.class_mode,
-              s.zoom_meeting_number,
-              s.zoom_passcode,
-              s.is_live,
-              s.start_time,
-              s.end_time,
-              s.is_active,
-              COUNT(DISTINCT CASE WHEN ar.marked_by = 'lms_join' THEN ar.student_id END)::int AS lms_present_count,
-              COALESCE(COUNT(ar.id), 0)::int AS attendees
-       FROM attendance_sessions s
-       LEFT JOIN attendance_records ar ON ar.session_id = s.id
-       WHERE s.course_id = $1
-       GROUP BY s.id
-       ORDER BY s.class_number ASC`,
-      [courseId]
-    )
-
-    res.json(result.rows)
+    try {
+      const result = await query(
+        `SELECT s.id,
+                s.class_number,
+                s.class_mode,
+                s.zoom_meeting_number,
+                s.zoom_passcode,
+                s.is_live,
+                s.start_time,
+                s.end_time,
+                s.is_active,
+                COUNT(DISTINCT CASE WHEN ar.marked_by = 'lms_join' THEN ar.student_id END)::int AS lms_present_count,
+                COALESCE(COUNT(ar.id), 0)::int AS attendees
+         FROM attendance_sessions s
+         LEFT JOIN attendance_records ar ON ar.session_id = s.id
+         WHERE s.course_id = $1
+         GROUP BY s.id
+         ORDER BY s.class_number ASC`,
+        [courseId]
+      )
+      return res.json(result.rows)
+    } catch {
+      const fallback = await query(
+        `SELECT s.id,
+                s.class_number,
+                s.start_time,
+                s.end_time,
+                s.is_active,
+                COALESCE(COUNT(ar.id), 0)::int AS attendees
+         FROM attendance_sessions s
+         LEFT JOIN attendance_records ar ON ar.session_id = s.id
+         WHERE s.course_id = $1
+         GROUP BY s.id
+         ORDER BY s.class_number ASC`,
+        [courseId]
+      )
+      return res.json(fallback.rows)
+    }
   } catch (error) {
     next(error)
   }

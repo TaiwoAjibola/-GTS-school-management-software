@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer, Trash2, KeyRound } from 'lucide-react'
+import { Download, MoreVertical, Upload, X, Users, BookOpen, ClipboardCheck, GraduationCap, BarChart3, FileText, UserCog, Settings, Layers, UserPlus, SquarePen, Search, Plus, Building2, Palette, Plug, Shield, Copy, ExternalLink, Eye, Library, Link2, Sparkles, Mail, Sliders, BookmarkCheck, RefreshCw, AlertTriangle, Printer, Trash2, KeyRound, Video } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
