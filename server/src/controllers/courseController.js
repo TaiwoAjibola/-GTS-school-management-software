@@ -209,7 +209,9 @@ export const updateCourse = async (req, res, next) => {
       minAttendanceRequired = c.min_attendance_required,
       hasAssignment = c.has_assignment,
       hasExam = c.has_exam,
+      lecturerId = c.lecturer_id,
       lecturerName = c.lecturer_name,
+      secondaryLecturerId = c.secondary_lecturer_id,
       secondaryLecturerName = c.secondary_lecturer_name,
       startDate = c.start_date,
       endDate = c.end_date,
@@ -223,47 +225,36 @@ export const updateCourse = async (req, res, next) => {
 
     const meetLink = req.body.meet_link
 
-    await query(
-      `UPDATE courses SET
-        title = $1,
-        description = $2,
-        course_code = $3,
-        duration_weeks = $4,
-        min_attendance_required = $5,
-        has_assignment = $6,
-        has_exam = $7,
-        requires_score = $8,
-        lecturer_name = $9,
-        secondary_lecturer_name = $10,
-        start_date = $11,
-        end_date = $12,
-        class_day = $13,
-        class_time = $14
-        ${meetLink !== undefined ? ', meet_link = $15' : ''}
-      WHERE id = $${meetLink !== undefined ? 16 : 15}`,
-      [
-        title,
-        description || null,
-        courseCode || null,
-        Number(durationWeeks),
-        Number(minAttendanceRequired),
-        Boolean(hasAssignment),
-        Boolean(hasExam),
-        true,
-        lecturerName || null,
-        secondaryLecturerName || null,
-        startDate || null,
-        endDate || null,
-        classDay || null,
-        classTime || null,
-        ...(meetLink !== undefined ? [meetLink || null, courseId] : [courseId]),
-      ]
-    )
+    const assignments = [
+      ['title', title],
+      ['description', description],
+      ['course_code', courseCode],
+      ['duration_weeks', Number(durationWeeks)],
+      ['min_attendance_required', Number(minAttendanceRequired)],
+      ['has_assignment', Boolean(hasAssignment)],
+      ['has_exam', Boolean(hasExam)],
+      ['requires_score', true],
+      ['lecturer_id', lecturerId || null],
+      ['lecturer_name', lecturerName || null],
+      ['secondary_lecturer_id', secondaryLecturerId || null],
+      ['secondary_lecturer_name', secondaryLecturerName || null],
+      ['start_date', startDate || null],
+      ['end_date', endDate || null],
+      ['class_day', classDay || null],
+      ['class_time', classTime || null],
+    ]
+    if (meetLink !== undefined) assignments.push(['meet_link', meetLink || null])
+
+    const setSql = assignments.map((a, i) => `  ${a[0]} = $${i + 1}`).join(',\n  ')
+    const params = assignments.map((a) => a[1])
+    params.push(courseId)
+    await query(`UPDATE courses SET ${setSql} WHERE id = $${assignments.length + 1}`, params)
 
     const updated = await query(
-      `SELECT c.*, u.full_name AS assigned_lecturer
+      `SELECT c.*, u.full_name AS assigned_lecturer, u2.full_name AS secondary_lecturer_full_name
        FROM courses c
        LEFT JOIN users u ON u.id = c.lecturer_id
+       LEFT JOIN users u2 ON u2.id = c.secondary_lecturer_id
        WHERE c.id = $1`,
       [courseId]
     )

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS students (
   status VARCHAR(20) NOT NULL CHECK (status IN ('Prospective', 'Active', 'Graduating', 'Graduated', 'Alumni')),
   comments TEXT,
   cohort_id INT REFERENCES cohorts(id) ON DELETE SET NULL,
+  first_course_id INT REFERENCES courses(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -110,9 +111,38 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   id SERIAL PRIMARY KEY,
   session_id INT NOT NULL REFERENCES attendance_sessions(id) ON DELETE CASCADE,
   student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  marked_by VARCHAR(30) DEFAULT NULL CHECK (marked_by IS NULL OR marked_by IN ('manual', 'lms_join')),
   marked_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (session_id, student_id)
 );
+
+-- ============================================================
+-- Live classes (per course, class_number 1..6)
+-- ============================================================
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS zoom_meeting_number TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS zoom_meeting_name TEXT;
+
+CREATE TABLE IF NOT EXISTS live_classes (
+  id SERIAL PRIMARY KEY,
+  course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  class_number INT NOT NULL,
+  date DATE,
+  start_time TIME,
+  end_time TIME,
+  start_at TIMESTAMPTZ,
+  end_at TIMESTAMPTZ,
+  class_mode VARCHAR(10) NOT NULL DEFAULT 'physical' CHECK (class_mode IN ('physical', 'online')),
+  zoom_meeting_number TEXT,
+  zoom_passcode TEXT,
+  attendance_session_id INT UNIQUE REFERENCES attendance_sessions(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (class_number BETWEEN 1 AND 6),
+  UNIQUE (course_id, class_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_classes_course_id ON live_classes(course_id);
+CREATE INDEX IF NOT EXISTS idx_live_classes_class_number ON live_classes(class_number);
+CREATE INDEX IF NOT EXISTS idx_live_classes_date ON live_classes(date);
 
 CREATE TABLE IF NOT EXISTS assignments (
   id SERIAL PRIMARY KEY,

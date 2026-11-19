@@ -65,6 +65,24 @@ const STATUS_COLORS = {
   Alumni: 'bg-slate-200 text-slate-700',
 }
 
+const toLocalInput = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const buildDefaultLiveSchedule = () =>
+  Array.from({ length: 6 }, (_, i) => ({
+    class_number: i + 1,
+    class_mode: 'physical',
+    start_at: '',
+    end_at: '',
+    zoom_meeting_number: '',
+    zoom_passcode: '',
+  }))
+
 const LecturerDashboard = () => {
   const { user } = useAuth()
   const { confirm: dialogConfirm, prompt: dialogPrompt, host: dialogHost } = useDialog()
@@ -78,11 +96,19 @@ const LecturerDashboard = () => {
   const [allStudents, setAllStudents] = useState([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
 
-  const [attendanceStatus, setAttendanceStatus] = useState({ activeSession: null, attendeeCount: 0 })
+  const [attendanceStatus, setAttendanceStatus] = useState({ activeSession: null, attendanceSession: null, isLive: false, lmsPresent: 0, classNumber: null, startTime: null, endTime: null, mode: null, sessionId: null, meetLink: null, zoomMeetingNumber: null, zoomPasscode: null, meetingRole: null, present: 0 })
   const [attendanceHistory, setAttendanceHistory] = useState([])
   const [attendanceRoster, setAttendanceRoster] = useState([])
   const [attendanceSummary, setAttendanceSummary] = useState([])
   const [selectedClassNumber, setSelectedClassNumber] = useState('1')
+  const [liveClassMode, setLiveClassMode] = useState('online')
+  const [liveMeetingNumber, setLiveMeetingNumber] = useState('4579799335')
+  const [livePasscode, setLivePasscode] = useState('4XRBA0')
+  const [liveClassStart, setLiveClassStart] = useState('')
+  const [liveClassEnd, setLiveClassEnd] = useState('')
+  const [showLiveClassDrawer, setShowLiveClassDrawer] = useState(false)
+  const [liveClassSchedule, setLiveClassSchedule] = useState(() => buildDefaultLiveSchedule())
+  const [liveScheduleSaving, setLiveScheduleSaving] = useState(false)
 
   const [courseForm, setCourseForm] = useState({
     title: '',
@@ -618,6 +644,90 @@ const LecturerDashboard = () => {
     setBatchStudents(response.data)
   }
 
+  const toLocalInputValue = toLocalInput
+  const defaultLiveSchedule = buildDefaultLiveSchedule
+
+  const loadLiveClassSchedule = async (courseId) => {
+    if (!courseId) {
+      setLiveClassSchedule(buildDefaultLiveSchedule())
+      return
+    }
+    try {
+      const res = await apiClient.get(`/attendance/course/${courseId}/live-classes`)
+      const rows = Array.isArray(res.data) ? res.data : []
+      const byNum = new Map(rows.map((r) => [Number(r.class_number), r]))
+      const merged = Array.from({ length: 6 }, (_, i) => {
+        const n = i + 1
+        const row = byNum.get(n)
+        return {
+          class_number: n,
+          class_mode: row?.class_mode || 'online',
+          start_at: toLocalInput(row?.start_at),
+          end_at: toLocalInput(row?.end_at),
+          zoom_meeting_number: row?.zoom_meeting_number || '',
+          zoom_passcode: row?.zoom_passcode || '',
+        }
+      })
+      setLiveClassSchedule(merged)
+    } catch {
+      setLiveClassSchedule(buildDefaultLiveSchedule())
+    }
+  }
+
+  const saveLiveClassSchedule = async () => {
+    if (!selectedCourseId) return
+    setLiveScheduleSaving(true)
+    try {
+      const classes = liveClassSchedule.map((item) => ({
+        class_number: Number(item.class_number),
+        class_mode: item.class_mode || 'physical',
+        start_at: item.start_at ? new Date(item.start_at).toISOString() : null,
+        end_at: item.end_at ? new Date(item.end_at).toISOString() : null,
+        zoom_meeting_number: item.class_mode === 'online' ? (item.zoom_meeting_number || null) : null,
+        zoom_passcode: item.class_mode === 'online' ? (item.zoom_passcode || null) : null,
+      }))
+      await apiClient.put(`/attendance/course/${selectedCourseId}/live-classes`, { classes })
+      await loadLiveClassSchedule(selectedCourseId)
+      notify('Live class schedule saved')
+    } catch (error) {
+      notify(error?.response?.data?.message || 'Failed to save schedule')
+    } finally {
+      setLiveScheduleSaving(false)
+    }
+  }
+
+  const updateLiveScheduleItem = (classNumber, patch) => {
+    setLiveClassSchedule((prev) =>
+      (prev.length ? prev : buildDefaultLiveSchedule()).map((item) =>
+        Number(item.class_number) === Number(classNumber) ? { ...item, ...patch } : item
+      )
+    )
+  }
+
+  const prefillLiveFormFromSchedule = (classNumber = selectedClassNumber) => {
+    const item = (liveClassSchedule.length ? liveClassSchedule : buildDefaultLiveSchedule()).find(
+      (s) => Number(s.class_number) === Number(classNumber)
+    )
+    if (!item) return
+    setLiveClassMode(item.class_mode || 'online')
+    setLiveClassStart(item.start_at || '')
+    setLiveClassEnd(item.end_at || '')
+    setLiveMeetingNumber(item.zoom_meeting_number || '')
+    setLivePasscode(item.zoom_passcode || '')
+  }
+
+  useEffect(() => {
+    if (showLiveClassDrawer && selectedCourseId) {
+      loadLiveClassSchedule(selectedCourseId)
+    }
+  }, [showLiveClassDrawer])
+
+  useEffect(() => {
+    if (showLiveClassDrawer) {
+      prefillLiveFormFromSchedule(selectedClassNumber)
+    }
+  }, [selectedClassNumber, showLiveClassDrawer, liveClassSchedule])
+
   const loadCourseScopedData = async (courseId, classNumber = selectedClassNumber) => {
     if (!courseId) {
       setCourseStudents([])
@@ -643,7 +753,30 @@ const LecturerDashboard = () => {
     ])
 
     setCourseStudents(studentsRes.data)
-    setAttendanceStatus(statusRes.data)
+    const status = statusRes.data || {}
+    const active = status.activeSession || null
+    const live = status.live || null
+    setAttendanceStatus({
+      activeSession: active,
+      attendanceSession: active,
+      sessionId: active?.id ?? status.sessionId ?? null,
+      attendanceSessionId: active?.id ?? null,
+      isLive: Boolean(live?.isLive || (active?.is_active && Boolean(active?.end_time && new Date(active.end_time).getTime() >= Date.now()))),
+      lmsPresent: Number(live?.lms_present_count || 0),
+      classNumber: active?.class_number ?? status.classNumber ?? null,
+      startTime: active?.start_time ?? status.startTime ?? null,
+      endTime: active?.end_time ?? status.endTime ?? null,
+      mode: active?.class_mode ?? status.mode ?? null,
+      meetLink: active?.meet_link ?? status.meetLink ?? null,
+      zoomMeetingNumber: active?.zoom_meeting_number ?? status.zoomMeetingNumber ?? null,
+      zoomPasscode: active?.zoom_passcode ?? status.zoomPasscode ?? null,
+      meetingRole: 'participant',
+      present: Number(status.attendeeCount || 0),
+      lmsPresent: Number(live?.lms_present_count || 0),
+      active: Boolean(active),
+      sessionId: active?.id || null,
+      end_time: active?.end_time || null,
+    })
     setAttendanceRoster(rosterRes.data.roster)
     setAttendanceHistory(historyRes.data)
     setAttendanceSummary(summaryRes.data)
@@ -668,10 +801,14 @@ const LecturerDashboard = () => {
   }, [user?.id])
 
   useEffect(() => {
-    if (!selectedCourseId) return
+    if (!selectedCourseId) {
+      setLiveClassSchedule(buildDefaultLiveSchedule())
+      return
+    }
 
     loadCourseScopedData(selectedCourseId, selectedClassNumber)
     loadBatches(selectedCourseId)
+    loadLiveClassSchedule(selectedCourseId)
     const interval = setInterval(() => loadCourseScopedData(selectedCourseId, selectedClassNumber), 5000)
 
     return () => clearInterval(interval)
@@ -1664,18 +1801,36 @@ const LecturerDashboard = () => {
   }
 
   const startAttendance = async () => {
-    if (!attendanceForm.date || !attendanceForm.startTime || !attendanceForm.endTime) {
-      notify('Date, start time and end time are required')
+    if (!selectedCourseId) return
+
+    // If a live class is already active, show status instead of re-starting.
+    const activeRes = await apiClient.get(`/attendance/course/${selectedCourseId}/live-class`).catch(() => null)
+    const activeSession = activeRes?.data?.session
+    if (activeSession && activeSession.is_active) {
+      await loadCourseScopedData(selectedCourseId, selectedClassNumber)
+      notify(`Live class already active (class ${activeSession.class_number})`)
       return
     }
 
-    const startDateTime = new Date(`${attendanceForm.date}T${attendanceForm.startTime}`)
-    const endDateTime = new Date(`${attendanceForm.date}T${attendanceForm.endTime}`)
-    if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
+    const mode = liveClassMode
+    const meetingNumber = liveMeetingNumber.trim()
+    if (mode === 'online' && !meetingNumber) {
+      notify('Enter a Zoom meeting number')
+      return
+    }
+
+    const startTime = attendanceForm.date && attendanceForm.startTime
+      ? new Date(`${attendanceForm.date}T${attendanceForm.startTime}`)
+      : (liveClassStart ? new Date(liveClassStart) : new Date())
+    const endTime = attendanceForm.date && attendanceForm.endTime
+      ? new Date(`${attendanceForm.date}T${attendanceForm.endTime}`)
+      : (liveClassEnd ? new Date(liveClassEnd) : new Date(startTime.getTime() + 3 * 60 * 60 * 1000))
+
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
       notify('Invalid date or time')
       return
     }
-    if (endDateTime <= startDateTime) {
+    if (endTime <= startTime) {
       notify('End time must be after start time')
       return
     }
@@ -1683,13 +1838,21 @@ const LecturerDashboard = () => {
     await apiClient.post('/attendance/start', {
       courseId: Number(selectedCourseId),
       classNumber: Number(selectedClassNumber),
-      startTime: startDateTime.toISOString(),
-      endTime: endDateTime.toISOString(),
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      classMode: mode,
       secondaryLecturerId: attendanceForm.secondaryLecturerId || null,
       lecturerNotes: attendanceForm.lecturerNotes || '',
+      ...(mode === 'online' ? { zoomMeetingNumber: meetingNumber, zoomPasscode: livePasscode || null } : {}),
     })
+
     setAttendanceForm({ date: '', startTime: '', endTime: '', secondaryLecturerId: '', lecturerNotes: '' })
+    setLiveClassStart('')
+    setLiveClassEnd('')
+    setLiveMeetingNumber('')
+    setLivePasscode('')
     await loadCourseScopedData(selectedCourseId, selectedClassNumber)
+    notify(`Attendance started for class ${Number(selectedClassNumber)} (${mode})`)
   }
 
   const closeAttendance = async () => {
@@ -2385,8 +2548,14 @@ const LecturerDashboard = () => {
         <div className="shrink-0 flex flex-col gap-4">
           <div className="bento bento-4 gap-4">
             <Card title="My Courses" value={courses.length} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
-            <Card title="Active Session" value={attendanceStatus.activeSession ? 'Yes' : 'No'} icon={<ClipboardCheck size={20} />} accent="emerald" className="stat-hover" />
-            <Card title="Present Students" value={attendanceStatus.attendeeCount || 0} icon={<Users size={20} />} accent="sky" className="stat-hover" />
+            <Card
+              title="Active Session"
+              value={attendanceStatus.activeSession ? (attendanceStatus.isLive ? 'LIVE' : 'Yes') : 'No'}
+              icon={<ClipboardCheck size={20} />}
+              accent="emerald"
+              className="stat-hover"
+            />
+            <Card title="LMS Present" value={Number(attendanceStatus.lmsPresent ?? attendanceStatus.live?.lms_present_count ?? 0)} icon={<Users size={20} />} accent="sky" className="stat-hover" />
             <Card title="Current Course" value={selectedCourse ? selectedCourse.title : '—'} hint={selectedCourse?.class_day || ''} icon={<BookOpen size={20} />} accent="gold" className="stat-hover" />
           </div>
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
@@ -2395,7 +2564,10 @@ const LecturerDashboard = () => {
               <p className="text-sm text-slate-500 mt-0.5">{selectedCourse ? selectedCourse.title : 'Select a course to view attendance — set one as current in Courses'}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setShowAddAttendance(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
+              <button type="button" onClick={() => setShowLiveClassDrawer(true)} className="btn btn-primary btn-sm lift inline-flex items-center gap-1.5">
+                <Video size={14} /> Live Classes
+              </button>
+              <button type="button" onClick={() => setShowAddAttendance(true)} className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5">
                 <Plus size={14} /> Add New Attendance
               </button>
               <button type="button" onClick={() => setShowAttendanceHistory(true)} className="btn btn-ghost btn-sm lift inline-flex items-center gap-1.5">
@@ -7768,6 +7940,9 @@ const LecturerDashboard = () => {
                                       {s.matric_no ? <span className="text-xs font-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{s.matric_no}</span> : null}
                                       {s.status ? <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${STATUS_COLORS[s.status] || 'bg-slate-100 text-slate-600'}`}>{s.status}</span> : null}
                                       <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${isPresent ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{isPresent ? 'Present' : 'Absent'}</span>
+                                      {(s.marked_by === 'lms_join' || (attendanceStatus.isLive && isPresent)) && (
+                                        <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]">LMS ✓</span>
+                                      )}
                                     </div>
                                   </div>
                                   <button
@@ -7793,6 +7968,226 @@ const LecturerDashboard = () => {
             </div>
             <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
               <button type="button" onClick={() => setShowAddAttendance(false)} className="px-4 py-2 text-sm rounded-lg bg-slate-100 hover:bg-slate-200">Close</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Live Classes drawer ─────────────────────────────────────── */}
+      {showLiveClassDrawer ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowLiveClassDrawer(false)}>
+          <div className="bg-white rounded-[24px] shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden isolate" onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900">Live Classes</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{selectedCourse ? selectedCourse.title : 'Select a course'}</p>
+              </div>
+              <button type="button" onClick={() => setShowLiveClassDrawer(false)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              {!selectedCourseId ? (
+                <p className="text-sm text-slate-500 py-6 text-center">Select a course first.</p>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Start Live Class</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Class {selectedClassNumber} · mode, window and Zoom (for online) can be pre-filled from the schedule below.</p>
+                      </div>
+                      {attendanceStatus.activeSession ? (
+                        <Badge tone="slate" dot className={attendanceStatus.isLive ? '!bg-emerald-100 !text-emerald-700 !border-emerald-200' : '!bg-amber-100 !text-amber-800 !border-amber-200'}>
+                          {attendanceStatus.isLive ? 'LIVE' : 'Active'}
+                        </Badge>
+                      ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                      <label className="text-xs text-slate-600 block">
+                        <span className="flex justify-between"><span>Class number</span><span className="text-slate-400">1–6</span></span>
+                        <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={selectedClassNumber} onChange={(e) => setSelectedClassNumber(e.target.value)}>
+                          {[1,2,3,4,5,6].map((n) => <option key={n} value={String(n)}>Class {n}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs text-slate-600 block">
+                        <span className="flex justify-between"><span>Class type</span><span className="text-slate-400">per class</span></span>
+                        <select className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={liveClassMode} onChange={(e) => setLiveClassMode(e.target.value)}>
+                          <option value="online">Online (Zoom)</option>
+                          <option value="physical">Physical (no link)</option>
+                        </select>
+                      </label>
+                      <div className="flex items-end">
+                        <button type="button" onClick={() => prefillLiveFormFromSchedule(selectedClassNumber)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                          Load from schedule
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {liveClassMode === 'online' ? (
+                        <label className="text-xs text-slate-600 block">
+                          <span className="flex justify-between"><span>Zoom Meeting Number</span><span className="text-slate-400">required</span></span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                            value={liveMeetingNumber}
+                            onChange={(e) => setLiveMeetingNumber(e.target.value.replace(/\D/g, ''))}
+                            placeholder="4579798335"
+                          />
+                        </label>
+                      ) : null}
+                      {liveClassMode === 'online' ? (
+                        <label className="text-xs text-slate-600 block">
+                          <span className="flex justify-between"><span>Zoom Passcode</span><span className="text-slate-400">optional</span></span>
+                          <input
+                            type="text"
+                            className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                            value={livePasscode}
+                            onChange={(e) => setLivePasscode(e.target.value)}
+                            placeholder="4XRBA0"
+                          />
+                        </label>
+                      ) : null}
+                      <label className="text-xs text-slate-600 block">
+                        Start (window)
+                        <input type="datetime-local" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={liveClassStart} onChange={(e) => setLiveClassStart(e.target.value)} />
+                      </label>
+                      <label className="text-xs text-slate-600 block">
+                        End (window)
+                        <input type="datetime-local" className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2" value={liveClassEnd} onChange={(e) => setLiveClassEnd(e.target.value)} />
+                      </label>
+                    </div>
+
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => setLiveClassEnd((prev) => (prev ? prev : new Date(new Date(liveClassStart || new Date()).getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16)))} className="text-xs rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50">Suggest end +3h</button>
+                      <button
+                        type="button"
+                        onClick={startAttendance}
+                        disabled={Boolean(attendanceStatus.activeSession) || !selectedCourseId}
+                        className={`flex-1 btn btn-primary text-xs py-1.5 disabled:opacity-50 ${attendanceStatus.isLive ? 'bg-amber-600 hover:bg-amber-700' : ''}`}
+                      >
+                        {attendanceStatus.isLive ? 'Already Live' : `Start Class ${selectedClassNumber}`}
+                      </button>
+                    </div>
+
+                    {attendanceStatus.activeSession ? (
+                      <div className="mt-3 rounded-xl bg-white border border-slate-200 px-3 py-3 text-sm text-slate-600 space-y-1">
+                        <p>Class: {attendanceStatus.classNumber || attendanceStatus.activeSession?.class_number || selectedClassNumber}</p>
+                        <p>Mode: {attendanceStatus.mode || attendanceStatus.activeSession?.class_mode || '—'}</p>
+                        <p>Window: {attendanceStatus.startTime ? new Date(attendanceStatus.startTime).toLocaleString() : '—'} – {attendanceStatus.endTime ? new Date(attendanceStatus.endTime).toLocaleString() : '—'}</p>
+                        <p>LMS present: {attendanceStatus.lmsPresent}</p>
+                        {(attendanceStatus.mode || attendanceStatus.activeSession?.class_mode) === 'online' ? (
+                          <>
+                            <p className="font-mono">Meeting: {attendanceStatus.zoomMeetingNumber || '—'}</p>
+                            <p className="font-mono">Passcode: {attendanceStatus.zoomPasscode || '—'}</p>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">Class calendar (1–6)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Pre-schedule each class: set mode, date/time window, and Zoom details (online). Times can be changed later.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={saveLiveClassSchedule}
+                        disabled={liveScheduleSaving}
+                        className="btn btn-primary btn-sm disabled:opacity-50"
+                      >
+                        {liveScheduleSaving ? 'Saving…' : 'Save schedule'}
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(liveClassSchedule.length ? liveClassSchedule : buildDefaultLiveSchedule()).map((item) => {
+                        const n = Number(item.class_number)
+                        const isOnline = (item.class_mode || 'physical') === 'online'
+                        return (
+                          <div key={n} className="rounded-xl border border-slate-200 p-3">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <p className="text-sm font-semibold text-slate-900">Class {n}</p>
+                              <div className="flex items-center gap-2">
+                                <select
+                                  className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs"
+                                  value={item.class_mode || 'online'}
+                                  onChange={(e) => updateLiveScheduleItem(n, { class_mode: e.target.value })}
+                                >
+                                  <option value="online">Online</option>
+                                  <option value="physical">Physical</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => { setSelectedClassNumber(String(n)); prefillLiveFormFromSchedule(n) }}
+                                  className="text-xs rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 hover:bg-slate-100"
+                                >
+                                  Use for start
+                                </button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <label className="text-xs text-slate-600 block">
+                                Start
+                                <input
+                                  type="datetime-local"
+                                  className="mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-1.5"
+                                  value={item.start_at || ''}
+                                  onChange={(e) => updateLiveScheduleItem(n, { start_at: e.target.value })}
+                                />
+                              </label>
+                              <label className="text-xs text-slate-600 block">
+                                End
+                                <input
+                                  type="datetime-local"
+                                  className="mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-1.5"
+                                  value={item.end_at || ''}
+                                  onChange={(e) => updateLiveScheduleItem(n, { end_at: e.target.value })}
+                                />
+                              </label>
+                              {isOnline ? (
+                                <label className="text-xs text-slate-600 block">
+                                  Zoom Meeting Number
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-1.5"
+                                    value={item.zoom_meeting_number || ''}
+                                    onChange={(e) => updateLiveScheduleItem(n, { zoom_meeting_number: e.target.value.replace(/\D/g, '') })}
+                                    placeholder="4579798335"
+                                  />
+                                </label>
+                              ) : null}
+                              {isOnline ? (
+                                <label className="text-xs text-slate-600 block">
+                                  Zoom Passcode
+                                  <input
+                                    type="text"
+                                    className="mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-1.5"
+                                    value={item.zoom_passcode || ''}
+                                    onChange={(e) => updateLiveScheduleItem(n, { zoom_passcode: e.target.value })}
+                                    placeholder="4XRBA0"
+                                  />
+                                </label>
+                              ) : (
+                                <div className="text-xs text-slate-500 flex items-end pb-2">Physical class — no Zoom link needed.</div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end">
+              <button type="button" onClick={() => setShowLiveClassDrawer(false)} className="rounded-lg px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200">Done</button>
             </div>
           </div>
         </div>

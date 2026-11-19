@@ -79,6 +79,12 @@ export const enrollStudentToBatch = async (req, res, next) => {
       [studentId, JSON.stringify({ batchId, courseId: batch.course_id }), req.user.userId]
     )
 
+    // First-course assignment: record the course for students whose first course is unknown.
+    await client.query(
+      `UPDATE students SET first_course_id = $2 WHERE id = $1 AND first_course_id IS NULL`,
+      [studentId, batch.course_id]
+    )
+
     await client.query('COMMIT')
 
     res.status(201).json(result.rows[0])
@@ -399,6 +405,13 @@ export const enrollStudentToCourse = async (req, res, next) => {
       [studentId, JSON.stringify({ courseId }), req.user.userId]
     )
 
+    // First-course assignment: when a student is enrolled (admitted into a course)
+    // and we don't yet know their first course, record this course as theirs.
+    await client.query(
+      `UPDATE students SET first_course_id = $2 WHERE id = $1 AND first_course_id IS NULL`,
+      [studentId, courseId]
+    )
+
     await client.query('COMMIT')
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -447,6 +460,10 @@ export const bulkEnrollStudents = async (req, res, next) => {
         `INSERT INTO student_activity_logs (student_id, action, details, actor_user_id)
          VALUES ($1, 'enrolled_to_course', $2::jsonb, $3)`,
         [studentId, JSON.stringify({ courseId }), req.user.userId]
+      )
+      await client.query(
+        `UPDATE students SET first_course_id = $2 WHERE id = $1 AND first_course_id IS NULL`,
+        [studentId, courseId]
       )
       enrolled++
     }

@@ -44,10 +44,36 @@ const parseFrom = (from) => {
   return { name: '', email: from.trim() }
 }
 
-const sendViaBrevoApi = async ({ to, subject, html }) => {
+const toBrevoAttachments = (attachments = []) =>
+  (attachments || [])
+    .filter(Boolean)
+    .map((a) => {
+      const name = a.name || a.filename || 'attachment'
+      let content = a.content
+      if (Buffer.isBuffer(content)) content = content.toString('base64')
+      else if (typeof content === 'string' && !a.encoding) {
+        // assume already base64 string
+      } else if (typeof content === 'string' && a.encoding === 'base64') {
+        // already base64
+      }
+      return content ? { name, content } : null
+    })
+    .filter(Boolean)
+
+const sendViaBrevoApi = async ({ to, subject, html, attachments }) => {
   if (!env.brevoApiKey) throw new Error('Brevo API key not configured')
   const from = parseFrom(getEmailFrom())
   const text = html ? html.replace(/<[^>]*>/g, '') : ''
+  const payload = {
+    sender: { email: from.email, name: from.name || 'GTS Seminary' },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+    textContent: text,
+  }
+  const brevoAttachments = toBrevoAttachments(attachments)
+  if (brevoAttachments.length) payload.attachment = brevoAttachments
+
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -55,13 +81,7 @@ const sendViaBrevoApi = async ({ to, subject, html }) => {
       'api-key': env.brevoApiKey,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      sender: { email: from.email, name: from.name || 'GTS Seminary' },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-      textContent: text,
-    }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const body = await res.text()
@@ -106,17 +126,29 @@ const renderTemplate = (template, variables) => {
   return result
 }
 
+const toNodemailerAttachments = (attachments = []) =>
+  (attachments || [])
+    .filter(Boolean)
+    .map((a) => ({
+      filename: a.filename || a.name || 'attachment',
+      content: a.content,
+      contentType: a.contentType || a.type,
+      encoding: a.encoding,
+    }))
+
 // ── Direct send (for admin-created templates) ──────────────────────
-export const sendRawEmail = async ({ to, subject, html }) => {
+export const sendRawEmail = async ({ to, subject, html, attachments }) => {
   // Use Brevo HTTP API when configured (Render free blocks SMTP)
   if (env.brevoApiKey) {
-    return sendViaBrevoApi({ to, subject, html })
+    return sendViaBrevoApi({ to, subject, html, attachments })
   }
   try {
     const tx = getTransporter()
     const from = getEmailFrom()
     const text = html ? html.replace(/<[^>]*>/g, '') : ''
-    await tx.sendMail({ from, to, subject, text, html })
+    const mail = { from, to, subject, text, html }
+    if (attachments?.length) mail.attachments = toNodemailerAttachments(attachments)
+    await tx.sendMail(mail)
     return true
   } catch (err) {
     clearTransporterCache()
@@ -127,7 +159,7 @@ export const sendRawEmail = async ({ to, subject, html }) => {
 // ── Legacy email functions ─────────────────────────────────────────
 const send = async (mailOptions) => {
   if (env.brevoApiKey) {
-    return sendViaBrevoApi({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+    return sendViaBrevoApi({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html, attachments: mailOptions.attachments })
   }
   const tx = getTransporter()
   const from = getEmailFrom()

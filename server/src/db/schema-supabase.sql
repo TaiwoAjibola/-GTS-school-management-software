@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS students (
   status VARCHAR(20) NOT NULL CHECK (status IN ('Prospective', 'Active', 'Graduating', 'Graduated', 'Alumni')),
   comments TEXT,
   cohort_id INT REFERENCES cohorts(id) ON DELETE SET NULL,
+  first_course_id INT REFERENCES courses(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -116,8 +117,40 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  CHECK (end_time IS NULL OR end_time > start_time)
+  CHECK (end_time IS NULL OR end_time > start_time),
+  class_mode VARCHAR(10) CHECK (class_mode IN ('physical', 'online')),
+  zoom_meeting_number TEXT,
+  zoom_passcode TEXT,
+  is_live BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- Pre-scheduled class-to-Zoom link (per course)
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS zoom_meeting_number TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS zoom_meeting_name TEXT;
+
+CREATE TABLE IF NOT EXISTS live_classes (
+  id SERIAL PRIMARY KEY,
+  course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  class_number INT NOT NULL,
+  date DATE,
+  start_time TIME,
+  end_time TIME,
+  start_at TIMESTAMPTZ,
+  end_at TIMESTAMPTZ,
+  class_mode VARCHAR(10) NOT NULL DEFAULT 'physical' CHECK (class_mode IN ('physical', 'online')),
+  zoom_meeting_number TEXT,
+  zoom_passcode TEXT,
+  attendance_session_id INT UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (class_number BETWEEN 1 AND 6),
+  UNIQUE (course_id, class_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_classes_course_id ON live_classes(course_id);
+CREATE INDEX IF NOT EXISTS idx_live_classes_class_number ON live_classes(class_number);
+CREATE INDEX IF NOT EXISTS idx_live_classes_date ON live_classes(date);
+CREATE INDEX IF NOT EXISTS idx_attendance_sessions_class_mode ON attendance_sessions(class_mode);
+CREATE INDEX IF NOT EXISTS idx_attendance_sessions_is_live ON attendance_sessions(is_live);
 
 CREATE UNIQUE INDEX IF NOT EXISTS unique_active_session_per_course
 ON attendance_sessions(course_id)

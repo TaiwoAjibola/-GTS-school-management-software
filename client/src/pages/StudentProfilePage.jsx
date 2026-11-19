@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, User, X, Mail, Phone, GraduationCap, BookOpen, Award, Layers, Clock, Activity, History as HistoryIcon, Sparkles, Hash, Building2, KeyRound, Send, ShieldCheck } from 'lucide-react'
 import AppShell from '../components/AppShell'
@@ -110,6 +110,49 @@ export default function StudentProfilePage() {
       setSettingPw(false)
     }
   }
+
+  const sendAdmissionLetter = async () => {
+    if (!student?.id) { notify('Student record not found'); return }
+    setSendingAdmission(true)
+    try {
+      const res = await apiClient.post(`/email-processes/admission/${student.id}/send`)
+      const jobId = res.data?.jobId
+      if (jobId) {
+        const poll = async () => {
+          try {
+            const statusRes = await apiClient.get(`/email-processes/send-status/${jobId}`)
+            const s = statusRes.data
+            if (s.status === 'completed' || s.status === 'failed') {
+              notify(s.message || 'Admission letter sent')
+              return
+            }
+            admissionPollRef.current = setTimeout(poll, 2000)
+          } catch {
+            notify('Failed to check admission letter send status')
+          }
+        }
+        admissionPollRef.current = setTimeout(poll, 1500)
+      } else {
+        notify(res.data?.message || 'Admission letter queued')
+      }
+    } catch (e) {
+      notify(e?.response?.data?.message || e.message || 'Failed to send admission letter')
+    } finally {
+      setSendingAdmission(false)
+    }
+  }
+
+  const saveFirstCourse = async () => {
+    setSavingFirstCourse(true)
+    try {
+      await apiClient.patch(`/students/${studentId}`, { firstCourseId: firstCourseId || null })
+      notify('First course updated')
+    } catch (e) {
+      notify(e?.response?.data?.message || e.message || 'Failed to update first course')
+    } finally {
+      setSavingFirstCourse(false)
+    }
+  }
   const [history, setHistory] = useState({ enrollments: [], activities: [] })
   const [allCourses, setAllCourses] = useState([])
   const [cohorts, setCohorts] = useState([])
@@ -131,6 +174,10 @@ export default function StudentProfilePage() {
   const [resultFormScore, setResultFormScore] = useState('')
   const [resultFormStatus, setResultFormStatus] = useState('Pass')
   const [resultSaving, setResultSaving] = useState(false)
+  const [sendingAdmission, setSendingAdmission] = useState(false)
+  const [firstCourseId, setFirstCourseId] = useState(null)
+  const [savingFirstCourse, setSavingFirstCourse] = useState(false)
+  const admissionPollRef = useRef(null)
 
 
   useEffect(() => {
@@ -160,6 +207,7 @@ export default function StudentProfilePage() {
         ])
 
         setStudent(studentRes.data)
+        setFirstCourseId(studentRes.data.first_course_id ?? null)
 
         if (historyRes.status === 'fulfilled') {
           setHistory(historyRes.value.data)
@@ -200,6 +248,9 @@ export default function StudentProfilePage() {
     }
     load()
   }, [studentId])
+
+  // Clear any pending admission-send poll on unmount
+  useEffect(() => () => { if (admissionPollRef.current) clearTimeout(admissionPollRef.current) }, [])
 
   // Build a map of courseId → enrollment+result
   const courseMap = useMemo(() => {
@@ -410,6 +461,31 @@ export default function StudentProfilePage() {
                     </>
                   )}
                 </div>
+                {/* First course — the course the student first took / was admitted into */}
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700">
+                    <BookOpen size={12} className="text-[#6366f1]" /> First course
+                  </span>
+                  <select
+                    className="select !rounded-[12px] !border-[#c7d2fe] focus:!border-[#4F46E5] text-sm py-1.5 max-w-[280px]"
+                    value={firstCourseId ?? ''}
+                    onChange={(e) => setFirstCourseId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">— Not set —</option>
+                    {allCourses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.course_code ? `${c.course_code} - ` : ''}{c.title}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={savingFirstCourse}
+                    className="btn btn-primary btn-sm lift gap-2 disabled:opacity-50"
+                    style={{ background: '#4F46E5', borderRadius: '12px' }}
+                    onClick={saveFirstCourse}
+                  >
+                    {savingFirstCourse ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
                 {student.comments ? (
                   <p className="mt-3 text-[13px] leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-[14px] px-3.5 py-2.5 max-w-2xl">{student.comments}</p>
                 ) : null}
@@ -482,6 +558,14 @@ export default function StudentProfilePage() {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={sendAdmissionLetter}
+                  disabled={sendingAdmission}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#4F46E5] text-white px-3 py-2 text-sm font-semibold hover:bg-[#4338ca] disabled:opacity-60 transition-colors"
+                >
+                  <Send size={14} /> {sendingAdmission ? 'Sending…' : 'Send Admission Letter'}
+                </button>
                 <button
                   type="button"
                   onClick={sendPasswordReset}

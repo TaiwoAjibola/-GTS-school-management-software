@@ -3,8 +3,25 @@ import { httpError } from '../utils/httpError.js'
 import { createSendJob, getSendJobStatus } from '../services/emailQueue.js'
 import { env } from '../config/env.js'
 import { testSmtpConnection } from '../services/emailService.js'
+import { generateAdmissionLetterPdf } from '../utils/admissionLetterPdf.js'
 
 const formatLongDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''
+const formatMonthYear = (d) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '')
+const formatDayMonthYear = (d) => (d ? new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '')
+
+// ── Admission templates ───────────────────────────────────────────
+// Email cover template (the formal admission letter is generated as a PDF attachment)
+const DEFAULT_ADMISSION_SUBJECT = 'Offer of Admission — {{student_name}}'
+const DEFAULT_ADMISSION_BODY = `Dear {{student_name}},
+
+Congratulations! We are pleased to inform you that you have been offered admission into {{course_name}} ({{academic_session}} Academic Session).
+
+Please find attached your official admission letter (Admission No: {{admission_no}}). Kindly review the conditions stated in the letter carefully.
+
+We look forward to welcoming you.
+
+Yours in Christ,
+Grace & Truth Theological Seminary`
 
 // Fetch plan-specific course data when planId provided, fallback to generic course fetch
 const fetchCourseWithPlan = async (courseId, planId) => {
@@ -94,7 +111,7 @@ export const createProcess = async (req, res, next) => {
       `INSERT INTO email_processes (name, subject_template, body_template, rich_body, channel, created_by)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, subject_template || '', body_template || '', rich_body || null, channel || 'email', req.user.id]
+      [name, subject_template || '', body_template || '', rich_body || null, channel || 'email', req.user.userId]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -154,9 +171,178 @@ export const duplicateProcess = async (req, res, next) => {
       `INSERT INTO email_processes (name, subject_template, body_template, rich_body, channel, created_by)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [`${o.name} (Copy)`, o.subject_template, o.body_template, o.rich_body, o.channel, req.user.id]
+      [`${o.name} (Copy)`, o.subject_template, o.body_template, o.rich_body, o.channel, req.user.userId]
     )
     res.status(201).json(result.rows[0])
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ── Create a new admission email template ─────────────────────────
+export const createAdmissionProcess = async (req, res, next) => {
+  try {
+    const { name, subject_template, body_template } = req.body || {}
+    const result = await query(
+      `INSERT INTO email_processes (name, subject_template, body_template, rich_body, channel, archived, is_admission, created_by)
+       VALUES ($1, $2, $3, NULL, 'email', FALSE, TRUE, $4)
+       RETURNING *`,
+      [name?.trim() || 'Admission Offer', subject_template || DEFAULT_ADMISSION_SUBJECT, body_template || DEFAULT_ADMISSION_BODY, req.user.userId]
+    )
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ── Send the admission letter email to a single student ────────────
+// Renders the admission email cover and attaches a dynamically generated
+// admission letter PDF (personalized per student).
+export const sendAdmissionLetter = async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.studentId)
+    const { templateId, courseId } = req.body || {}
+    if (!studentId) throw httpError(400, 'studentId is required')
+
+    const templateResult = await query(
+      `SELECT * FROM email_processes WHERE is_admission = TRUE AND archived = FALSE ORDER BY updated_at DESC LIMIT 1`
+    )
+    let process = templateResult.rows[0]
+    if (templateId) {
+      const specific = await query('SELECT * FROM email_processes WHERE id = $1 AND archived = FALSE', [templateId])
+      if (!specific.rows.length) throw httpError(404, 'Admission email template not found')
+      process = specific.rows[0]
+    }
+    if (!process) throw httpError(404, 'Admission email template not found. Create an admission email first.')
+
+    const studentResult = await query(
+      `SELECT s.id, s.user_id, s.matric_no, s.student_number, s.phone, s.status, s.comments, s.profile_image_url,
+              s.cohort_id, s.first_course_id, s.created_at, u.full_name, u.email, u.is_active, co.name AS cohort_name
+       FROM students s JOIN users u ON u.id = s.user_id
+       LEFT JOIN cohorts co ON co.id = s.cohort_id
+       WHERE s.id = $1`,
+      [studentId]
+    )
+    if (!studentResult.rows.length) throw httpError(404, 'Student not found')
+    const s = studentResult.rows[0]
+    if (!s.email) throw httpError(400, 'Student has no email address')
+
+    // Resolve the admission course: explicit courseId → student's first course → earliest enrollment
+    let course = null
+    const resolveCourseId = courseId ? Number(courseId) : (s.first_course_id ? Number(s.first_course_id) : null)
+    if (resolveCourseId) {
+      course = await fetchCourseWithPlan(resolveCourseId, null)
+      if (course && !course.course_title) course.course_title = course.course_name
+    }
+    if (!course) {
+      const enr = await query(
+        `SELECT e.course_id, c.title AS course_name, c.course_code, c.description AS course_description,
+                c.start_date AS course_start_date, c.end_date AS course_end_date,
+                cpi.start_date AS plan_start_date, cpi.end_date AS plan_end_date, c.lecturer_name
+         FROM enrollments e
+         JOIN courses c ON c.id = e.course_id
+         LEFT JOIN course_plan_items cpi ON cpi.course_id = e.course_id
+            AND cpi.plan_id = (SELECT p.id FROM course_plans p WHERE p.is_active = TRUE ORDER BY p.id DESC LIMIT 1)
+         WHERE e.student_id = $1 AND e.status <> 'withdrawn'
+         ORDER BY COALESCE(cpi.start_date, c.start_date, e.enrolled_at) ASC
+         LIMIT 1`,
+        [studentId]
+      )
+      if (enr.rows.length) course = enr.rows[0]
+    }
+
+    let schoolSettings = {}
+    try {
+      const settingsResult = await query("SELECT key, value FROM settings WHERE key LIKE 'school_%' OR key IN ('school_name','school_email','school_address','school_phone','short_name','logo_url')")
+      for (const row of settingsResult.rows) schoolSettings[row.key] = row.value
+    } catch {}
+
+    const courseStart = course?.course_start_date || course?.plan_start_date || course?.start_date || null
+    const admissionNo = s.matric_no || s.student_number || ''
+    const programmeName = course?.course_name || course?.course_title || 'Associate Degree Programme'
+    const academicSession = courseStart ? String(new Date(courseStart).getFullYear()) : ''
+
+    const values = {
+      student_name: s.full_name,
+      student_email: s.email,
+      student_phone: s.phone || '',
+      student_id: s.id.toString(),
+      student_status: s.status || '',
+      student_number: s.student_number || '',
+      matric_no: s.matric_no || '',
+      admission_no: admissionNo,
+      admission_date: courseStart ? formatMonthYear(courseStart) : formatMonthYear(s.created_at),
+      admission_date_long: courseStart ? formatLongDate(courseStart) : formatLongDate(s.created_at),
+      enrollment_date: s.created_at ? new Date(s.created_at).toLocaleDateString('en-US') : '',
+      cohort_name: s.cohort_name || '',
+      course_code: course?.course_code || '',
+      course_name: programmeName,
+      course_description: course?.course_description || '',
+      course_start_date: courseStart ? formatLongDate(courseStart) : '',
+      course_end_date: (course?.course_end_date || course?.plan_end_date || course?.end_date) ? formatLongDate(course.course_end_date || course.plan_end_date || course.end_date) : '',
+      academic_session: academicSession,
+      school_name: schoolSettings.school_name || 'Grace & Truth Theological Seminary',
+      school_email: schoolSettings.school_email || 'info@gtslagos.ng',
+      school_address: schoolSettings.school_address || '451A, Oluwadamilola Fashade, Omole Estate, Ojodu, Lagos.',
+      school_phone: schoolSettings.school_phone || '+234-803-2622-079',
+      short_name: schoolSettings.short_name || 'GTS',
+      logo_url: schoolSettings.logo_url || '',
+      current_date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      instructor_name: course?.instructor_name || course?.lecturer_name || '',
+      instructor_email: course?.instructor_email || '',
+    }
+
+    const render = (template) => (template || '').replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] != null ? values[key] : `{{${key}}}`)
+
+    const toPlainHtml = (text) => {
+      const raw = text || ''
+      const withBreaks = raw.replace(/\r\n/g, '\n').replace(/\n/g, '<br>')
+      return `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.6">${withBreaks}</div>`
+    }
+
+    const subject = render(process.subject_template)
+    let body
+    if (process.rich_body) {
+      values.message = toPlainHtml(render(process.body_template))
+      body = render(process.rich_body)
+    } else {
+      body = toPlainHtml(render(process.body_template))
+    }
+
+    // Generate dynamic admission letter PDF
+    const pdfBuffer = await generateAdmissionLetterPdf({
+      studentName: values.student_name,
+      admissionNo: values.admission_no,
+      admissionDate: values.admission_date,
+      effectiveDate: courseStart ? formatDayMonthYear(courseStart) : values.admission_date,
+      academicSession: values.academic_session,
+      programmeName: values.course_name,
+      degreeAward: 'Associate of Arts (AA) in Theology',
+      schoolName: values.school_name,
+      schoolAddress: values.school_address,
+      schoolEmail: values.school_email,
+      schoolPhone: values.school_phone,
+    })
+
+    const safeName = (values.student_name || 'Student').replace(/[^a-zA-Z0-9 _.-]/g, '').trim() || 'Student'
+    const filename = `Admission_Letter_${safeName.replace(/\s+/g, '_')}.pdf`
+
+    const jobId = createSendJob({
+      recipients: [{
+        email: s.email,
+        subject,
+        body,
+        attachments: [{ filename, content: pdfBuffer, contentType: 'application/pdf' }],
+      }],
+      processId: process.id,
+      subjectTemplate: process.subject_template,
+      bodyTemplate: process.body_template,
+      channel: process.channel || 'email',
+      senderId: req.user.userId,
+      courseId: course?.course_id || course?.id || resolveCourseId || null,
+    })
+
+    res.json({ jobId, message: 'Admission letter (with PDF attachment) queued', student: { id: s.id, full_name: s.full_name, email: s.email, admission_no: values.admission_no } })
   } catch (error) {
     next(error)
   }
@@ -619,7 +805,7 @@ export const sendTemplate = async (req, res, next) => {
       subjectTemplate: process.subject_template,
       bodyTemplate: process.body_template,
       channel: process.channel,
-      senderId: req.user.id,
+      senderId: req.user.userId,
       courseId: courseId || null,
     })
 

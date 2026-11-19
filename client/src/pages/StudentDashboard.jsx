@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, Calendar, Clock, Award, FileText, Layers, Sparkles, ExternalLink, ArrowUpRight, TrendingUp } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, Calendar, Clock, Award, FileText, Layers, Sparkles, ExternalLink, ArrowUpRight, TrendingUp, Play, PlayCircle, Video } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import apiClient from '../api/client'
+import { ZoomMtg } from '@zoom/meetingsdk'
 
 const navItems = [
   { to: '/student/courses', label: 'Courses', icon: BookOpen },
@@ -26,6 +27,11 @@ const StudentDashboard = () => {
   const [attendanceStates, setAttendanceStates] = useState({})
   const [progress, setProgress] = useState({})
   const [markedSessions, setMarkedSessions] = useState({})
+  const [joinStates, setJoinStates] = useState({})
+  const [joinLoading, setJoinLoading] = useState(false)
+  const [joiningSession, setJoiningSession] = useState(null)
+  const [zoomJoin, setZoomJoin] = useState(null)
+  const [zoomJoinError, setZoomJoinError] = useState(null)
 
   const load = async () => {
     const [courseRes, assignmentRes, examRes, resultRes] = await Promise.all([
@@ -72,19 +78,128 @@ const StudentDashboard = () => {
     await load()
   }
 
+  const isLiveClassActive = (status) => {
+    const live = status?.live
+    return Boolean(
+      live && live.isLive && live.classMode === 'online' && live.zoomMeetingNumber
+    )
+  }
+
+  const startZoomMeeting = async (joinData) => {
+    const { signature, meetingNumber, password, userName } = joinData || {}
+    if (!signature || !meetingNumber) {
+      setZoomJoinError('Zoom join credentials unavailable')
+      return
+    }
+
+    try {
+      if (ZoomMtg?.setZoomJSLib) {
+        ZoomMtg.setZoomJSLib('https://source.zoom.us/6.10.0/lib', '/av')
+      }
+      if (ZoomMtg?.preLoadWasm) {
+        ZoomMtg.preLoadWasm()
+      }
+
+      await ZoomMtg.init({
+        leaveUrl: window.location.origin,
+        success: () => setZoomJoin((prev) => ({ ...prev, status: 'inited' })),
+        error: (error) => setZoomJoinError(error),
+      })
+
+      await ZoomMtg.join({
+        meetingNumber,
+        userName,
+        passWord: password || '',
+        signature,
+        success: () => setZoomJoin((prev) => ({ ...prev, status: 'joined' })),
+        error: (error) => setZoomJoinError(error),
+      })
+    } catch (error) {
+      setZoomJoinError(error)
+    }
+  }
+
+  const joinLiveClass = async (courseId, sessionId) => {
+    setJoinLoading(true)
+    setJoiningSession({ courseId, sessionId })
+    setZoomJoinError(null)
+    try {
+      const signatureRes = await apiClient.get(`/attendance/live-class/${sessionId}/join-signature`, {
+        params: { courseId },
+      })
+      const joinData = signatureRes.data
+      setJoinStates((prev) => ({ ...prev, [`${courseId}:${sessionId}`]: joinData }))
+
+      // Start presence after join; silent. If Zoom unavailable for now, still track presence.
+      const markRes = await apiClient.post('/attendance/mark-lms-join', { courseId })
+      setJoinStates((prev) => ({
+        ...prev,
+        [`${courseId}:${sessionId}`]: { ...joinData, present: markRes.data?.present, presence: markRes.data?.presence },
+      }))
+      await load()
+
+      // Init + join via Zoom Meeting SDK using the LMS identity (full name).
+      setZoomJoin({ ...joinData, courseId, sessionId })
+      await startZoomMeeting(joinData)
+    } catch (error) {
+      console.error('[LiveClass] join failed', error)
+      setZoomJoinError(error)
+    } finally {
+      setJoinLoading(false)
+      setJoiningSession(null)
+    }
+  }
+
+  const LiveJoinButton = ({ courseId, session }) => {
+    const state = joinStates[`${courseId}:${session.sessionId}`]
+    const present = Boolean(state?.present)
+    const joining = joiningSession?.courseId === courseId && joiningSession?.sessionId === session.sessionId
+    const zoomJoining = zoomJoin?.courseId === courseId && zoomJoin?.sessionId === session.sessionId && zoomJoin?.status !== 'joined'
+    const zoomJoined = zoomJoin?.courseId === courseId && zoomJoin?.sessionId === session.sessionId && zoomJoin?.status === 'joined'
+
+    return (
+      <button
+        onClick={() => joinLiveClass(courseId, session.sessionId)}
+        disabled={joining || zoomJoining}
+        className={`btn btn-sm lift inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition shadow-sm ${present ? 'bg-[#E0E7FF] !text-[#4F46E5] cursor-default' : 'btn btn-primary hover:bg-[#4338CA]'} ${joining || zoomJoining ? 'opacity-70' : ''}`}
+        title={present ? 'Joined live class (attendance pending)' : `Join live class ${session.classMode}`}
+      >
+        {joining || zoomJoining ? (
+          <span className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
+        ) : present ? (
+          <PlayCircle size={16} />
+        ) : (
+          <Play size={16} />
+        )}
+        {present ? 'In Class' : zoomJoining ? 'Joining…' : zoomJoined ? 'In Zoom' : 'Join'}
+      </button>
+    )
+  }
+
   const attendanceSummary = useMemo(
     () =>
       courses.map((course) => {
+        const status = attendanceStates[course.id] || {}
         const progressInfo = progress[course.id]
         const progressPct = progressInfo
           ? (progressInfo.attendanceCount / Math.max(progressInfo.minRequired, 1)) * 100
           : 0
 
+        const session = status.live?.sessionId
+          ? status.live
+          : status.sessionId
+            ? status.live
+            : null
+
+        const isLiveClass = status?.canJoin || (status?.isLive && status?.live?.classMode === 'online')
+
         return {
           course,
-          status: attendanceStates[course.id],
+          status,
           progressInfo,
           progressPct,
+          session: session || null,
+          isLiveClass,
         }
       }),
     [courses, progress, attendanceStates]
@@ -192,6 +307,9 @@ const StudentDashboard = () => {
                         <Badge tone="slate" className="!bg-white !border-[#E2E8F0] !text-slate-600 !rounded-full !px-3 !py-1 !text-xs !font-semibold">
                           {progressInfo?.attendanceCount || 0}/{progressInfo?.minRequired || course.min_attendance_required} classes
                         </Badge>
+                        {attendanceStates[course.id]?.live?.isLive ? (
+                          <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-emerald-700">LIVE • LMS present: {Number(attendanceStates[course.id]?.live?.lms_present_count || 0)}</span>
+                        ) : null}
                       </div>
                       <div className="mt-5">
                         <div className="flex items-center justify-between gap-2 mb-2">
@@ -214,9 +332,15 @@ const StudentDashboard = () => {
 
           {section === 'attendance' ? (
             <div className="grid gap-4">
-              {attendanceSummary.map(({ course, status, progressInfo, progressPct }) => {
+              {attendanceSummary.map(({ course, status, session, progressInfo, progressPct }) => {
                 const pct = Math.max(0, Math.min(100, progressPct))
                 const eligible = progressInfo?.eligible
+                const sessionId = session?.sessionId || session?.id
+                const isLive = Boolean(session?.isLive || status?.canJoin)
+                const lmsPresent = Number(status?.live?.lms_present_count || 0)
+                const classWindow = (status?.live?.start_time || session?.start_time || session?.startTime)
+                  ? `${new Date(status?.live?.start_time || session?.start_time || session?.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${new Date(status?.live?.end_time || session?.end_time || session?.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : null
                 return (
                   <div key={course.id} className="card card-hover bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
                     <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -230,7 +354,14 @@ const StudentDashboard = () => {
                           <span className="text-xs text-slate-400 hidden sm:inline">• {progressInfo?.attendanceCount || 0}/{progressInfo?.minRequired || course.min_attendance_required} classes</span>
                         </div>
                       </div>
-                      {status?.activeSession ? (
+                      {isLive ? (
+                        <div className="flex flex-wrap items-center gap-2 justify-end">
+                          <Badge tone="slate" dot className={`${isLive ? 'bg-emerald-100 text-emerald-700 !border-emerald-200' : 'bg-slate-100 text-slate-700 !border-slate-200'}`}>
+                            {classWindow ? `Live · ${classWindow}` : 'Live now'}
+                          </Badge>
+                          <LiveJoinButton courseId={course.id} session={{ ...session, sessionId }} />
+                        </div>
+                      ) : status?.activeSession ? (
                         <button
                           onClick={() => markAttendance(course.id)}
                           disabled={markedSessions[course.id]}
@@ -242,6 +373,31 @@ const StudentDashboard = () => {
                         <span className="inline-flex items-center gap-2 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] px-3.5 py-2 text-xs font-semibold text-slate-500"><Clock size={14} /> No active session</span>
                       )}
                     </div>
+
+                    {zoomJoin?.courseId === course.id ? (
+                      <div className="mt-4">
+                        {zoomJoinError ? (
+                          <div className="rounded-2xl border border-[#FECDD3] bg-[#FEF2F2] p-4 text-sm font-semibold text-[#9F1239]">
+                            Zoom join failed: {String(zoomJoinError?.message || zoomJoinError)}
+                          </div>
+                        ) : (
+                          <div id="zoom-live-mount" className="w-full h-[540px] rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#0F172A]" />
+                        )}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-5">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-slate-500">Live Classes</span>
+                        <span className="text-xs font-bold text-[#4F46E5]" style={{ fontFamily: 'var(--font-mono)' }}>{classWindow || '—'}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-slate-400">{session?.classMode || status?.live?.classMode || 'Mode: Live'}</span>
+                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-slate-400">Class: {session?.classNumber || status?.live?.classNumber || '—'}</span>
+                        {isLive ? <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-emerald-700">LIVE • LMS present: {lmsPresent}</span> : null}
+                      </div>
+                    </div>
+
                     <div className="mt-5">
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-slate-500">Attendance</span>

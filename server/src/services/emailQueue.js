@@ -70,7 +70,7 @@ const runJob = async (job) => {
     let lastErr = null
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        await sendRawEmail({ to: rcpt.email, subject: rcpt.subject, html: rcpt.body })
+        await sendRawEmail({ to: rcpt.email, subject: rcpt.subject, html: rcpt.body, attachments: rcpt.attachments })
         job.sent++
         lastErr = null
         break

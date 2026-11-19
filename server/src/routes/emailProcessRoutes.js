@@ -6,6 +6,8 @@ import {
   updateProcess,
   deleteProcess,
   duplicateProcess,
+  createAdmissionProcess,
+  sendAdmissionLetter,
   previewProcess,
   previewWithStudent,
   sendTemplate,
@@ -33,6 +35,10 @@ router.delete('/:id', authorize('admin'), deleteProcess)
 
 // Duplicate
 router.post('/:id/duplicate', authorize('admin'), duplicateProcess)
+
+// Admission letters
+router.post('/admission', authorize('admin'), createAdmissionProcess)
+router.post('/admission/:studentId/send', authorize('admin'), sendAdmissionLetter)
 
 // Preview & send
 router.get('/:id/preview', authorize('admin', 'lecturer'), previewProcess)

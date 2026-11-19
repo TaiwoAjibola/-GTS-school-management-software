@@ -157,14 +157,14 @@ export const enrollStudent = async (req, res, next) => {
 export const updateStudent = async (req, res, next) => {
   try {
     const studentId = Number(req.params.studentId)
-    const { fullName, email, phone, status, matricNo, studentNumber, comments, profileImageUrl, cohortId } = req.body
+    const { fullName, email, phone, status, matricNo, studentNumber, comments, profileImageUrl, cohortId, firstCourseId } = req.body
 
     if (!studentId) {
       throw httpError(400, 'Invalid studentId')
     }
 
     const currentResult = await query(
-      `SELECT s.id, s.user_id, s.matric_no, s.phone, s.status, s.student_number, s.comments, s.profile_image_url, s.cohort_id, u.full_name, u.email
+      `SELECT s.id, s.user_id, s.matric_no, s.phone, s.status, s.student_number, s.comments, s.profile_image_url, s.cohort_id, s.first_course_id, u.full_name, u.email
        FROM students s
        JOIN users u ON u.id = s.user_id
        WHERE s.id = $1`,
@@ -178,6 +178,7 @@ export const updateStudent = async (req, res, next) => {
     const current = currentResult.rows[0]
     const nextStatus = status || current.status
     const nextCohortId = cohortId !== undefined ? (cohortId || null) : (current.cohort_id || null)
+    const nextFirstCourseId = firstCourseId !== undefined ? (firstCourseId || null) : (current.first_course_id || null)
     const nextEmail = email || current.email
     let nextMatric = matricNo !== undefined ? matricNo : current.matric_no
 
@@ -225,8 +226,9 @@ export const updateStudent = async (req, res, next) => {
            student_number = $4,
            comments = $5,
            profile_image_url = $6,
-           cohort_id = $7
-       WHERE id = $8`,
+           cohort_id = $7,
+           first_course_id = $8
+       WHERE id = $9`,
       [
         phone || current.phone,
         nextStatus,
@@ -235,6 +237,7 @@ export const updateStudent = async (req, res, next) => {
         comments || current.comments,
         profileImageUrl || current.profile_image_url,
         nextCohortId,
+        nextFirstCourseId,
         studentId,
       ]
     )
@@ -727,7 +730,7 @@ export const getStudent = async (req, res, next) => {
 
     const result = await query(
       `SELECT s.id, s.user_id, s.matric_no, s.student_number, s.phone, s.status, s.comments, s.profile_image_url,
-              s.cohort_id, u.full_name, u.email, u.is_active,
+              s.cohort_id, s.first_course_id, u.full_name, u.email, u.is_active,
               co.name AS cohort_name,
               COALESCE(json_agg(json_build_object('id', ss.id, 'statusName', ss.status_name)) FILTER (WHERE ss.id IS NOT NULL), '[]'::json) AS statuses
        FROM students s
@@ -735,7 +738,7 @@ export const getStudent = async (req, res, next) => {
        LEFT JOIN student_statuses ss ON ss.student_id = s.id
        LEFT JOIN cohorts co ON co.id = s.cohort_id
        WHERE s.id = $1
-       GROUP BY s.id, s.user_id, u.full_name, u.email, u.is_active, co.name`,
+       GROUP BY s.id, s.user_id, s.matric_no, s.student_number, s.phone, s.status, s.comments, s.profile_image_url, s.cohort_id, s.first_course_id, u.full_name, u.email, u.is_active, co.name`,
       [studentId]
     )
 

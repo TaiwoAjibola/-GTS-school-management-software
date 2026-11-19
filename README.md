@@ -24,6 +24,16 @@ Modern production-ready web application for managing seminary academics: student
   - dashboard delivery
   - email delivery when SMTP is configured
 - Result upload (`0-100`) with auto status (`Pass` / `Fail`)
+- Admission workflow
+  - Admission offer email template (`Admission Offer`) with dynamic per-student variables
+    (`{{student_name}}`, `{{admission_no}}`, `{{matric_no}}`, `{{course_name}}`, `{{course_start_date}}`, `{{academic_session}}`, ...)
+  - Send a student's admission letter from their profile (`POST /api/email-processes/admission/:studentId/send`)
+  - Create / manage admission email templates (`POST /api/email-processes/admission`)
+- Student first-course tracking
+  - Auto-assigned on enrollment when unknown (`students.first_course_id`)
+  - Manually set / edit per student (student profile → First course)
+- Course management
+  - Edit course details (title, description, code, lecturer, secondary lecturer, dates, class schedule, features)
 - Role dashboards
   - Admin: students, courses, analytics
   - Lecturer: courses, attendance, assignments, results
@@ -92,6 +102,8 @@ Created by `npm run db:init`:
 - `GET /api/assignments/my` (student)
 - `POST /api/results` (admin, lecturer)
 - `GET /api/results/my` (student)
+- `POST /api/email-processes/admission` (admin) — create admission email template
+- `POST /api/email-processes/admission/:studentId/send` (admin) — send admission letter to one student
 - `GET /api/dashboard/admin-analytics` (admin)
 
 ## Notes

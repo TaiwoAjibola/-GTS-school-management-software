@@ -74,3 +74,21 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`   Health: http://localhost:${port}/api/health`)
   bootDatabase()
 })
+
+// LMS Live-class: keep attendance_sessions marked live while their window is active.
+const liveClassPoller = setInterval(async () => {
+  try {
+    await pool.query(`
+      UPDATE attendance_sessions
+      SET is_live = TRUE
+      WHERE is_active = TRUE
+        AND is_live IS NOT TRUE
+        AND start_time IS NOT NULL
+        AND end_time >= NOW()
+        AND (class_mode = 'online' OR class_mode IS NULL)
+    `)
+  } catch (error) {
+    console.error('[LiveClass] Liveness poller error:', error.message)
+  }
+}, 15000)
+liveClassPoller.unref?.()

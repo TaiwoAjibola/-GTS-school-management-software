@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen, LayoutTemplate } from 'lucide-react'
+import { X, Eye, Send, Copy, Trash2, Plus, Search, Variable, Pen, Mail, Users, BookOpen, LayoutTemplate, MailPlus } from 'lucide-react'
 import apiClient from '../api/client'
 import WysiwygEditor from './WysiwygEditor'
 import { useDialog } from './useDialog'
@@ -90,6 +90,7 @@ export default function EmailProcesses({ notify }) {
     if (/\{\{\s*exam_/i.test(text)) cats.add('exam')
     if (/\{\{\s*course_/i.test(text)) cats.add('course')
     if (/\{\{\s*instructor_/i.test(text)) cats.add('instructor')
+    if (/\{\{\s*admission_/i.test(text)) cats.add('admission')
     return cats
   }, [form.subject_template, form.body_template, variables])
 
@@ -204,6 +205,27 @@ export default function EmailProcesses({ notify }) {
       notify('Template duplicated')
       await loadTemplates()
     } catch { notify('Duplicate failed') }
+  }
+
+  const createAdmissionTemplate = async () => {
+    setSaving(true)
+    try {
+      const res = await apiClient.post('/email-processes/admission')
+      const t = res.data
+      setSelectedId(t.id)
+      setIsNew(false)
+      setFormatId('')
+      setForm({
+        name: t.name || 'Admission Offer',
+        subject_template: t.subject_template || '',
+        body_template: toEditorHtml(t.body_template || ''),
+        rich_body: t.rich_body || '',
+      })
+      notify('Admission email created')
+      await loadTemplates()
+    } catch (err) {
+      notify(err?.response?.data?.message || 'Failed to create admission email')
+    } finally { setSaving(false) }
   }
 
   const handlePreview = async (id) => {
@@ -732,11 +754,18 @@ export default function EmailProcesses({ notify }) {
 
       {/* ── Right Panel: My Templates ── */}
       <div className="w-80 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden isolate">
-        <div className="shrink-0 p-3 border-b border-slate-100 bg-white flex items-center justify-between">
+        <div className="shrink-0 p-3 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-900">My Templates</h3>
-          <button type="button" onClick={newTemplate}
-            className="flex items-center gap-1 text-xs font-medium bg-slate-900 text-white rounded-lg px-3 py-1.5 hover:bg-slate-800 transition-colors"
-          ><Plus size={13} /> New</button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={createAdmissionTemplate} disabled={saving}
+              className="flex items-center gap-1 text-xs font-medium bg-emerald-600 text-white rounded-lg px-3 py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              <MailPlus size={13} /> New Admission Email
+            </button>
+            <button type="button" onClick={newTemplate}
+              className="flex items-center gap-1 text-xs font-medium bg-slate-900 text-white rounded-lg px-3 py-1.5 hover:bg-slate-800 transition-colors"
+            ><Plus size={13} /> New</button>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
           {templates.length === 0 ? (
