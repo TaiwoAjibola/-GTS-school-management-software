@@ -1,64 +1,43 @@
-// Zoom Meeting SDK service (server): generates join signature for a meeting.
-// Uses Zoom Meeting SDK keys from env (ZOOM_SDK_CLIENT_ID/SECRET).
+// Zoom Meeting SDK signature generation (server-side).
+// Uses ZOOM_SDK_CLIENT_ID / ZOOM_SDK_CLIENT_SECRET from env.
 import crypto from 'node:crypto'
 
-function base64UrlEncode(data) {
-  return Buffer.from(data).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const base64UrlEncode = (input) =>
+  Buffer.from(input)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+
+const signJwt = (payload, secret) => {
+  const header = { alg: 'HS256', typ: 'JWT' }
+  const encodedHeader = base64UrlEncode(JSON.stringify(header))
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload))
+  const data = `${encodedHeader}.${encodedPayload}`
+  const signature = crypto.createHmac('sha256', secret).update(data).digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `${data}.${signature}`
 }
 
-// Generates a Meeting SDK "Zoom Web SDK" style join signature (V1: HMAC-based).
-// meetingNumber/passcode/password/name/meetingRole.
-export const getJoinSignature = async ({ meetingNumber, userName, meetingRole = 'participant', password, count = 10 }) => {
-  const clientId = process.env.ZOOM_SDK_CLIENT_ID
-  const clientSecret = process.env.ZOOM_SDK_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
-    throw new Error('Zoom Meeting SDK creds missing: ZOOM_SDK_CLIENT_ID / ZOOM_SDK_CLIENT_SECRET')
+// Returns a Meeting SDK JWT signature string.
+export const getJoinSignature = async ({ meetingNumber, meetingRole = 0 }) => {
+  const sdkKey = process.env.ZOOM_SDK_CLIENT_ID
+  const sdkSecret = process.env.ZOOM_SDK_CLIENT_SECRET
+  if (!sdkKey || !sdkSecret) {
+    throw new Error('Zoom Meeting SDK credentials missing: set ZOOM_SDK_CLIENT_ID and ZOOM_SDK_CLIENT_SECRET')
   }
 
-  const now = Math.floor(Date.now() / 1000)
-  // Per Meeting SDK protocol: signature payload = [zoomAppType?][n meetingNumber][t ts][r role][zd? auth?][p password]
-  // z: public key (clientId), n: meetingNumber, t: timestamp, r: meetingRole, zd: signature, za: admin?, zapp: appType
-  const parts = [
-    '0', // appType 1 = ?; use 0 for web join
-    String(meetingNumber),
-    String(now),
-    String(meetingRole === 'host' ? '0' : '1'),
-    String(password || ''),
-  ]
+  const mn = String(meetingNumber || '').replace(/\s+/g, '')
+  if (!mn) throw new Error('Zoom meeting number is required')
 
-  const raw = parts.join('.')
-  const signature = base64UrlEncode(crypto.createHmac('sha256', clientSecret).update(raw).digest('hex').slice(0, 28))
+  const role = meetingRole === 1 || meetingRole === '1' || meetingRole === 'host' ? 1 : 0
+  const iat = Math.floor(Date.now() / 1000) - 30
+  const exp = iat + 60 * 60 * 2
+  const tokenExp = exp
 
-  return {
-    signature,
-    meetingNumber,
-    userName,
-    meetingRole,
-    password,
-  }
+  return signJwt({ appKey: sdkKey, sdkKey, mn, role, iat, exp, tokenExp }, sdkSecret)
 }
 
-// Fetch an access token from Zoom to validate SDK/app health (best-effort).
-let cachedToken = { token: null, expiresAt: 0 }
-export const fetchZoomToken = async () => {
-  const clientId = process.env.ZOOM_SDK_CLIENT_ID
-  const clientSecret = process.env.ZOOM_SDK_CLIENT_SECRET
-  if (!clientId || !clientSecret) throw new Error('Zoom Meeting SDK creds missing')
-  if (cachedToken.token && cachedToken.expiresAt > Date.now()) return cachedToken.token
-
-  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  const res = await fetch('https://api.zoom.us/v2/', {
-    headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    method: 'POST',
-    body: new URLSearchParams({ grant_type: 'client_credentials' }),
-  })
-  const json = await res.json()
-  if (json.access_token) {
-    cachedToken = { token: json.access_token, expiresAt: Date.now() + 8 * 60 * 1000 }
-    return json.access_token
-  }
-  if (json.error) console.warn('[Zoom] token fetch failed:', json.error)
-  return null
-}
-
-export default { getJoinSignature, fetchZoomToken }
+export default { getJoinSignature }
