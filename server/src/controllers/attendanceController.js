@@ -195,7 +195,7 @@ export const getLiveClassJoinSignature = async (req, res, next) => {
     const sessionId = Number(req.params.sessionId)
     const courseId = Number(req.query.courseId || null)
     const session = sessionId
-      ? (await query('SELECT id, course_id FROM attendance_sessions WHERE id = $1', [sessionId])).rows[0]
+      ? (await query('SELECT * FROM attendance_sessions WHERE id = $1', [sessionId])).rows[0]
       : await getActiveSessionByCourse(courseId)
 
     if (!session) throw httpError(404, 'No active live class found')

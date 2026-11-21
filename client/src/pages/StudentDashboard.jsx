@@ -165,14 +165,15 @@ const StudentDashboard = () => {
       await startZoomMeeting(joinData)
     } catch (error) {
       console.error('[LiveClass] join failed', error)
-      setZoomJoinError(error)
+      const msg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to join live class'
+      setZoomJoinError(msg)
     } finally {
       setJoinLoading(false)
       setJoiningSession(null)
     }
   }
 
-  const LiveJoinButton = ({ courseId, session }) => {
+  const LiveJoinButton = ({ courseId, session, large = false }) => {
     const state = joinStates[`${courseId}:${session.sessionId}`]
     const present = Boolean(state?.present)
     const joining = joiningSession?.courseId === courseId && joiningSession?.sessionId === session.sessionId
@@ -183,17 +184,17 @@ const StudentDashboard = () => {
       <button
         onClick={() => joinLiveClass(courseId, session.sessionId)}
         disabled={joining || zoomJoining}
-        className={`btn btn-sm lift inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition shadow-sm ${present ? 'bg-[#E0E7FF] !text-[#4F46E5] cursor-default' : 'btn btn-primary hover:bg-[#4338CA]'} ${joining || zoomJoining ? 'opacity-70' : ''}`}
+        className={`btn lift inline-flex items-center justify-center gap-2 rounded-2xl font-bold transition shadow-sm ${large ? 'px-7 py-4 text-base min-w-[180px]' : 'btn-sm px-4 py-2 text-sm rounded-xl'} ${present ? 'bg-[#E0E7FF] !text-[#4F46E5] cursor-default' : 'btn btn-primary hover:bg-[#4338CA]'} ${joining || zoomJoining ? 'opacity-70' : ''}`}
         title={present ? 'Joined live class (attendance pending)' : `Join live class ${session.classMode}`}
       >
         {joining || zoomJoining ? (
-          <span className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
+          <span className={`${large ? 'h-3 w-3' : 'h-2.5 w-2.5'} rounded-full bg-white animate-pulse`} />
         ) : present ? (
-          <PlayCircle size={16} />
+          <PlayCircle size={large ? 20 : 16} />
         ) : (
-          <Play size={16} />
+          <Play size={large ? 20 : 16} />
         )}
-        {present ? 'In Class' : zoomJoining ? 'Joining…' : zoomJoined ? 'In Zoom' : 'Join'}
+        {present ? 'In Class' : zoomJoining ? 'Joining…' : zoomJoined ? 'In Zoom' : 'Join Live Class'}
       </button>
     )
   }
@@ -357,19 +358,34 @@ const StudentDashboard = () => {
                     </div>
 
                     {activeCourse.status?.live?.isLive && activeCourse.status.live.classMode === 'online' ? (
-                      <div className="mt-4 rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF]/50 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-bold text-[#4338CA] flex items-center gap-2"><Video size={15} /> Online class is live</p>
-                            <p className="text-xs text-slate-600 mt-1">
-                              {activeCourse.status.live.zoomMeetingNumber ? `Meeting: ${activeCourse.status.live.zoomMeetingNumber}` : 'Zoom meeting available'}
-                              {activeCourse.status.live.zoomPasscode ? ` • Passcode: ${activeCourse.status.live.zoomPasscode}` : ''}
-                            </p>
+                      <div className="mt-5 rounded-[28px] border border-[#C7D2FE] bg-gradient-to-r from-[#EEF2FF] via-white to-[#ECFEFF] p-6 md:p-7 shadow-[0_8px_30px_rgba(79,70,229,0.10)]">
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                          <div className="min-w-0">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-[#4F46E5] px-3.5 py-1.5 text-[11px] font-bold tracking-[0.14em] uppercase text-white">
+                              <span className="h-2 w-2 rounded-full bg-white animate-pulse" /> Live Online Class
+                            </div>
+                            <h3 className="mt-3 text-2xl md:text-[28px] font-extrabold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Your class is live now</h3>
+                            <p className="mt-2 text-sm text-slate-600">Join from the LMS so your attendance is tracked automatically.</p>
+                            <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                              <div className="rounded-2xl bg-white border border-[#E0E7FF] px-4 py-3">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Meeting ID</p>
+                                <p className="font-bold text-slate-900 mt-1" style={{ fontFamily: 'var(--font-mono)' }}>{activeCourse.status.live.zoomMeetingNumber || '—'}</p>
+                              </div>
+                              <div className="rounded-2xl bg-white border border-[#E0E7FF] px-4 py-3">
+                                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Passcode</p>
+                                <p className="font-bold text-slate-900 mt-1" style={{ fontFamily: 'var(--font-mono)' }}>{activeCourse.status.live.zoomPasscode || '—'}</p>
+                              </div>
+                            </div>
                           </div>
-                          {activeCourse.session ? <LiveJoinButton courseId={activeCourse.course.id} session={{ ...activeCourse.session, sessionId: activeCourse.session.sessionId }} /> : null}
+                          <div className="shrink-0 flex flex-col items-stretch gap-3">
+                            {activeCourse.session ? <LiveJoinButton courseId={activeCourse.course.id} session={{ ...activeCourse.session, sessionId: activeCourse.session.sessionId }} large /> : null}
+                            <p className="text-xs text-slate-500 text-center">Uses your LMS name</p>
+                          </div>
                         </div>
                         {zoomJoinError && zoomJoin?.courseId === activeCourse.course.id ? (
-                          <p className="mt-2 text-xs font-medium text-red-600">Zoom join failed: {String(zoomJoinError?.message || zoomJoinError)}</p>
+                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            Zoom join failed: {String(zoomJoinError?.message || zoomJoinError)}
+                          </div>
                         ) : null}
                       </div>
                     ) : null}
