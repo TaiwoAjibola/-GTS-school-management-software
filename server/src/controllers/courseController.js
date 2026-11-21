@@ -135,8 +135,8 @@ export const getStudentCourses = async (req, res, next) => {
     const coursesResult = await query(
       `SELECT c.*, b.id AS batch_id, b.start_date AS batch_start_date, b.end_date AS batch_end_date, b.status AS batch_status
        FROM enrollments e
-       JOIN batches b ON b.id = e.batch_id
        JOIN courses c ON c.id = e.course_id
+       LEFT JOIN batches b ON b.id = e.batch_id
        WHERE e.student_id = $1 AND e.status IN ('active', 'completed', 'failed')
        ORDER BY CASE WHEN e.status = 'active' THEN 0 WHEN e.status = 'completed' THEN 1 ELSE 2 END, e.enrolled_at DESC`,
       [student.id]

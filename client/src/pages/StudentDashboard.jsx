@@ -46,10 +46,10 @@ const StudentDashboard = () => {
 
   const load = async () => {
     const [courseRes, assignmentRes, examRes, resultRes] = await Promise.all([
-      apiClient.get('/courses/my-courses'),
-      apiClient.get('/assignments/my'),
+      apiClient.get('/courses/my-courses').catch(() => ({ data: [] })),
+      apiClient.get('/assignments/my').catch(() => ({ data: [] })),
       apiClient.get('/exams/my').catch(() => ({ data: [] })),
-      apiClient.get('/results/my'),
+      apiClient.get('/results/my').catch(() => ({ data: [] })),
     ])
 
     setCourses(courseRes.data)
