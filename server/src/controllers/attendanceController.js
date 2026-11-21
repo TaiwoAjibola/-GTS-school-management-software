@@ -2,7 +2,7 @@ import { query } from '../db/pool.js'
 import { httpError } from '../utils/httpError.js'
 import { closeExpiredAttendanceSessions, getActiveSessionByCourse } from '../services/attendanceService.js'
 import { getEligibilityForStudentInCourse } from '../services/eligibilityService.js'
-import { getJoinSignature, fetchZoomToken } from '../services/zoomSdkSignatureService.js'
+import { getJoinSignature } from '../services/zoomSdkSignatureService.js'
 
 const isActiveLiveWindow = (startTime, endTime) => {
   const now = Date.now()
@@ -98,10 +98,6 @@ export const startAttendanceSession = async (req, res, next) => {
     if (mode === 'online') {
       await query('UPDATE attendance_sessions SET is_live = TRUE WHERE id = $1', [session.id])
     }
-    if (mode === 'online') {
-      const token = await fetchZoomToken()
-      void token
-    }
 
     res.status(201).json(session)
   } catch (error) {
@@ -153,9 +149,6 @@ export const startLiveAttendance = async (req, res, next) => {
 
     const fullSession = (await query('SELECT * FROM attendance_sessions WHERE id = $1', [session.id])).rows[0]
 
-    if (mode === 'online') {
-      try { await fetchZoomToken() } catch {}
-    }
 
     const liveStatus = classLiveStatus(fullSession)
     const lmsPresentCount = await query(
