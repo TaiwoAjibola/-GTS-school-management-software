@@ -131,32 +131,49 @@ const StudentDashboard = () => {
         ZoomMtg.prepareWebSDK()
       }
 
-      const initResult = await new Promise((resolve) => {
-        ZoomMtg.init({
-          leaveUrl: window.location.href,
-          patchJsMedia: true,
-          success: () => resolve({ ok: true }),
-          error: (error) => resolve({ ok: false, error }),
-        })
-      })
-      if (!initResult.ok) {
-        restoreRoot()
-        setZoomJoinError(initResult.error?.reason || initResult.error?.message || 'Zoom init failed')
-        return
+      const withTimeout = (promise, ms, label) => Promise.race([
+        promise,
+        new Promise((resolve) => setTimeout(() => resolve({ ok: false, error: { message: `${label} timed out. Please refresh and try again.` } }), ms)),
+      ])
+
+      let initOk = window.__zoomMtgInited === true
+      if (!initOk) {
+        const initResult = await withTimeout(new Promise((resolve) => {
+          try {
+            ZoomMtg.init({
+              leaveUrl: window.location.href,
+              patchJsMedia: true,
+              success: () => resolve({ ok: true }),
+              error: (error) => resolve({ ok: false, error }),
+            })
+          } catch (e) {
+            resolve({ ok: false, error: e })
+          }
+        }), 30000, 'Zoom initialization')
+        if (!initResult.ok) {
+          restoreRoot()
+          setZoomJoinError(initResult.error?.reason || initResult.error?.message || 'Zoom init failed')
+          return
+        }
+        window.__zoomMtgInited = true
       }
       setZoomJoin((prev) => ({ ...prev, status: 'inited' }))
 
-      const joinResult = await new Promise((resolve) => {
-        ZoomMtg.join({
-          meetingNumber: String(meetingNumber),
-          userName,
-          passWord: password || '',
-          signature,
-          sdkKey: import.meta.env.VITE_ZOOM_SDK_CLIENT_ID || undefined,
-          success: () => resolve({ ok: true }),
-          error: (error) => resolve({ ok: false, error }),
-        })
-      })
+      const joinResult = await withTimeout(new Promise((resolve) => {
+        try {
+          ZoomMtg.join({
+            meetingNumber: String(meetingNumber),
+            userName,
+            passWord: password || '',
+            signature,
+            sdkKey: import.meta.env.VITE_ZOOM_SDK_CLIENT_ID || undefined,
+            success: () => resolve({ ok: true }),
+            error: (error) => resolve({ ok: false, error }),
+          })
+        } catch (e) {
+          resolve({ ok: false, error: e })
+        }
+      }), 45000, 'Zoom join')
       if (!joinResult.ok) {
         restoreRoot()
         setZoomJoinError(joinResult.error?.reason || joinResult.error?.message || 'Zoom join failed')
