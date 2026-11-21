@@ -111,7 +111,11 @@ const StudentDashboard = () => {
       return
     }
 
+    const rootEl = document.getElementById('root')
+    const restoreRoot = () => { if (rootEl) rootEl.style.display = '' }
     try {
+      if (rootEl) rootEl.style.display = 'none'
+
       if (ZoomMtg?.setZoomJSLib) {
         ZoomMtg.setZoomJSLib('https://source.zoom.us/6.10.0/lib', '/av')
       }
@@ -123,21 +127,30 @@ const StudentDashboard = () => {
       }
 
       await ZoomMtg.init({
-        leaveUrl: window.location.origin,
+        leaveUrl: window.location.href,
+        patchJsMedia: true,
         success: () => setZoomJoin((prev) => ({ ...prev, status: 'inited' })),
-        error: (error) => setZoomJoinError(error),
+        error: (error) => {
+          restoreRoot()
+          setZoomJoinError(error?.reason || error?.message || 'Zoom init failed')
+        },
       })
 
       await ZoomMtg.join({
-        meetingNumber,
+        meetingNumber: String(meetingNumber),
         userName,
         passWord: password || '',
         signature,
+        sdkKey: import.meta.env.VITE_ZOOM_SDK_CLIENT_ID || undefined,
         success: () => setZoomJoin((prev) => ({ ...prev, status: 'joined' })),
-        error: (error) => setZoomJoinError(error),
+        error: (error) => {
+          restoreRoot()
+          setZoomJoinError(error?.reason || error?.message || 'Zoom join failed')
+        },
       })
     } catch (error) {
-      setZoomJoinError(error)
+      restoreRoot()
+      setZoomJoinError(error?.reason || error?.message || 'Zoom SDK failed to start')
     }
   }
 
