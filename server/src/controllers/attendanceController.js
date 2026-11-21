@@ -213,10 +213,16 @@ export const getLiveClassJoinSignature = async (req, res, next) => {
 
     const userName = zoomUser.full_name
     const meetingNumber = session.zoom_meeting_number
+    if (!meetingNumber) throw httpError(400, 'Zoom meeting number is not configured for this live class')
     const meetingRole = 'participant'
-    const signature = await getJoinSignature({ meetingNumber, userName, meetingRole })
+    let signature
+    try {
+      signature = await getJoinSignature({ meetingNumber, userName, meetingRole })
+    } catch (err) {
+      throw httpError(400, err?.message || 'Failed to generate Zoom join signature')
+    }
 
-    // Long-lived typing file
+    // Record LMS join presence
     await query(
       `INSERT INTO attendance_records (session_id, student_id, marked_by)
        SELECT $1, s.id, 'lms_join'
