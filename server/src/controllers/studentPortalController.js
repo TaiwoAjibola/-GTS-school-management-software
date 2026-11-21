@@ -136,7 +136,10 @@ export const getCourseMaterials = async (req, res, next) => {
     const { courseId } = req.params
     await requireEnrollment(studentId, courseId)
     const result = await query(
-      'SELECT id, course_id, title, description, section_number, material_url, created_at FROM course_materials WHERE course_id = $1 ORDER BY section_number ASC, created_at ASC',
+      `SELECT id, course_id, title, description, section_number, material_type, material_url, content, created_at
+       FROM course_materials
+       WHERE course_id = $1
+       ORDER BY COALESCE(section_number, 999999) ASC, created_at ASC`,
       [courseId]
     )
     res.json(result.rows)

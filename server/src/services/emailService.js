@@ -271,8 +271,18 @@ export const sendMcqResultEmail = async ({ to, studentName, courseTitle, examTit
   return sendRawEmail({ to, subject: `MCQ Result: ${examTitle}`, html })
 }
 
-export const sendCourseMaterialEmail = async ({ to, studentName, courseTitle, materialTitle, materialDescription, sectionNumber, materialUrl }) => {
-  return sendRawEmail({ to, subject: `New Material: ${materialTitle}`, html: `<p>Dear ${studentName}, new material for ${courseTitle}: ${materialTitle}</p>` })
+export const sendCourseMaterialEmail = async ({ to, studentName, courseTitle, materialTitle, materialDescription, sectionNumber, materialUrl, materialType, content }) => {
+  const isText = materialType === 'text'
+  const detail = isText
+    ? `<div style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin:12px 0">${String(content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+    : (materialUrl ? `<p><a href="${materialUrl}" style="display:inline-block;background:#4F46E5;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600">Open Material</a></p>` : '')
+  const desc = materialDescription ? `<p style="color:#475569">${String(materialDescription).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>` : ''
+  const section = sectionNumber ? `<p style="color:#64748b;font-size:13px">Section ${sectionNumber}</p>` : ''
+  return sendRawEmail({
+    to,
+    subject: `New Material: ${materialTitle}`,
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a"><p>Dear ${studentName},</p><p>A new ${isText ? 'text material' : 'course material'} has been shared for <strong>${courseTitle}</strong>.</p><h2 style="margin:16px 0 8px">${materialTitle}</h2>${section}${desc}${detail}</div>`,
+  })
 }
 
 export const sendApplicationReceivedEmail = async ({ to, studentName }) => {

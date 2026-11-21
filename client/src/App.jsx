@@ -17,7 +17,7 @@ const HomeRedirect = () => {
   if (!user) return <Navigate to="/login" replace />
   if (user.role === 'admin') return <Navigate to="/lecturer/courses" replace />
   if (user.role === 'lecturer') return <Navigate to="/lecturer/courses" replace />
-  return <Navigate to="/student/courses" replace />
+  return <Navigate to="/student/course" replace />
 }
 
 function App() {

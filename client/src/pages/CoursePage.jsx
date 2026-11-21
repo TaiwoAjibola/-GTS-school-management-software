@@ -62,7 +62,7 @@ export default function CoursePage() {
   const [allEnrollments, setAllEnrollments] = useState([])
   const [assignments, setAssignments] = useState([])
   const [materials, setMaterials] = useState([])
-  const [materialForm, setMaterialForm] = useState({ title: '', description: '', sectionNumber: '', file: null })
+  const [materialForm, setMaterialForm] = useState({ title: '', description: '', sectionNumber: '', type: 'file', content: '', file: null })
   const [activeTab, setActiveTab] = useState('current')
   const [historyCohortFilter, setHistoryCohortFilter] = useState('')
   const [allStudents, setAllStudents] = useState([])
@@ -205,23 +205,37 @@ export default function CoursePage() {
 
   const uploadMaterial = async (event) => {
     event.preventDefault()
-    if (!materialForm.file || !materialForm.title.trim()) {
-      notify('Material title and file are required')
+    if (!materialForm.title.trim()) {
+      notify('Material title is required')
+      return
+    }
+    if (materialForm.type === 'text') {
+      if (!materialForm.content.trim()) {
+        notify('Text content is required')
+        return
+      }
+    } else if (!materialForm.file) {
+      notify('Material file is required')
       return
     }
 
     const formData = new FormData()
     formData.append('title', materialForm.title.trim())
     formData.append('description', materialForm.description)
+    formData.append('materialType', materialForm.type)
     if (materialForm.sectionNumber) {
       formData.append('sectionNumber', materialForm.sectionNumber)
     }
-    formData.append('file', materialForm.file)
+    if (materialForm.type === 'text') {
+      formData.append('content', materialForm.content)
+    } else {
+      formData.append('file', materialForm.file)
+    }
 
     await apiClient.post(`/courses/${courseId}/materials`, formData)
-    setMaterialForm({ title: '', description: '', sectionNumber: '', file: null })
+    setMaterialForm({ title: '', description: '', sectionNumber: '', type: 'file', content: '', file: null })
     await loadAll()
-    notify('Material uploaded')
+    notify(materialForm.type === 'text' ? 'Text material added' : 'Material uploaded')
   }
 
   const sendMaterial = async (materialId) => {
@@ -872,11 +886,23 @@ export default function CoursePage() {
                 <Send size={16} />
               </span>
               <div>
-                <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Upload Course Material</h3>
-                <p className="text-sm text-slate-500 mt-0.5">Upload general materials or assign a section number.</p>
+                <h3 className="font-bold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Add Course Material</h3>
+                <p className="text-sm text-slate-500 mt-0.5">Upload a file or add text material students can read in the LMS.</p>
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+              <label className="block">
+                <span className="field-label">Material Type</span>
+                <select
+                  className="input"
+                  value={materialForm.type}
+                  onChange={(e) => setMaterialForm((p) => ({ ...p, type: e.target.value }))}
+                >
+                  <option value="file">File / Document</option>
+                  <option value="text">Text Material</option>
+                </select>
+              </label>
+
               <label className="block">
                 <span className="field-label">Title</span>
                 <input
@@ -911,20 +937,33 @@ export default function CoursePage() {
                 />
               </label>
 
-              <label className="block">
-                <span className="field-label">PDF / File</span>
-                <input
-                  type="file"
-                  className="input py-2 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-indigo-700 hover:file:bg-indigo-100 file:transition-colors"
-                  onChange={(e) => setMaterialForm((p) => ({ ...p, file: e.target.files?.[0] || null }))}
-                  required
-                />
-              </label>
-
-              </div>
+              {materialForm.type === 'text' ? (
+                <label className="block">
+                  <span className="field-label">Text Content</span>
+                  <textarea
+                    className="textarea min-h-[180px]"
+                    rows={8}
+                    value={materialForm.content}
+                    onChange={(e) => setMaterialForm((p) => ({ ...p, content: e.target.value }))}
+                    placeholder="Write or paste the material text here…"
+                    required
+                  />
+                </label>
+              ) : (
+                <label className="block">
+                  <span className="field-label">PDF / File</span>
+                  <input
+                    type="file"
+                    className="input py-2 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-indigo-700 hover:file:bg-indigo-100 file:transition-colors"
+                    onChange={(e) => setMaterialForm((p) => ({ ...p, file: e.target.files?.[0] || null }))}
+                    required
+                  />
+                </label>
+              )}
+            </div>
             <div className="shrink-0 px-5 py-4 border-t border-slate-100 bg-white">
               <button className="btn btn-sm lift gap-2 btn-primary w-full justify-center py-3 text-sm">
-                <Send size={14} /> Upload Material
+                <Send size={14} /> {materialForm.type === 'text' ? 'Save Text Material' : 'Upload Material'}
               </button>
             </div>
           </form>
@@ -937,7 +976,7 @@ export default function CoursePage() {
                 </span>
                 Stored Materials
               </h3>
-              <Badge tone="slate" className="font-mono">{materials.length} files</Badge>
+              <Badge tone="slate" className="font-mono">{materials.length} items</Badge>
             </div>
             <div className="overflow-auto flex-1">
               <table className="data-table w-full">
@@ -946,7 +985,7 @@ export default function CoursePage() {
                     <th >Title</th>
                     <th>Scope</th>
                     <th>Uploaded</th>
-                    <th>File</th>
+                    <th>Material</th>
                     <th>Notify Active Students</th>
                   </tr>
                 </thead>
@@ -960,14 +999,21 @@ export default function CoursePage() {
                       <td>{material.section_number ? <Badge tone="sky">Section {material.section_number}</Badge> : <Badge tone="slate">General</Badge>}</td>
                       <td className="whitespace-nowrap font-mono text-xs text-slate-600">{fmtDate(material.created_at)}</td>
                       <td>
-                        <a
-                          href={`${apiBase}${material.material_url}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-ghost btn-sm lift gap-2"
-                        >
-                          Open
-                        </a>
+                        {material.material_type === 'text' ? (
+                          <details className="max-w-xs">
+                            <summary className="btn btn-ghost btn-sm lift gap-2 cursor-pointer list-none">Read</summary>
+                            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 whitespace-pre-wrap max-h-48 overflow-auto">{material.content}</div>
+                          </details>
+                        ) : material.material_url ? (
+                          <a
+                            href={`${apiBase}${material.material_url}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-ghost btn-sm lift gap-2"
+                          >
+                            Open
+                          </a>
+                        ) : <span className="text-xs text-slate-400">—</span>}
                       </td>
                       <td>
                         <button

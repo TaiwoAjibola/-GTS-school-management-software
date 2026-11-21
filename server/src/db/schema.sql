@@ -162,7 +162,9 @@ CREATE TABLE IF NOT EXISTS course_materials (
   title VARCHAR(200) NOT NULL,
   description TEXT,
   section_number INT CHECK (section_number > 0),
-  material_url TEXT NOT NULL,
+  material_type VARCHAR(20) NOT NULL DEFAULT 'file' CHECK (material_type IN ('file', 'text')),
+  material_url TEXT,
+  content TEXT,
   created_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

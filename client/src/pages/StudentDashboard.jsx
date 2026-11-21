@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, Calendar, Clock, Award, FileText, Layers, Sparkles, ExternalLink, ArrowUpRight, TrendingUp, Play, PlayCircle, Video } from 'lucide-react'
+import { BookOpen, ClipboardCheck, GraduationCap, SquarePen, Calendar, Clock, Award, FileText, Layers, Sparkles, ExternalLink, ArrowUpRight, TrendingUp, Play, PlayCircle, Video, FolderOpen, Radio, Monitor } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -8,9 +8,9 @@ import apiClient from '../api/client'
 import { ZoomMtg } from '@zoom/meetingsdk'
 
 const navItems = [
-  { to: '/student/courses', label: 'Courses', icon: BookOpen },
-  { to: '/student/attendance', label: 'Attendance', icon: ClipboardCheck },
-  { to: '/student/assignments', label: 'Assignments', icon: SquarePen },
+  { to: '/student/course', label: 'Course', icon: BookOpen },
+  { to: '/student/assessments', label: 'Assessments', icon: SquarePen },
+  { to: '/student/materials', label: 'Course Materials', icon: FolderOpen },
   { to: '/student/results', label: 'Results', icon: GraduationCap },
 ]
 
@@ -18,7 +18,16 @@ const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050'
 
 const StudentDashboard = () => {
   const location = useLocation()
-  const section = location.pathname.split('/')[2] || 'courses'
+  const rawSection = location.pathname.split('/')[2] || 'course'
+  const section = ({
+    courses: 'course',
+    course: 'course',
+    assignments: 'assessments',
+    assessments: 'assessments',
+    materials: 'materials',
+    results: 'results',
+    attendance: 'course',
+  })[rawSection] || 'course'
 
   const [courses, setCourses] = useState([])
   const [assignments, setAssignments] = useState([])
@@ -32,6 +41,8 @@ const StudentDashboard = () => {
   const [joiningSession, setJoiningSession] = useState(null)
   const [zoomJoin, setZoomJoin] = useState(null)
   const [zoomJoinError, setZoomJoinError] = useState(null)
+  const [courseMaterials, setCourseMaterials] = useState({})
+  const [courseSessions, setCourseSessions] = useState({})
 
   const load = async () => {
     const [courseRes, assignmentRes, examRes, resultRes] = await Promise.all([
@@ -48,22 +59,30 @@ const StudentDashboard = () => {
 
     const statusEntries = await Promise.all(
       courseRes.data.map(async (course) => {
-        const [statusRes, progressRes] = await Promise.all([
+        const [statusRes, progressRes, materialsRes, sessionsRes] = await Promise.all([
           apiClient.get(`/attendance/course/${course.id}/status`),
           apiClient.get(`/attendance/course/${course.id}/progress`),
+          apiClient.get(`/student/courses/${course.id}/materials`).catch(() => ({ data: [] })),
+          apiClient.get(`/student/courses/${course.id}/sessions`).catch(() => ({ data: [] })),
         ])
-        return [course.id, { status: statusRes.data, progress: progressRes.data }]
+        return [course.id, { status: statusRes.data, progress: progressRes.data, materials: materialsRes.data, sessions: sessionsRes.data }]
       })
     )
 
     const nextStatuses = {}
     const nextProgress = {}
+    const nextMaterials = {}
+    const nextSessions = {}
     for (const [courseId, values] of statusEntries) {
       nextStatuses[courseId] = values.status
       nextProgress[courseId] = values.progress
+      nextMaterials[courseId] = values.materials
+      nextSessions[courseId] = values.sessions
     }
     setAttendanceStates(nextStatuses)
     setProgress(nextProgress)
+    setCourseMaterials(nextMaterials)
+    setCourseSessions(nextSessions)
   }
 
   useEffect(() => {
@@ -98,6 +117,9 @@ const StudentDashboard = () => {
       }
       if (ZoomMtg?.preLoadWasm) {
         ZoomMtg.preLoadWasm()
+      }
+      if (ZoomMtg?.prepareWebSDK) {
+        ZoomMtg.prepareWebSDK()
       }
 
       await ZoomMtg.init({
@@ -200,15 +222,40 @@ const StudentDashboard = () => {
           progressPct,
           session: session || null,
           isLiveClass,
+          materials: courseMaterials[course.id] || [],
+          sessions: courseSessions[course.id] || [],
         }
       }),
-    [courses, progress, attendanceStates]
+    [courses, progress, attendanceStates, courseMaterials, courseSessions]
   )
 
+  const activeCourse = useMemo(() => {
+    if (!attendanceSummary.length) return null
+    return attendanceSummary.find((item) => item.isLiveClass)
+      || attendanceSummary.find((item) => item.status?.activeSession)
+      || attendanceSummary[0]
+  }, [attendanceSummary])
+
+  const allMaterials = useMemo(
+    () => attendanceSummary.flatMap((item) => (item.materials || []).map((m) => ({ ...m, course_title: item.course.title, course_id: item.course.id }))),
+    [attendanceSummary]
+  )
+
+  const allAssessments = useMemo(() => {
+    const a = (assignments || []).map((item) => ({ ...item, kind: 'assignment', kindLabel: 'Assignment', sortDate: item.due_date || item.created_at }))
+    const e = (exams || []).map((item) => ({
+      ...item,
+      kind: item.exam_type || 'exam',
+      kindLabel: item.exam_type === 'mcq' ? 'MCQ' : item.exam_type === 'paper' ? 'Paper' : item.exam_type === 'essay' ? 'Essay' : 'Exam',
+      sortDate: item.due_date || item.created_at,
+    }))
+    return [...a, ...e].sort((x, y) => new Date(y.sortDate || 0).getTime() - new Date(x.sortDate || 0).getTime())
+  }, [assignments, exams])
+
   const title = {
-    courses: 'My Courses',
-    attendance: 'Attendance',
-    assignments: 'Assignments',
+    course: 'My Course',
+    assessments: 'Assessments',
+    materials: 'Course Materials',
     results: 'Results',
   }[section] || 'Student Dashboard'
 
@@ -216,377 +263,325 @@ const StudentDashboard = () => {
     <AppShell title={title} navItems={navItems}>
       <div className="h-full flex flex-col gap-4 overflow-hidden bg-[#F8FAFC] text-slate-900" style={{ fontFamily: 'var(--font-sans)' }}>
 
-        {/* BENTO STATS 4 — gap-4, no mb-6 */}
+        {/* STATS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-          {/* Enrolled - indigo */}
-          <div className="bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)] card-hover relative overflow-hidden group">
+          <div className="bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)] card-hover relative overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-[#4F46E5]" />
             <div className="flex items-start justify-between gap-2">
-              <div className="h-11 w-11 rounded-xl bg-[#EEF2FF] border border-[#E0E7FF] flex items-center justify-center text-[#4F46E5] shadow-sm">
-                <BookOpen size={18} />
-              </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] text-[#4F46E5]" style={{ fontFamily: 'var(--font-mono)' }}>
-                <Sparkles size={11} /> LIVE
-              </span>
+              <div className="h-11 w-11 rounded-xl bg-[#EEF2FF] border border-[#E0E7FF] flex items-center justify-center text-[#4F46E5]"><BookOpen size={18} /></div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] text-[#4F46E5]" style={{ fontFamily: 'var(--font-mono)' }}>ACTIVE</span>
             </div>
-            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-slate-400">Enrolled</p>
-            <p className="text-[32px] font-extrabold leading-none tracking-tight text-slate-900 mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{courses.length}</p>
-            <p className="text-[13px] font-medium text-slate-500 mt-1 flex items-center gap-2"><Layers size={13} className="text-[#4F46E5]" /> Courses Active</p>
+            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-slate-400">Current Course</p>
+            <p className="text-[18px] font-extrabold leading-tight tracking-tight text-slate-900 mt-1 line-clamp-2" style={{ fontFamily: 'var(--font-display)' }}>{activeCourse?.course?.title || 'No active course'}</p>
           </div>
 
-          {/* Assignments - violet */}
           <div className="bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)] card-hover relative overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-[#7C3AED]" />
             <div className="flex items-start justify-between gap-2">
-              <div className="h-11 w-11 rounded-xl bg-[#F5F3FF] border border-[#EDE9FE] flex items-center justify-center text-[#7C3AED] shadow-sm">
-                <SquarePen size={18} />
-              </div>
-              <span className="h-6 rounded-full bg-[#F5F3FF] border border-[#EDE9FE] px-2.5 inline-flex items-center text-[10px] font-bold tracking-[0.12em] text-[#7C3AED]" style={{ fontFamily: 'var(--font-mono)' }}>{assignments.length} TOTAL</span>
+              <div className="h-11 w-11 rounded-xl bg-[#F5F3FF] border border-[#EDE9FE] flex items-center justify-center text-[#7C3AED]"><SquarePen size={18} /></div>
+              <span className="h-6 rounded-full bg-[#F5F3FF] border border-[#EDE9FE] px-2.5 inline-flex items-center text-[10px] font-bold tracking-[0.12em] text-[#7C3AED]" style={{ fontFamily: 'var(--font-mono)' }}>{allAssessments.length} TOTAL</span>
             </div>
-            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-slate-400">Assignments</p>
-            <p className="text-[32px] font-extrabold leading-none tracking-tight text-slate-900 mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{assignments.length}</p>
-            <p className="text-[13px] font-medium text-slate-500 mt-1 flex items-center gap-2"><FileText size={13} className="text-[#7C3AED]" /> Pending tasks</p>
+            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-slate-400">Assessments</p>
+            <p className="text-[32px] font-extrabold leading-none tracking-tight text-slate-900 mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{allAssessments.length}</p>
           </div>
 
-          {/* Exams - cyan */}
           <div className="bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)] card-hover relative overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-[3px] bg-[#0891B2]" />
             <div className="flex items-start justify-between gap-2">
-              <div className="h-11 w-11 rounded-xl bg-[#ECFEFF] border border-[#CFFAFE] flex items-center justify-center text-[#0891B2] shadow-sm">
-                <ClipboardCheck size={18} />
-              </div>
-              <span className="h-6 rounded-full bg-[#ECFEFF] border border-[#CFFAFE] px-2.5 inline-flex items-center text-[10px] font-bold tracking-[0.12em] text-[#0891B2]" style={{ fontFamily: 'var(--font-mono)' }}>{exams.length} PAPERS</span>
+              <div className="h-11 w-11 rounded-xl bg-[#ECFEFF] border border-[#CFFAFE] flex items-center justify-center text-[#0891B2]"><FolderOpen size={18} /></div>
+              <span className="h-6 rounded-full bg-[#ECFEFF] border border-[#CFFAFE] px-2.5 inline-flex items-center text-[10px] font-bold tracking-[0.12em] text-[#0891B2]" style={{ fontFamily: 'var(--font-mono)' }}>{allMaterials.length} ITEMS</span>
             </div>
-            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-slate-400">Exams</p>
-            <p className="text-[32px] font-extrabold leading-none tracking-tight text-slate-900 mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{exams.length}</p>
-            <p className="text-[13px] font-medium text-slate-500 mt-1 flex items-center gap-2"><Award size={13} className="text-[#0891B2]" /> Papers assigned</p>
+            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-slate-400">Course Materials</p>
+            <p className="text-[32px] font-extrabold leading-none tracking-tight text-slate-900 mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{allMaterials.length}</p>
           </div>
 
-          {/* Results - indigo deep */}
           <div className="bg-[#4F46E5] rounded-[24px] border border-[#4338CA] p-5 shadow-[0_8px_24px_rgba(79,70,229,0.25)] card-hover relative overflow-hidden">
-            <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/10 blur-[1px]" />
+            <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/10" />
             <div className="flex items-start justify-between gap-2 relative">
-              <div className="h-11 w-11 rounded-xl bg-white text-[#4F46E5] flex items-center justify-center shadow-sm">
-                <GraduationCap size={18} />
-              </div>
-              <span className="h-6 rounded-full bg-white/15 border border-white/20 px-2.5 inline-flex items-center text-[10px] font-bold tracking-[0.12em] text-white" style={{ fontFamily: 'var(--font-mono)' }}>GPA READY</span>
+              <div className="h-11 w-11 rounded-xl bg-white text-[#4F46E5] flex items-center justify-center shadow-sm"><Award size={18} /></div>
+              <span className="h-6 rounded-full bg-white/20 px-2.5 inline-flex items-center text-[10px] font-bold tracking-[0.12em] text-white" style={{ fontFamily: 'var(--font-mono)' }}>{results.length} PUBLISHED</span>
             </div>
-            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-indigo-200">Results</p>
-            <p className="text-[32px] font-extrabold leading-none tracking-tight text-white mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{results.length}</p>
-            <p className="text-[13px] font-medium text-indigo-100 mt-1 flex items-center gap-2"><TrendingUp size={13} className="text-white" /> Published scores</p>
+            <p className="mt-4 text-[11px] font-bold tracking-[0.16em] uppercase text-indigo-200 relative">Results</p>
+            <p className="text-[32px] font-extrabold leading-none tracking-tight text-white mt-1 relative" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{results.length}</p>
           </div>
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto pr-1 pb-1 flex flex-col gap-4" style={{ scrollbarWidth: 'thin' }}>
-          {section === 'courses' ? (
+          {section === 'course' ? (
             <div className="grid gap-4">
-              {attendanceSummary.length === 0 ? (
+              {!activeCourse ? (
                 <div className="bg-white rounded-[24px] border border-dashed border-[#CBD5E1] p-10 text-center shadow-[0_2px_16px_rgba(15,23,42,0.04)]">
                   <div className="h-12 w-12 rounded-2xl bg-[#EEF2FF] border border-[#E0E7FF] flex items-center justify-center text-[#4F46E5] mx-auto"><BookOpen size={20} /></div>
-                  <p className="mt-4 text-sm font-semibold text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>No courses yet</p>
-                  <p className="text-sm text-slate-500 mt-1">You are not enrolled in any course.</p>
+                  <p className="mt-4 text-sm font-semibold text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>No active course</p>
+                  <p className="text-sm text-slate-500 mt-1">You are not enrolled in any course yet.</p>
                 </div>
-              ) : null}
-              {attendanceSummary.map(({ course, progressInfo, progressPct }) => {
-                const pct = Math.max(0, Math.min(100, progressPct))
-                return (
-                  <div key={course.id} className="card card-hover bg-white rounded-[24px] border border-[#E2E8F0] shadow-[0_2px_16px_rgba(15,23,42,0.06)] p-5 relative">
-                    <div className="absolute left-0 top-6 bottom-6 w-[3px] bg-[#4F46E5] rounded-full hidden sm:block" />
-                    <div className="sm:pl-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-[17px] font-extrabold tracking-tight text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{course.title}</h3>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-2.5 py-1 text-xs font-semibold text-[#4338CA]"><Calendar size={12} /> Duration: {course.duration_weeks} weeks</span>
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#E2E8F0] px-2.5 py-1 text-xs font-medium text-slate-600"><Clock size={12} className="text-slate-400" /> {course.class_day || 'Class day not set'} {course.class_time || ''}</span>
-                          </div>
-                          <p className="text-xs font-medium text-slate-500 mt-2 inline-flex items-center gap-2" style={{ fontFamily: 'var(--font-mono)' }}>
-                            {course.start_date || '-'} <span className="text-slate-300">→</span> {course.end_date || '-'}
-                          </p>
-                        </div>
-                        <Badge tone="slate" className="!bg-white !border-[#E2E8F0] !text-slate-600 !rounded-full !px-3 !py-1 !text-xs !font-semibold">
-                          {progressInfo?.attendanceCount || 0}/{progressInfo?.minRequired || course.min_attendance_required} classes
-                        </Badge>
-                        {attendanceStates[course.id]?.live?.isLive ? (
-                          <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-emerald-700">LIVE • LMS present: {Number(attendanceStates[course.id]?.live?.lms_present_count || 0)}</span>
-                        ) : null}
-                      </div>
-                      <div className="mt-5">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-slate-500">Progress</span>
-                          <span className="text-xs font-bold text-[#4F46E5]" style={{ fontFamily: 'var(--font-mono)' }}>{pct.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-2.5 w-full bg-[#EEF2FF] rounded-full overflow-hidden border border-[#E0E7FF] p-0.5">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#4F46E5 0%,#7C3AED 100%)' }} />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-2 font-medium">
-                          {progressInfo?.attendanceCount || 0}/{progressInfo?.minRequired || course.min_attendance_required} classes completed
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : null}
-
-          {section === 'attendance' ? (
-            <div className="grid gap-4">
-              {attendanceSummary.map(({ course, status, session, progressInfo, progressPct }) => {
-                const pct = Math.max(0, Math.min(100, progressPct))
-                const eligible = progressInfo?.eligible
-                const sessionId = session?.sessionId || session?.id
-                const isLive = Boolean(session?.isLive || status?.canJoin)
-                const lmsPresent = Number(status?.live?.lms_present_count || 0)
-                const classWindow = (status?.live?.start_time || session?.start_time || session?.startTime)
-                  ? `${new Date(status?.live?.start_time || session?.start_time || session?.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${new Date(status?.live?.end_time || session?.end_time || session?.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                  : null
-                return (
-                  <div key={course.id} className="card card-hover bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
-                    <div className="flex flex-wrap gap-2 items-center justify-between">
+              ) : (
+                <>
+                  <div className="bg-white rounded-[24px] border border-[#E2E8F0] p-6 shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <h3 className="text-[17px] font-extrabold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{course.title}</h3>
-                        <p className="text-sm text-slate-500 mt-1 font-medium">Attendance requirement: <span className="font-bold text-slate-700" style={{ fontFamily: 'var(--font-mono)' }}>{course.min_attendance_required}</span> classes</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Badge tone="slate" dot className={eligible ? '!bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full' : '!bg-[#FEF2F2] !text-[#9F1239] !border-[#FECDD3] !rounded-full'}>
-                            {eligible ? 'Eligible' : 'Not Eligible'}
-                          </Badge>
-                          <span className="text-xs text-slate-400 hidden sm:inline">• {progressInfo?.attendanceCount || 0}/{progressInfo?.minRequired || course.min_attendance_required} classes</span>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-3 py-1 text-[11px] font-bold tracking-wide text-[#4338CA]">
+                            {activeCourse.isLiveClass || activeCourse.status?.live?.classMode === 'online' ? <><Radio size={12} /> Online Class</> : <><Monitor size={12} /> {activeCourse.status?.live?.classMode === 'physical' ? 'Physical Class' : 'Course'}</>}
+                          </span>
+                          {activeCourse.status?.live?.classMode ? (
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold tracking-wide border ${activeCourse.status.live.classMode === 'online' ? 'bg-[#ECFEFF] border-[#CFFAFE] text-[#0E7490]' : 'bg-[#F8FAFC] border-[#E2E8F0] text-slate-600'}`}>
+                              {activeCourse.status.live.classMode === 'online' ? 'Online' : 'Physical'}
+                            </span>
+                          ) : null}
+                          {activeCourse.progressInfo ? (
+                            <span className="inline-flex items-center rounded-full bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1 text-[11px] font-bold text-slate-600" style={{ fontFamily: 'var(--font-mono)' }}>
+                              {activeCourse.progressInfo.attendanceCount}/{activeCourse.progressInfo.totalClasses} attendance
+                            </span>
+                          ) : null}
                         </div>
+                        <h2 className="text-[24px] font-extrabold tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>{activeCourse.course.title}</h2>
+                        <p className="text-sm text-slate-500 mt-1">{activeCourse.course.course_code || 'Course'}{activeCourse.course.lecturer_name ? ` • ${activeCourse.course.lecturer_name}` : ''}</p>
+                        {activeCourse.course.description ? <p className="text-sm text-slate-600 mt-3 leading-relaxed max-w-3xl">{activeCourse.course.description}</p> : null}
                       </div>
-                      {isLive ? (
-                        <div className="flex flex-wrap items-center gap-2 justify-end">
-                          <Badge tone="slate" dot className={`${isLive ? 'bg-emerald-100 text-emerald-700 !border-emerald-200' : 'bg-slate-100 text-slate-700 !border-slate-200'}`}>
-                            {classWindow ? `Live · ${classWindow}` : 'Live now'}
-                          </Badge>
-                          <LiveJoinButton courseId={course.id} session={{ ...session, sessionId }} />
-                        </div>
-                      ) : status?.activeSession ? (
-                        <button
-                          onClick={() => markAttendance(course.id)}
-                          disabled={markedSessions[course.id]}
-                          className={`btn btn-sm lift gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition ${markedSessions[course.id] ? 'bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE] cursor-not-allowed' : 'bg-[#4F46E5] text-white hover:bg-[#4338CA] shadow-[0_4px_14px_rgba(79,70,229,0.25)] active:scale-[0.98]'}`}
-                        >
-                          {markedSessions[course.id] ? <><ClipboardCheck size={16} /> Attendance Marked</> : <><Sparkles size={16} /> Mark Attendance</>}
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center gap-2 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] px-3.5 py-2 text-xs font-semibold text-slate-500"><Clock size={14} /> No active session</span>
-                      )}
-                    </div>
-
-                    {zoomJoin?.courseId === course.id ? (
-                      <div className="mt-4">
-                        {zoomJoinError ? (
-                          <div className="rounded-2xl border border-[#FECDD3] bg-[#FEF2F2] p-4 text-sm font-semibold text-[#9F1239]">
-                            Zoom join failed: {String(zoomJoinError?.message || zoomJoinError)}
-                          </div>
+                      <div className="flex flex-col items-stretch gap-2 shrink-0">
+                        {activeCourse.isLiveClass && activeCourse.session ? (
+                          <LiveJoinButton courseId={activeCourse.course.id} session={{ ...activeCourse.session, sessionId: activeCourse.session.sessionId }} />
+                        ) : activeCourse.status?.activeSession ? (
+                          <button
+                            onClick={() => markAttendance(activeCourse.course.id)}
+                            disabled={markedSessions[activeCourse.course.id]}
+                            className={`btn btn-sm lift gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition ${markedSessions[activeCourse.course.id] ? 'bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE] cursor-not-allowed' : 'bg-[#4F46E5] text-white hover:bg-[#4338CA]'}`}
+                          >
+                            {markedSessions[activeCourse.course.id] ? <><ClipboardCheck size={16} /> Attendance Marked</> : <><Sparkles size={16} /> Mark Attendance</>}
+                          </button>
                         ) : (
-                          <div id="zoom-live-mount" className="w-full h-[540px] rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#0F172A]" />
+                          <span className="inline-flex items-center gap-2 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] px-3.5 py-2 text-xs font-semibold text-slate-500"><Clock size={14} /> No active session</span>
                         )}
                       </div>
+                    </div>
+
+                    {activeCourse.status?.live?.isLive && activeCourse.status.live.classMode === 'online' ? (
+                      <div className="mt-4 rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF]/50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold text-[#4338CA] flex items-center gap-2"><Video size={15} /> Online class is live</p>
+                            <p className="text-xs text-slate-600 mt-1">
+                              {activeCourse.status.live.zoomMeetingNumber ? `Meeting: ${activeCourse.status.live.zoomMeetingNumber}` : 'Zoom meeting available'}
+                              {activeCourse.status.live.zoomPasscode ? ` • Passcode: ${activeCourse.status.live.zoomPasscode}` : ''}
+                            </p>
+                          </div>
+                          {activeCourse.session ? <LiveJoinButton courseId={activeCourse.course.id} session={{ ...activeCourse.session, sessionId: activeCourse.session.sessionId }} /> : null}
+                        </div>
+                        {zoomJoinError && zoomJoin?.courseId === activeCourse.course.id ? (
+                          <p className="mt-2 text-xs font-medium text-red-600">Zoom join failed: {String(zoomJoinError?.message || zoomJoinError)}</p>
+                        ) : null}
+                      </div>
                     ) : null}
-
-                    <div className="mt-5">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-slate-500">Live Classes</span>
-                        <span className="text-xs font-bold text-[#4F46E5]" style={{ fontFamily: 'var(--font-mono)' }}>{classWindow || '—'}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-slate-400">{session?.classMode || status?.live?.classMode || 'Mode: Live'}</span>
-                        <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-slate-400">Class: {session?.classNumber || status?.live?.classNumber || '—'}</span>
-                        {isLive ? <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-emerald-700">LIVE • LMS present: {lmsPresent}</span> : null}
-                      </div>
-                    </div>
-
-                    <div className="mt-5">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-slate-500">Attendance</span>
-                        <span className="text-xs font-bold text-[#4F46E5]" style={{ fontFamily: 'var(--font-mono)' }}>{pct.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-2.5 w-full bg-[#EEF2FF] rounded-full overflow-hidden border border-[#E0E7FF] p-0.5">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: eligible ? 'linear-gradient(90deg,#4F46E5 0%,#06B6D4 100%)' : 'linear-gradient(90deg,#6366F1 0%,#A5B4FC 100%)' }} />
-                      </div>
-                      <p className="text-xs text-slate-500 mt-2 font-medium flex flex-wrap items-center gap-2">
-                        {progressInfo?.attendanceCount || 0}/{progressInfo?.minRequired || course.min_attendance_required} classes •
-                        <Badge tone="slate" dot className={eligible ? '!bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full' : '!bg-amber-50 !text-amber-700 !border-amber-200 !rounded-full'}>
-                          {eligible ? 'Eligible' : 'Not Eligible'}
-                        </Badge>
-                      </p>
-                    </div>
                   </div>
-                )
-              })}
-              {attendanceSummary.length === 0 ? (
-                <div className="bg-white rounded-[24px] border border-dashed border-[#CBD5E1] p-10 text-center">
-                  <p className="text-sm text-slate-500">No attendance records yet.</p>
-                </div>
-              ) : null}
+
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    <Card title="Course Materials" subtitle="Text and document materials for this course" className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                      {activeCourse.materials.length === 0 ? (
+                        <p className="text-sm text-slate-500">No materials uploaded for this course yet.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {activeCourse.materials.map((m) => (
+                            <div key={m.id} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-bold text-sm text-slate-900">{m.title}</p>
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide border ${m.material_type === 'text' ? 'bg-[#EEF2FF] border-[#C7D2FE] text-[#4338CA]' : 'bg-[#ECFEFF] border-[#CFFAFE] text-[#0E7490]'}`}>
+                                      {m.material_type === 'text' ? 'TEXT' : 'DOCUMENT'}
+                                    </span>
+                                    {m.section_number ? <span className="text-[11px] text-slate-500">Section {m.section_number}</span> : null}
+                                  </div>
+                                  {m.description ? <p className="text-xs text-slate-500 mt-1">{m.description}</p> : null}
+                                </div>
+                                {m.material_type !== 'text' && m.material_url ? (
+                                  <a href={`${apiBase}${m.material_url}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm lift gap-1 shrink-0"><ExternalLink size={12} /> Open</a>
+                                ) : null}
+                              </div>
+                              {m.material_type === 'text' && m.content ? (
+                                <div className="mt-3 rounded-xl bg-white border border-[#E2E8F0] p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed max-h-64 overflow-auto">{m.content}</div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+
+                    <Card title="Class Summaries" subtitle="Readable notes and summaries from your classes" className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                      {activeCourse.sessions.filter((s) => s.lecturer_notes).length === 0 ? (
+                        <p className="text-sm text-slate-500">No class summaries available yet.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {activeCourse.sessions.filter((s) => s.lecturer_notes).map((s) => (
+                            <div key={s.id} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className="inline-flex rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-2.5 py-1 text-[10px] font-bold text-[#4338CA]">Class {s.class_number || '—'}</span>
+                                <span className="text-xs text-slate-500">{s.start_time ? new Date(s.start_time).toLocaleDateString() : ''}</span>
+                              </div>
+                              <div className="rounded-xl bg-white border border-[#E2E8F0] p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.lecturer_notes}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </>
+              )}
             </div>
           ) : null}
 
-          {section === 'assignments' ? (
-            <div className="flex flex-col gap-4 flex-1 min-h-0">
-              <Card
-                title="Assignments"
-                subtitle={`${assignments.length} total • violet indigo system`}
-                className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)] !p-0 flex flex-col min-h-0"
-                bodyClassName="!p-0 flex-1 min-h-0 flex flex-col"
-              >
-                <div className="px-5 pb-5 pt-1 flex-1 min-h-0 flex flex-col">
-                  {assignments.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center mt-3">
-                      <div className="h-10 w-10 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-slate-400 mx-auto"><FileText size={18} /></div>
-                      <p className="text-sm font-semibold text-slate-600 mt-3" style={{ fontFamily: 'var(--font-display)' }}>No assignments yet.</p>
-                      <p className="text-xs text-slate-500 mt-1">New tasks from instructors will appear here.</p>
+          {section === 'assessments' ? (
+            <div className="flex flex-col gap-4">
+              {(() => {
+                const courseId = activeCourse?.course?.id
+                const items = (allAssessments || []).filter((a) => !courseId || String(a.course_id) === String(courseId))
+                const groups = [
+                  { key: 'assignment', label: 'Assignments', icon: FileText, color: '#7C3AED', bg: '#F5F3FF', border: '#EDE9FE' },
+                  { key: 'mcq', label: 'MCQ Assessments', icon: ClipboardCheck, color: '#0891B2', bg: '#ECFEFF', border: '#CFFAFE' },
+                  { key: 'essay', label: 'Essay Assessments', icon: SquarePen, color: '#4F46E5', bg: '#EEF2FF', border: '#E0E7FF' },
+                  { key: 'paper', label: 'Paper Assessments', icon: FileText, color: '#0F766E', bg: '#F0FDFA', border: '#CCFBF1' },
+                ]
+                const known = new Set(groups.map(g => g.key))
+                const other = items.filter(i => !known.has(i.kind))
+                const renderItem = (item) => (
+                  <div key={`${item.kind}-${item.id || item.exam_id}`} className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-[0_1px_8px_rgba(15,23,42,0.04)]">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-[14px] tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>{item.title}</p>
+                        <p className="text-xs font-medium text-slate-500 mt-1">{item.course_title}{item.due_date ? ` • Due ${new Date(item.due_date).toLocaleDateString()}` : ''}</p>
+                      </div>
+                      <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide border bg-[#F8FAFC] border-[#E2E8F0] text-slate-600">{item.kindLabel || item.kind}</span>
                     </div>
-                  ) : (
-                    <ul className="space-y-3 mt-3 flex-1 min-h-0 overflow-auto pr-1">
-                      {assignments.map((assignment) => (
-                        <li key={assignment.id} className="card card-hover bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-[0_1px_8px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_16px_rgba(15,23,42,0.08)] hover:border-[#C7D2FE] transition-all">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="font-extrabold text-[14px] tracking-tight text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>{assignment.title}</p>
-                              <p className="text-xs font-bold tracking-wide uppercase text-[#4F46E5] mt-0.5" style={{ fontFamily: 'var(--font-mono)' }}>{assignment.course_title}</p>
-                              <p className="text-[13px] leading-relaxed text-slate-600 mt-2">{assignment.description}</p>
-                            </div>
-                            <span className="shrink-0 h-8 w-8 rounded-xl bg-[#F5F3FF] border border-[#EDE9FE] flex items-center justify-center text-[#7C3AED]"><FileText size={14} /></span>
+                    {item.description ? <p className="text-[13px] leading-relaxed text-slate-600 mt-2">{item.description}</p> : null}
+                    {item.kind === 'assignment' && item.attachment_url ? (
+                      <a className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#4F46E5] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#4338CA]" href={`${apiBase}${item.attachment_url}`} target="_blank" rel="noreferrer"><ExternalLink size={12} /> View Attachment</a>
+                    ) : null}
+                    {item.kind === 'mcq' ? (
+                      <div className="mt-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-2">
+                        {item.submission_id ? (
+                          <span className="inline-flex rounded-full bg-[#EEF2FF] border border-[#C7D2FE] px-3 py-1 text-xs font-semibold text-[#4338CA]">Submitted{item.result_sent_at ? ' · result emailed' : ' · result pending release'}</span>
+                        ) : item.quiz_url ? (
+                          <a href={item.quiz_url} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm lift gap-2 inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold"><ExternalLink size={14} /> Open Quiz</a>
+                        ) : <p className="text-xs text-slate-500">Check your email for the quiz link.</p>}
+                        {item.access_code && !item.submission_id ? <p className="text-xs text-slate-600">Access ID: <span className="font-mono font-bold text-[#0E7490] bg-[#ECFEFF] border border-[#A5F3FC] rounded px-2 py-0.5">{item.access_code}</span></p> : null}
+                      </div>
+                    ) : null}
+                    {(item.kind === 'essay' || item.kind === 'exam') && Array.isArray(item.questions) && item.questions.length ? (
+                      <ol className="mt-3 space-y-2 rounded-2xl bg-[#EEF2FF]/60 border border-[#E0E7FF] p-4">
+                        {item.questions.map((q, i) => (
+                          <li key={q.id || i} className="text-[13px] leading-relaxed text-slate-700 flex gap-2">
+                            <span className="shrink-0 h-6 w-6 rounded-lg bg-[#4F46E5] text-white flex items-center justify-center text-[11px] font-bold">{i + 1}</span>
+                            <span className="pt-0.5">{q.question_text}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null}
+                  </div>
+                )
+                return (
+                  <>
+                    <div className="bg-white rounded-[24px] border border-[#E2E8F0] p-5 shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                      <h3 className="text-lg font-extrabold text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>Assessments</h3>
+                      <p className="text-sm text-slate-500 mt-1">{courseId ? `Showing assessments created for ${activeCourse?.course?.title || 'this course'}.` : 'Showing assessments for your courses.'}</p>
+                    </div>
+                    {items.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white p-8 text-center text-sm text-slate-500">No assessments found for this course.</div>
+                    ) : null}
+                    {groups.map((g) => {
+                      const gItems = items.filter(i => i.kind === g.key)
+                      if (!gItems.length) return null
+                      const Icon = g.icon
+                      return (
+                        <Card key={g.key} title={g.label} subtitle={`${gItems.length} item${gItems.length > 1 ? 's' : ''}`} className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                          <div className="space-y-3">
+                            {gItems.map(renderItem)}
                           </div>
-                          {assignment.attachment_url ? (
-                            <a className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#4F46E5] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#4338CA] shadow-[0_2px_10px_rgba(79,70,229,0.25)] transition btn-sm lift" href={`${apiBase}${assignment.attachment_url}`} target="_blank" rel="noreferrer">
-                              <ExternalLink size={12} /> View Attachment <ArrowUpRight size={12} className="opacity-70" />
-                            </a>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </Card>
-
-              <Card
-                title="Exam Papers"
-                subtitle={`${exams.length} papers • cyan / indigo badges`}
-                className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)] !p-0 flex flex-col min-h-0"
-                bodyClassName="!p-0 flex-1 min-h-0 flex flex-col"
-              >
-                <div className="px-5 pb-5 pt-1 flex-1 min-h-0 flex flex-col">
-                  {exams.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center mt-3">
-                      <div className="h-10 w-10 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-slate-400 mx-auto"><ClipboardCheck size={18} /></div>
-                      <p className="text-sm font-semibold text-slate-600 mt-3" style={{ fontFamily: 'var(--font-display)' }}>No exam papers sent to you yet.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 mt-3 flex-1 min-h-0 overflow-auto pr-1">
-                      {exams.map((exam) => (
-                        <div key={exam.exam_id} className="card card-hover bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-[0_1px_8px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_16px_rgba(15,23,42,0.08)] transition">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="font-extrabold text-[14px] tracking-tight text-slate-900 flex flex-wrap items-center gap-2" style={{ fontFamily: 'var(--font-display)' }}>
-                                {exam.title}
-                                <Badge tone="slate" className={exam.exam_type === 'mcq' ? '!bg-[#ECFEFF] !text-[#0E7490] !border-[#A5F3FC] !rounded-full !text-[11px] !tracking-widest !font-bold' : '!bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full !text-[11px] !tracking-widest !font-bold'}>
-                                  {exam.exam_type === 'mcq' ? 'MCQ' : 'Essay'}
-                                </Badge>
-                              </p>
-                              <p className="text-xs font-medium text-slate-500 mt-1 flex flex-wrap items-center gap-2">{exam.course_title}{exam.due_date ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-bold text-amber-700"><Calendar size={11} /> Due {exam.due_date}</span> : null}</p>
-                            </div>
-                          </div>
-                          {exam.description ? <p className="text-[13px] leading-relaxed text-slate-600 mt-2 bg-[#F8FAFC] rounded-xl border border-[#F1F5F9] p-3">{exam.description}</p> : null}
-                          {exam.exam_type === 'mcq' ? (
-                            <div className="mt-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-2.5">
-                              {exam.submission_id ? (
-                                <Badge tone="slate" dot className="!bg-[#EEF2FF] !text-[#4338CA] !border-[#C7D2FE] !rounded-full !font-semibold">
-                                  Submitted{exam.result_sent_at ? ` · result emailed` : ' · result pending release'}
-                                </Badge>
-                              ) : null}
-                              {exam.quiz_url && !exam.submission_id ? (
-                                <a
-                                  href={exam.quiz_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-primary btn-sm lift gap-2 inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-[0_4px_14px_rgba(79,70,229,0.25)]"
-                                >
-                                  <ExternalLink size={14} /> Open Quiz
-                                </a>
-                              ) : !exam.submission_id ? (
-                                <p className="text-xs font-medium text-slate-500 flex items-center gap-2"><Sparkles size={12} className="text-[#4F46E5]" /> Check your email for the quiz link.</p>
-                              ) : null}
-                              {exam.access_code && !exam.submission_id ? (
-                                <p className="text-xs font-medium text-slate-600">
-                                  Your access ID:{' '}
-                                  <span className="font-mono font-bold text-[#0E7490] tracking-[0.14em] bg-[#ECFEFF] border border-[#A5F3FC] rounded-lg px-2 py-1 text-[13px]" style={{ fontFamily: 'var(--font-mono)' }}>{exam.access_code}</span>
-                                </p>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <ol className="mt-3 space-y-2 rounded-2xl bg-[#EEF2FF]/60 border border-[#E0E7FF] p-4">
-                              {exam.questions.map((q, i) => (
-                                <li key={q.id} className="text-[13px] leading-relaxed text-slate-700 flex gap-2">
-                                  <span className="shrink-0 h-6 w-6 rounded-lg bg-[#4F46E5] text-white flex items-center justify-center text-[11px] font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
-                                  <span className="pt-0.5"><strong className="font-bold text-slate-900">Q{i + 1}.</strong> {q.question_text}</span>
-                                </li>
-                              ))}
-                            </ol>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Card>
+                        </Card>
+                      )
+                    })}
+                    {other.length ? (
+                      <Card title="Other Assessments" subtitle={`${other.length} item${other.length > 1 ? 's' : ''}`} className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                        <div className="space-y-3">{other.map(renderItem)}</div>
+                      </Card>
+                    ) : null}
+                  </>
+                )
+              })()}
             </div>
+          ) : null}
+
+          {section === 'materials' ? (
+            <Card title="Course Materials" subtitle="All materials for courses you have taken" className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+              {allMaterials.length === 0 ? (
+                <p className="text-sm text-slate-500">No course materials available yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {allMaterials.map((m) => (
+                    <div key={`${m.course_id}-${m.id}`} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-bold text-sm text-slate-900">{m.title}</p>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide border ${m.material_type === 'text' ? 'bg-[#EEF2FF] border-[#C7D2FE] text-[#4338CA]' : 'bg-[#ECFEFF] border-[#CFFAFE] text-[#0E7490]'}`}>{m.material_type === 'text' ? 'TEXT' : 'DOCUMENT'}</span>
+                          </div>
+                          <p className="text-xs font-semibold text-[#4F46E5] mt-1">{m.course_title}</p>
+                          {m.description ? <p className="text-xs text-slate-500 mt-1">{m.description}</p> : null}
+                        </div>
+                        {m.material_type !== 'text' && m.material_url ? (
+                          <a href={`${apiBase}${m.material_url}`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm lift gap-1 shrink-0"><ExternalLink size={12} /> Open</a>
+                        ) : null}
+                      </div>
+                      {m.material_type === 'text' && m.content ? (
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-xs font-bold text-[#4338CA]">Read text material</summary>
+                          <div className="mt-2 rounded-xl bg-white border border-[#E2E8F0] p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed max-h-64 overflow-auto">{m.content}</div>
+                        </details>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           ) : null}
 
           {section === 'results' ? (
-            <Card
-              title="Results"
-              subtitle="Indigo data-table • Pass indigo, Fail muted"
-              className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)] !p-0 flex flex-col flex-1 min-h-0"
-              bodyClassName="!p-0 flex-1 min-h-0 flex flex-col"
-            >
-              <div className="px-5 pb-5 flex-1 min-h-0 flex flex-col">
-                {results.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center mt-3">
-                    <div className="h-10 w-10 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-slate-400 mx-auto"><Award size={18} /></div>
-                    <p className="text-sm text-slate-500 mt-3">No results published yet.</p>
-                  </div>
+            <div className="flex flex-col gap-4">
+              {(() => {
+                const current = results.filter((r) => r.is_current_course)
+                const previous = results.filter((r) => !r.is_current_course)
+                const renderTable = (rows, emptyMsg) => rows.length === 0 ? (
+                  <p className="text-sm text-slate-500">{emptyMsg}</p>
                 ) : (
-                  <div className="mt-3 flex-1 min-h-0 flex flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white">
-                    <div className="flex-1 overflow-auto">
+                  <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white">
+                    <div className="overflow-auto">
                       <table className="data-table w-full">
-                        <thead>
-                          <tr>
-                            <th>Course</th>
-                            <th className="text-center">Score</th>
-                            <th className="text-right">Status</th>
-                          </tr>
-                        </thead>
+                        <thead><tr><th>Course</th><th>Type</th><th className="text-center">Score</th><th className="text-right">Status</th></tr></thead>
                         <tbody>
-                          {results.map((result) => (
-                            <tr key={result.id} className="hover:bg-[#EEF2FF]">
-                              <td className="text-sm font-semibold text-slate-900" style={{ fontFamily: 'var(--font-display)' }}>{result.course_title}</td>
-                              <td className="text-center">
-                                <span className="inline-flex items-center rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-3 py-1 text-xs font-bold text-[#4338CA]" style={{ fontFamily: 'var(--font-mono)' }}>{result.score}</span>
-                              </td>
-                              <td className="text-right">
-                                <Badge tone="slate" dot className={result.status === 'Pass' ? '!bg-[#4F46E5] !text-white !border-[#4338CA] !rounded-full !font-bold !px-3' : '!bg-white !text-slate-600 !border-[#E2E8F0] !rounded-full !font-semibold !px-3'}>
-                                  {result.status}
-                                </Badge>
-                              </td>
+                          {rows.map((r) => (
+                            <tr key={r.id} className="hover:bg-[#EEF2FF]">
+                              <td className="text-sm font-semibold text-slate-900">{r.course_title}</td>
+                              <td className="text-xs text-slate-500">{r.result_type || '—'}</td>
+                              <td className="text-center"><span className="inline-flex items-center rounded-full bg-[#EEF2FF] border border-[#E0E7FF] px-3 py-1 text-xs font-bold text-[#4338CA]" style={{ fontFamily: 'var(--font-mono)' }}>{r.score ?? '—'}</span></td>
+                              <td className="text-right"><Badge tone="slate" dot className={r.status === 'Pass' ? '!bg-[#4F46E5] !text-white !border-[#4338CA] !rounded-full !font-bold !px-3' : '!bg-white !text-slate-600 !border-[#E2E8F0] !rounded-full !font-semibold !px-3'}>{r.status}</Badge></td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   </div>
-                )}
-                {/* preserve original list semantics hidden for regression but styled above */}
-                <ul className="sr-only">
-                  {results.map((result) => (
-                    <li key={`sr-${result.id}`}>{result.course_title} {result.score} ({result.status})</li>
-                  ))}
-                </ul>
-              </div>
-            </Card>
+                )
+                return (
+                  <>
+                    <Card title="Current Course Results" subtitle="Results available for your active course" className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                      {renderTable(current, 'No results available for your current course yet.')}
+                    </Card>
+                    <Card title="Previous Course Results" subtitle="Results from courses you have taken before" className="!bg-white !rounded-[24px] !border !border-[#E2E8F0] !shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                      {renderTable(previous, 'No previous course results available yet.')}
+                    </Card>
+                  </>
+                )
+              })()}
+            </div>
           ) : null}
         </div>
       </div>

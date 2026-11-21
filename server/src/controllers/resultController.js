@@ -116,7 +116,21 @@ export const getStudentResults = async (req, res, next) => {
     }
 
     const result = await query(
-      `SELECT r.id, r.score, r.status, r.feedback_text, c.course_code, c.title AS course_title
+      `SELECT r.id,
+              r.course_id,
+              r.score,
+              r.status,
+              r.result_type,
+              r.feedback_text,
+              r.uploaded_at,
+              c.course_code,
+              c.title AS course_title,
+              EXISTS (
+                SELECT 1 FROM enrollments e
+                WHERE e.student_id = r.student_id
+                  AND e.course_id = r.course_id
+                  AND e.status = 'active'
+              ) AS is_current_course
         FROM results r
         JOIN courses c ON c.id = r.course_id
         LEFT JOIN exams ex ON ex.id = r.exam_id
@@ -125,7 +139,7 @@ export const getStudentResults = async (req, res, next) => {
             (r.published IS NULL OR r.published = TRUE)
             OR (r.exam_id IS NOT NULL AND (ex.results_release_at IS NULL OR ex.results_release_at <= NOW()))
           )
-        ORDER BY r.uploaded_at DESC`,
+        ORDER BY is_current_course DESC, r.uploaded_at DESC NULLS LAST`,
       [student.id]
     )
 

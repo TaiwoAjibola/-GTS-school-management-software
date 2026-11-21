@@ -137,8 +137,8 @@ export const getStudentCourses = async (req, res, next) => {
        FROM enrollments e
        JOIN batches b ON b.id = e.batch_id
        JOIN courses c ON c.id = e.course_id
-       WHERE e.student_id = $1 AND e.status = 'active'
-       ORDER BY e.enrolled_at DESC`,
+       WHERE e.student_id = $1 AND e.status IN ('active', 'completed', 'failed')
+       ORDER BY CASE WHEN e.status = 'active' THEN 0 WHEN e.status = 'completed' THEN 1 ELSE 2 END, e.enrolled_at DESC`,
       [student.id]
     )
 
